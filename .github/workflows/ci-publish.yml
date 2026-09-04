@@ -142,20 +142,29 @@ jobs:
       # build. The mrdocs-demos macro bakes the gallery table from the live
       # https://mrdocs.com/demos/ listing at docs-build time, so uploading
       # demos afterwards leaves the page one publish behind.
+      # One SSH agent for both dev-websites uploads below. The agent started
+      # here outlives its step, so starting a second one on the same socket
+      # in the website step fails with "Address already in use".
+      - name: Set up dev-websites SSH
+        if: inputs.should-publish
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          set -euo pipefail
+          mkdir -p /home/runner/.ssh
+          ssh-keyscan dev-websites.cpp.al >> /home/runner/.ssh/known_hosts
+          chmod 600 /home/runner/.ssh/known_hosts
+          echo "${{ secrets.DEV_WEBSITES_SSH_KEY }}" > /home/runner/.ssh/github_actions
+          chmod 600 /home/runner/.ssh/github_actions
+          ssh-agent -a "$SSH_AUTH_SOCK" > /dev/null
+          ssh-add /home/runner/.ssh/github_actions
+
       - name: Publish demos to dev-websites
         if: inputs.should-publish
         env:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           set -euvx
-          mkdir -p /home/runner/.ssh
-          ssh-keyscan dev-websites.cpp.al >> /home/runner/.ssh/known_hosts
-          chmod 600 /home/runner/.ssh/known_hosts
-          echo "${{ secrets.DEV_WEBSITES_SSH_KEY }}" > /home/runner/.ssh/github_actions
-          chmod 600 /home/runner/.ssh/github_actions
-          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-          ssh-add /home/runner/.ssh/github_actions
-
           rsyncopts=(--recursive --delete --links --times --chmod=D0755,F0755 --compress --compress-choice=zstd --rsh="ssh -o StrictHostKeyChecking=no" --human-readable)
           demo_dir="ubuntu@dev-websites.cpp.al:/var/www/mrdox.com/demos/${{ github.ref_name }}"
           time rsync "${rsyncopts[@]}" $(pwd)/demos/ "$demo_dir"/
@@ -232,14 +241,6 @@ jobs:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           set -euvx
-          mkdir -p /home/runner/.ssh
-          ssh-keyscan dev-websites.cpp.al >> /home/runner/.ssh/known_hosts
-          chmod 600 /home/runner/.ssh/known_hosts
-          echo "${{ secrets.DEV_WEBSITES_SSH_KEY }}" > /home/runner/.ssh/github_actions
-          chmod 600 /home/runner/.ssh/github_actions
-          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-          ssh-add /home/runner/.ssh/github_actions
-
           rsyncopts=(--recursive --delete --links --times --chmod=D0755,F0755 --compress --compress-choice=zstd --rsh="ssh -o StrictHostKeyChecking=no" --human-readable)
           website_dir="ubuntu@dev-websites.cpp.al:/var/www/mrdox.com"
 
