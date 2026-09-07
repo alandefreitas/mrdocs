@@ -1,0 +1,40 @@
+<div class="symbol">
+<div class="header">
+<h2 id="sqrt">sqrt</h2>
+<div class="brief">
+<p>Compute the square root of a non-negative number.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;include/sqrt.hpp&gt;</code></p>
+<pre><code class="source-code cpp">template&lt;class T&gt;
+T
+sqrt(T x);</code></pre>
+</div><!-- /synopsis -->
+<div class="exceptions">
+<h3>Exceptions</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Thrown on</th></tr>
+</thead>
+<tbody>
+<tr><td><code>std::domain_error</code></td><td>if <code>x</code> is negative.</td></tr>
+</tbody>
+</table>
+</div><!-- /exceptions -->
+<div class="return-value">
+<h3>Return Value</h3>
+<p>The non-negative root of <code>x</code>.</p>
+</div><!-- /return-value -->
+<div class="parameters">
+<h3>Parameters</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>x</strong></td><td>The value; must not be negative.</td></tr>
+</tbody>
+</table>
+</div><!-- /parameters -->
+</div><!-- /symbol -->

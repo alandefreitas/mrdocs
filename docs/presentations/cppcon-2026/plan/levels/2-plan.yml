@@ -1,0 +1,3364 @@
+# yaml-language-server: $schema=../schemas/2-plan.schema.yml
+# Level 2: the plan of the talk. The story as acts on the spine, each with its claims (the argument) and its beats (what is
+# said, timed), each beat with its slides (what is on screen, and the notes); then the map (chapters). Beat target_minutes sum to the meta file's talk time (60 - 10 Q&A = 50).
+# Schema: ../schemas/2-plan.schema.yml
+dramatic_question: What if we just used the compiler?
+# the answer, said outright at the reveal; the mechanism behind the idea statement, in different words on purpose
+insight: It just uses the compiler under the hood.
+fence:
+  is_not:
+  - >-
+    It is not a prose or tutorial generator: overviews and design notes are still written by hand.
+  - It is not a prose or tutorial on how to write good documentation.
+  confused_with:
+  - Doxygen with better templates.
+  - Not about tools that parse declarations themselves.
+context:
+  problem: >-
+    Documentation tools read C++ as text, so modern constructs come out wrong; libraries work around it with a
+    documentation-only declaration behind a macro, which drifts from the real one, and shape the output by
+    building a second toolchain on the tool's XML.
+  others: >-
+    Doxygen is the comparison because it is what everyone uses, and what the room has fought. Other
+    generators exist (standardese, cldoc, clang-doc, Sphinx/Breathe, several of them built on Clang too),
+    and the talk does not compare against them: it compares against the tool people actually have.
+  # the design notes' case (docs/modules/ROOT/pages/design-notes.adoc, "Why automate documentation?") and its table
+  why_matters: >-
+    You know the most about a function the moment you write its signature, so the reference belongs
+    next to the declaration, where it changes in the same diff and is more likely to be written at
+    all. Reference written by hand stops scaling when the code outgrows one person's memory. Generated
+    reference stays in sync with the source, is readable, IDE-friendly and AI-friendly, keeps a
+    single source of truth with low author overhead, and needs no source-code workarounds, but only
+    if the generator reads the headers as the compiler does; otherwise the parallel ill-formed
+    declaration defeats the point, and the source no longer reflects what is compiled.
+    See docs/modules/ROOT/pages/design-notes.adoc "Why automate documentation?" and its table
+memorability:
+  symbol: 261 (headers in Boost carrying a documentation-only fake declaration)
+  surprise: >-
+    A documentation tool that writes code back into your headers: a script generator emits the Boost.Describe
+    annotations from the corpus, and the same hooks encode a project's naming conventions as official reference.
+  salient_idea: Doxygen reads C++ as text.
+metaphors:
+- text: The macro layer is a second set of books kept for the auditor.
+  familiar_because: >-
+    Everyone knows what cooking the books is, whether or not they know the idiom: two versions of the
+    numbers, and only the one nobody inspects is true. The comparison makes the drift feel like the
+    fraud it is.
+- text: Documenting C++ by reading it as text is writing documentation with carefully crafted regular expressions.
+  familiar_because: >-
+    The audience has written regular expressions against code and knows exactly where they break:
+    templates, nesting, anything that needs the grammar rather than the characters.
+# The curiosities that are not in the documentation, then a pointer to the documentation itself
+# rather than a copy of it. P11 counts the pages in docs/modules/ROOT/nav.adoc as candidates.
+candidate_points: |-
+  Outside the documentation: Boost carries 261 headers with documentation-only declarations (180 Asio, 63
+  Beast, 18 URL). Beast's websocket::stream hides its base class from Doxygen. Doxygen mangles concepts,
+  requires clauses, decltype(auto) and algorithm function objects. The two declarations drift, and reviewers
+  catch in the docs what the compiler would catch in code. Clang already knows every instantiation, deduced
+  type, overload and constraint. The real origin: Vinnie Falco, frustrated with Doxygen, wanted a tool built
+  on the compiler from the first day; the talk tells the generic version of that story, which is also true. 
+  Beast and URL shaped their reference with docca, thousands of lines of XSLT over Doxygen's XML, a toolchain
+  maintained only to process another tool's output. Beyond that, anything on the mrdocs.com landing page or 
+  in the documentation is a candidate, page by page as docs/modules/ROOT/nav.adoc lists it; the chapters below
+  choose from those pages rather than repeating them here.
+acts:
+- id: story
+  label: 'Act 1. The story: what is, and the turn'
+  spine:
+  - once-upon-a-time
+  - every-day
+  - until-one-day
+  - because-of-that
+  - until-finally
+  side: both
+  arousal: tension
+  cycles_idea: true
+  moment_of_change: true
+  star_moment: false
+  opener_type: story
+  # first the reason to generate reference at all (so nobody leaves Act 1 concluding "then don't document"), then
+  # four problems, in causal order: the tool reads C++ as text, so constructs come out wrong; the workaround is a
+  # macro layer (which some like: everything stays next to the code); the layer drifts; and the output cannot be
+  # shaped, so a second toolchain grows on the XML. The drift is not the only problem, and for many people it is
+  # not the biggest.
+  claims:
+  # the claim is the case for generated reference, from the design rationale; how the story introduces it (Boost, 2019,
+  # "every day") is delivery, and lives in the beats and the slide notes
+  - id: why-reference
+    text: >-
+      Reference documentation generated from the code beats reference written by hand, and no reference: it is written next
+      to the declaration, at the moment the author knows the most and in the same commit as the signature; the output
+      is friendlier to a reader than the source code; it is checked against the code on every build; IDEs show it on
+      hover and in signature help; AI assistants read it straight from the code without fetching documentation from 
+      the web or studying the implementation; and, when the generator reads the code as the compiler does, it costs
+      the author almost nothing extra and is a single source of truth that cannot drift. Those last two hold only 
+      in that ideal case, which is the case Mr.Docs makes.
+    evidence:
+    - kind: file
+      ref: docs/modules/ROOT/pages/design-notes.adoc, "Why automate documentation?" and its comparison table
+  # how the story introduces the tool ("the tool was Doxygen") is delivery, in the until-one-day slide notes
+  - id: boost-doxygen
+    text: >-
+      Doxygen reads C++ as text, not as a compiler does: it gets close enough to be used, and everything it cannot
+      parse comes out wrong or has to be worked around.
+    evidence:
+    - kind: memory
+      ref: Alan's own experience on Boost.URL and Beast
+      verify: true
+      verified: false
+    - kind: screenshot
+      ref: >-
+        assets/story/until-one-day.png: Doxygen 1.18.0 run on 2026-09-11 over a header with the three migration-notes
+        idioms (detail:: return type, enable_if return type, algorithm function object); all three leak into the page
+      verify: true
+      verified: true
+  - id: unsupported-constructs
+    text: >-
+      Ordinary modern C++ came out wrong or missing: concepts and requires clauses, SFINAE constraints, deduced
+      return types, algorithm function objects, inherited members, a base class the tool simply did not see.
+    evidence:
+    - kind: file
+      ref: docs/modules/ROOT/pages/design-notes.adoc, "Special C++ constructs" (the list of what needs a compiler)
+    - kind: code
+      ref: >-
+        libs/beast/include/boost/beast/websocket/stream.hpp:146 (BOOST_BEAST_DOXYGEN guard around the
+        base class)
+  # the concession ("it even looks attractive: everything stays next to the code") is delivery, in the lie slide notes
+  - id: macro-layer
+    text: >-
+      Libraries keep a second declaration behind a macro for the documentation tool: a documentation-only version of
+      the truth, in the header, that the compiler never sees.
+    evidence:
+    - kind: grep
+      ref: >-
+        grep -rl <macro> libs --include='*.hpp' --include='*.ipp' --include='*.h' on the Boost checkout 9ce204d4d7
+        (2025-12-17): GENERATING_DOCUMENTATION 180, BOOST_BEAST_DOXYGEN 63, BOOST_URL_DOCS 18; 261 headers
+      verify: true
+      verified: true
+  - id: drift
+    text: The two declarations drifted; nothing compiled the fake one.
+    evidence:
+    - kind: code
+      ref: >-
+        libs/beast/include/boost/beast/core/buffers_cat.hpp:84-92: the BOOST_BEAST_DOXYGEN declaration of buffers_cat
+        takes `BufferSequence const&...`, the compiled one takes `B1 const&, Bn const&...`; two signatures for one
+        function, only one of them ever compiled
+    - kind: memory
+      ref: a real drift instance from a Boost review
+      verify: true
+      verified: false
+  - id: xml-workflow
+    text: >-
+      And the output could not be made to look like our documentation, so we had to take Doxygen's XML and build a second
+      toolchain on it: XSLT into Quickbook, thousands of lines, maintained by us, just to process the XML. The second
+      toolchain was very expensive to maintain.
+    evidence:
+    - kind: file
+      ref: >-
+        tools/docca/README.md in the Boost checkout (https://github.com/boostorg/docca): XSLT over Doxygen XML to
+        Quickbook, used by Beast; libs/beast/doc/Jamfile:13-23 imports it
+    - kind: grep
+      ref: "wc -l tools/docca/docca.py tools/docca/include/docca/*.xsl: 3171 lines on the Boost checkout 9ce204d4d7"
+      verify: true
+      verified: true
+  # until finally: the question, the tool, and one corpus feeding everything (the resolution of the story)
+  - id: one-corpus
+    text: >-
+      Clang builds one symbol corpus from the real AST, and generators turn it into any output.
+      Complete separation between extraction and presentation.
+    evidence:
+    - kind: file
+      ref: docs/modules/ROOT/pages/index.adoc
+  # the beats of this act, in order: what is said, one point each, with target minutes and transition words
+  beats:
+  - id: once
+    label: Once upon a time
+    target_minutes: 0.75
+    # the whole opening happens over the conference's card: applause if any ("Thank you."), the attention catcher, a
+    # pause, then the story as if to a child. No self-introduction and no agenda: the chair and the card have done the
+    # first, and the roadmap comes after the story has earned it (C2-2-13, C2-2-05).
+    transition_words: Good afternoon.
+    purpose: >-
+      Opens the talk over the title card: applause, the attention catcher, then two sentences: who we are, and what
+      the story is about.
+    media:
+    - image
+    slides:
+    - id: cppcon-title-card
+      kind: title-card
+      on_screen: ''
+      assertion: >-
+        The conference's card stays up through the applause, the attention catcher and the first sentences of the
+        story.
+      notes: |-
+        Alright. Tudo bem. (Getting attention)
+
+        Good afternoon. (Pause. Look at the room.)
+        I'm thankful and excited to be here. (If applause)
+        
+        I'm Alan. I work at the C++ Alliance, and a big part of what 
+        we do is provide support and maintenance to Boost libraries.
+        
+        In my case, my love relationship with Boost started a long time 
+        ago, around C++11.
+        
+        Over time, I've contributed to about 20 Boost libraries, and,
+        more relevant to this story, I contributed to the workflows Boost uses for
+        Continuous Integration, for its release process, for documentation, and
+        for *reference* documentation. I know, all the thankless work. 
+        
+        Most Boost libraries have great reference documentation for historical 
+        reasons, and most libraries use automated workflows to generate it from
+        the code. That's the context where this tool was born. 
+        And we're now sharing it.
+
+        Today I'm going to talk about a workflow we developed to generate
+        reference documentation from the code using Clang, and by the end of this talk
+        you will be able to run Mr.Docs on your own library, and you will understand how
+        this workflow gives you reference documentation you can trust.
+      duration_s: 45
+      silent: false
+      assets:
+      - assets/cppcon-title-card.png
+      why: >-
+        The opening happens over the conference's own card: no self-introduction (the chair and the card did that),
+        no agenda, no slide of the speaker. The story starts as if to a child, about people, while the room is still
+        looking at the card.
+  - id: every-day
+    label: Every day
+    transition_words: And every day
+    claims:
+    - why-reference
+    media:
+    - line
+    - table
+    - code
+    - image
+    establishes_vision: true
+    docs:
+    - design-notes.adoc
+    slides:
+    - id: why-automate-quote
+      kind: line
+      on_screen: You know the most about a function the moment you write its signature.
+      assertion: The reason the reference is written next to the code and generated from it.
+      notes: |-
+        So, every day, we wrote the documentation as comments next
+        to symbols in the header. 
+        
+        That's a great workflow, because that's the moment when you understand 
+        the symbol best. 
+        If you wait for a week, then you'll start forgetting details. 
+        If you wait for a month, you'll have to look at the calling sites to remember.
+        Sometimes you even forget a function you wrote existed.
+        
+        Writing the comment right there captures what is already in your head.
+        If you still forget about it, the workflow can give you a warning.
+      why: >-
+        The design-notes argument, told as the "every day" of the story rather than as a motivation slide, so nobody
+        leaves Act 1 concluding that the answer is to stop documenting. Asserted on screen, argued in the notes
+        (Alley).
+    - id: every-day
+      kind: code
+      on_screen: ''
+      assertion: >-
+        A real Boost.URL doc comment from url_view_base.hpp: a brief, an example, the return, and the declaration
+        it belongs to.
+      why: >-
+        The habit the room recognizes, shown once from the real header (libs/url/include/boost/url/url_view_base.hpp)
+        between the sentence about why and the table of what we wanted; one block, the emphasis walks down it.
+      code: |-
+        /** Return true a scheme is present
+
+            This function returns true if this
+            contains a scheme.
+
+            @par Example
+            @code
+            assert( url_view("http://example.com").has_scheme() );
+            @endcode
+
+            @par Complexity
+            Constant.
+
+            @return `true` if the url contains a scheme.
+        */
+        bool has_scheme() const noexcept;
+      language: cpp
+      notes: |-
+        Here is what that looks like, in practice:
+      highlights:
+      - lines: '1'
+        notes: |-
+          A brief.
+      - lines: '6-9'
+        notes: |-
+          An example.
+      - lines: '14'
+        notes: |-
+          What it returns.
+      - lines: '16'
+        notes: |-
+          And the declaration it belongs to, right underneath.
+    - id: what-we-wanted
+      kind: table
+      on_screen: ''
+      assertion: >-
+        What we wanted from reference documentation, and how it was generated, by hand and none score against it.
+      table:
+        header:
+        - ''
+        - Generated
+        - By hand
+        - None
+        rows:
+        - - Convenient (author)
+          - 'yes'
+          - 'no'
+          - 'yes'
+        - - Friendly output (user)
+          - 'yes'
+          - 'yes'
+          - 'no'
+        - - AI-friendly
+          - 'yes'
+          - 'no'
+          - 'no'
+        - - IDE integration
+          - 'yes'
+          - 'no'
+          - 'no'
+        - - Verifiable
+          - 'yes'
+          - 'no'
+          - 'no'
+        - - In sync with source
+          - 'yes'
+          - 'no'
+          - 'no'
+        - - Single source of truth
+          - 'yes'
+          - 'no'
+          - 'no'
+        steps:
+        - notes: |-
+            On top of that, what else do we want from the reference documentation?
+        - rows: [2]
+          notes: |-
+            When the user is exploring the official tutorial/exposition sections
+            of the documentation and there's any mention of a symbol, they get
+            link to this friendly, detailed page explaining what the symbol is, what else 
+            it does, and how it's related to other symbols.
+            
+            Also, this friendly page is particularly important when the library 
+            includes complex idioms and abstractions that are not part of the public API, such as
+            metaprogramming, implementation details, or any form of reflection. Things
+            should be represented differently in the official public API.
+            
+            For instance, consider how much nicer it is to read documentation from 
+            cppreference than from the standard itself or the header files.
+        - rows: [3]
+          notes: |-
+            Having the comments next to signatures is also great for AI agents, because they can
+            read the comments as context while they edit the same file. Otherwise, the agent would
+            have to fetch the documentation from the web, or read the implementation to figure out
+            what it does. That would be much slower and spend much more of your precious tokens.
+        - rows: [4]
+          notes: |-
+            You also get IDE integration for free when the comments are next to the code. Typically
+            as a popup at the calling site.
+        - rows: [5, 6, 7]
+          notes: |-
+            It also enforces that the documentation stays in sync with the source.
+        - cols: [3]
+          notes: |-
+            Meanwhile, doing it by hand gives you the page and nothing else.
+            One day you become busy with something else and the documentation drifts.
+        - cols: [4]
+          notes: |-
+            In practice, "by hand" just means they're not going to do it at all. 
+            In this case, you do get the convenience, but the users get nothing else.
+        - cols: [2]
+          notes: |-
+            So: No trade-off at all and everything is perfect.
+      motion:
+        kind: auto-animate
+        group: wanted
+        shared:
+        - table
+      why: >-
+        The design-notes table is split in two. This half is the criteria for good reference documentation and why
+        generating it is the only way to meet them; it belongs to the "every day" of the story, before any tool
+        is named, so the room agrees on the goal before hearing what broke. The other half (Mr.Docs against other
+        tools) is a conclusion and sits at the end.
+    - id: or-is-it
+      kind: table
+      on_screen: ''
+      assertion: The same table, with the generated column turned into questions.
+      table:
+        header:
+        - ''
+        - Generated
+        - By hand
+        - None
+        rows:
+        - - Convenient (author)
+          - maybe
+          - 'no'
+          - 'yes'
+        - - Friendly output (user)
+          - maybe
+          - 'yes'
+          - 'no'
+        - - AI-friendly
+          - maybe
+          - 'no'
+          - 'no'
+        - - IDE integration
+          - maybe
+          - 'no'
+          - 'no'
+        - - Verifiable
+          - maybe
+          - 'no'
+          - 'no'
+        - - In sync with source
+          - maybe
+          - 'no'
+          - 'no'
+        - - Single source of truth
+          - maybe
+          - 'no'
+          - 'no'
+        highlight_cols:
+        - 2
+      motion:
+        kind: auto-animate
+        group: wanted
+        shared:
+        - table
+      why: >-
+        The turn of the every-day beat: the perfect table from the previous slide morphs into questions, and the
+        room wants to know why before the story tells them. The checks become question marks in place, so the eye
+        stays on the column it was just told to admire.
+      notes: |-
+        Or is it? Because in practice, things looked very different to us.
+  - id: broke
+    label: Until one day
+    target_minutes: 1
+    transition_words: One day you look at the output
+    claims:
+    - boost-doxygen
+    - unsupported-constructs
+    media:
+    - image
+    slides:
+    - id: until-one-day
+      kind: image
+      on_screen: ''
+      notes: |-
+        One day you look at the output, and it just looks wrong.
+
+        Lots of implementation details are leaking. When we looked 
+        closer, sometimes some of the information wasn't even extracted.
+        
+        Not to mention presentation. The layout is misaligned; the font sizes are 
+        inconsistent, there's no syntax highlighting, and you can't customize it 
+        easily.
+        
+        At the time, we were proposing Boost.URL, our own library, and we had
+        lots of these problems with doxygen and the workarounds we needed
+        for these problems sometimes felt worse than the problem.
+      assets:
+      - assets/story/until-one-day.png
+      image_role: explains
+      emphasis:
+        element: 'the twice() row: std::enable_if_t<std::is_integral_v<T>, T> where the return type should be'
+        why: >-
+          The constraint has leaked into the signature, and the detail:: type and the constexpr variable next to
+          it are the other two idioms leaking; the page is what the header says, not what the author meant.
+      assertion: >-
+        A real Doxygen page (1.18, run today) of a header with the three idioms: a detail:: return type in the synopsis,
+        an enable_if in the return type, and a function object documented as a variable.
+      why: >-
+        The break, shown on a real page rather than claimed: the header with the migration-notes idioms run through
+        the current Doxygen. The three leaks are exactly the three things the configuration chapter later fixes
+        with one line each.
+  - id: lie
+    label: Because of that, we lied to it
+    target_minutes: 1
+    transition_words: Because Doxygen sees the code as text
+    claims:
+    - macro-layer
+    media:
+    - code
+    - word
+    slides:
+    - id: because-of-that-lie
+      kind: code
+      on_screen: ''
+      why: >-
+        The workaround for the first failure on the previous slide: the idiom as libraries write it, a
+        representative form of the pattern.
+      assertion: >-
+        A fake declaration for the constrained function, behind a macro only the documentation tool defines.
+      code: |-
+        #ifdef BOOST_DOXYGEN
+        template<class T> T twice(T x);
+        #else
+        template<class T>
+        std::enable_if_t<std::is_integral_v<T>, T> twice(T x);
+        #endif
+      language: cpp
+      notes: |-
+        In this case, we used Doxygen. Because Doxygen sees the code as text, we start lying to it.
+      highlights:
+      - lines: '2'
+        notes: |-
+          The function is the official declaration.
+      - lines: '4-5'
+        notes: |-
+          And only the compiler sees the real function.
+    - id: because-of-that-lie-2
+      kind: code
+      on_screen: ''
+      why: The workaround for the second failure, quoted from Beast's headers.
+      assertion: A placeholder word standing in for the return type, in a shipped Boost header.
+      code: |-
+        #if BOOST_BEAST_DOXYGEN
+        __implementation_defined__
+        #else
+        detail::bind_wrapper<
+            typename std::decay<Handler>::type, Args...>
+        #endif
+        bind_handler(Handler&& handler, Args&&... args);
+      language: cpp
+      highlights:
+      - lines: '2'
+        notes: |-
+          The implementation-defined types are replaced with a macro.
+    - id: because-of-that-lie-3
+      kind: code
+      on_screen: ''
+      notes: |-
+        Macros to hide base classes.
+      why: The workaround for the third failure, quoted from Beast's headers; the count is the bridge to the symbol 261.
+      assertion: A base class hidden from one reader, in a shipped Boost header.
+      code: |-
+        class stream
+        #if ! BOOST_BEAST_DOXYGEN
+            : private stream_base
+        #endif
+        {
+      language: cpp
+      highlights:
+      - '2-4'
+  - id: drift
+    label: Because of that, they drifted
+    target_minutes: 1
+    transition_words: And here's another example
+    claims:
+    - drift
+    media:
+    - code
+    slides:
+    - id: because-of-that-drift
+      kind: code
+      on_screen: ''
+      why: >-
+        Second "because of that". The emotional beat: reviewers finding by hand what a compiler finds for free.
+        The diff is the picture; the highlight moves the eye.
+      assertion: >-
+        Two declarations of buffers_cat in Beast's buffers_cat.hpp: the one Doxygen reads and the one the compiler
+        compiles, already different.
+      motion:
+        kind: auto-animate
+        group: drift
+        shared:
+        - code
+      code: |-
+        #if BOOST_BEAST_DOXYGEN
+        template<class... BufferSequence>
+        buffers_cat_view<BufferSequence...>
+        buffers_cat(BufferSequence const&... buffers)
+        #else
+        template<class B1, class... Bn>
+        buffers_cat_view<B1, Bn...>
+        buffers_cat(B1 const& b1, Bn const&... bn)
+        #endif
+      language: cpp
+      highlights:
+      - lines: '2-4'
+        notes: |-
+          And here's another example. The same trick for variadic templates.
+          Nothing checks the first version of the function, because nothing compiles it.
+  - id: toolchain
+    label: Because of that, a second toolchain
+    target_minutes: 1
+    transition_words: And that's what our workflow looked like
+    claims:
+    - xml-workflow
+    media:
+    - code
+    - line
+    slides:
+    - id: docca-pipeline
+      kind: diagram
+      on_screen: ''
+      assertion: >-
+        The Boost documentation toolchain of the time: headers into Doxygen, Doxygen's XML into docca's XSLT, Quickbook
+        into BoostBook into HTML.
+      diagram: |-
+        graph LR
+          classDef artifact fill:#FFBB33,stroke:#FDD37A,stroke-width:2px,color:#1B2440;
+          classDef stage fill:#F6F6F7,stroke:#FF8933,stroke-width:2px,color:#1B2440;
+          classDef ours fill:#C9A7F0,stroke:#A97FD8,stroke-width:2px,stroke-dasharray:4 2,color:#1B2440;
+          H{"Headers"}:::artifact
+          D["Doxygen"]:::stage
+          X{"XML"}:::artifact
+          C["docca<br/>(XSLT, ours)"]:::ours
+          Q{"Quickbook"}:::artifact
+          B["BoostBook"]:::stage
+          O{"HTML"}:::artifact
+          H --> D --> X --> C --> Q --> B --> O
+      labels: integrated
+      chart_kind: flow
+      chart_rationale: >-
+        A pipeline is a flow. Artifacts are diamonds and stages are boxes, so the eye reads file, tool, file, tool; the
+        one stage drawn differently is the one we had to write and keep.
+      emphasis:
+        element: the dashed docca stage in the middle
+        why: >-
+          Everything else in the chain is somebody else's tool; that box is thousands of lines we maintained only
+          to make the output ours.
+      notes: |-
+        And that's what our workflow looked like. 
+        
+        We created and maintained this intermediary tool called docca to convert Doxygen's XML output 
+        into the markup format our regular documentation tools understood. 
+        
+        At some point, we had people working full-time on this tool, just to make the output look like 
+        the rest of the documentation.
+
+        So we had a second declaration of everything it couldn't understand, documentation code 
+        that was drifting and nobody compiled, and a toolchain of our own just to customize it.
+      why: >-
+        The second toolchain is drawn as the chain it was, so the room sees where the maintained part sat before seeing
+        its code.
+  - id: reveal
+    label: The question and the tool
+    target_minutes: 1
+    transition_words: So we asked the obvious question
+    purpose: >-
+      The turn: the dramatic question, then the tool that answers it, said outright.
+    media:
+    - line
+    - image
+    slides:
+    - id: what-if
+      kind: line
+      on_screen: What if we just used the compiler?
+      assertion: One question, centred.
+      notes: |-
+        So we asked the obvious question.
+
+        Clang already knows everything we were trying to explain to
+        Doxygen.
+        
+        What if we created a tool where the documentation came from the compiler?
+      why: >-
+        The turn from "what is" to "what could be" (Duarte). A question, not a claim, so the audience answers it
+        themselves a second before the reveal.
+      dramatic_question: true
+      motion:
+        kind: auto-animate
+        group: drift
+        shared:
+        - main
+    - id: mrdocs-reveal
+      kind: cover
+      on_screen: Mr.Docs
+      assertion: The Mr.Docs hero, flying in, large, on the navy.
+      notes: |-
+        So we built this tool /tul/. Mr.Docs. It just uses the compiler under the hood.
+
+        It is a C++ reference documentation generator built on Clang. 
+        
+        - It reads your project through the compilation database, 
+        - it builds a corpus /ˈkɔrpəs/ of every symbol from the real AST, and 
+        
+        It also has a presentation layer that is:
+        
+        - Completely encapsulated from the extraction phase, and
+        - it's extremely customizable. 
+        
+        The rest of this talk is about how it works and what that lets you do.
+      assets:
+      - assets/mrdocs-hero.png
+      motion:
+        kind: transition
+        name: zoom
+      emotion_cue: Pause on the hero; let them look before speaking.
+      why: >-
+        The reveal. The hero is the answer to the question, so it lands as a payoff rather than a logo. The empowerment
+        promise (Winston) goes here, after the audience cares and before the tour.
+  - id: corpus
+    label: One corpus
+    target_minutes: 1
+    transition_words: Here is the workflow in one diagram
+    claims:
+    - one-corpus
+    media:
+    - diagram
+    explains_system: true
+    parts_beat: once
+    slides:
+    - id: one-corpus
+      kind: diagram
+      on_screen: ''
+      assertion: >-
+        The pipeline. Source and configuration flow into one corpus, the corpus into generators, generators into
+        rendered docs and structured data.
+      notes: |-
+        Here is the workflow in one diagram.
+
+        The inputs are your C++ headers with its doc comments, and a
+        small configuration file. 
+        
+        We use Clang to compile the code and produce a corpus with all symbols from the AST.
+        
+        Generators turn that one corpus into whatever you need. 
+        So you can have many outputs for the same corpus.
+        
+        Finally, you can define extensions to either transform the corpus or define custom generators.
+      labels: integrated
+      chart_kind: flow
+      chart_rationale: 'A flow chart because the point is a sequence with one convergence: everything meets at the
+        corpus.'
+      emphasis:
+        element: the corpus node
+        why: It is the one thing every input feeds and every output comes from; the eye should land there first.
+      diagram: |-
+        graph LR
+          classDef input fill:#9FC7FF,stroke:#6FA8FF,stroke-width:2px,color:#1B2440;
+          classDef stage fill:#FFBB33,stroke:#FDD37A,stroke-width:2px,color:#1B2440;
+          classDef output fill:#F6F6F7,stroke:#FF8933,stroke-width:2px,color:#1B2440;
+          classDef ext fill:#C9A7F0,stroke:#A97FD8,stroke-width:2px,stroke-dasharray:4 2,color:#1B2440;
+          CPP["C++ source<br/>doc comments"]:::input
+          CFG[Configuration]:::input
+          CORPUS([Symbol corpus]):::stage
+          GENS([Generators]):::stage
+          RENDERED[Rendered documentation]:::output
+          DATA[Structured data]:::output
+          EXT[Extensions]:::ext
+          CPP --> CORPUS
+          CFG --> CORPUS
+          CORPUS --> GENS
+          GENS --> RENDERED
+          GENS --> DATA
+          EXT <-.-> CORPUS
+          EXT <-.-> GENS
+      why: >-
+        The mental model for the whole talk. Building it in fragments keeps the picture in step with the sentence
+        (Mayer's temporal contiguity). It comes back in the Extensions section with the hook points lit up.
+- id: tour
+  label: Act 2. The tour, in the order of the docs
+  spine:
+  - none
+  # the tour is what could be: the tool, chapter by chapter. Where a chapter shows the Doxygen-era way before
+  # the Mr.Docs way, the beat is flagged `contrast`, and those crossings are what P2 counts.
+  side: what_could_be
+  arousal: curiosity
+  cycles_idea: true
+  star_moment: false
+  # The claims below are what the tour argues, not what it visits. The itinerary is the chapters (end of this file)
+  # and each tour beat's `docs` list, kept as a record of what the beat covers; no check enforces it.
+  claims:
+  - id: production
+    text: Boost.URL's published reference on boost.org is generated by MrDocs. MrDocs reference as well.
+    evidence:
+    - kind: live-page
+      ref: assets/boost-url-live/url_view.html (bundled boost.org page)
+  - id: no-workarounds
+    text: The idioms that needed a macro need a configuration line or a comment command instead.
+    evidence:
+    - kind: file
+      ref: docs/modules/ROOT/pages/migration-notes.adoc
+  - id: compiler-knowledge
+    text: >-
+      Extraction options (sfinae, overloads, inherit-base-members, auto-function-objects) are only possible
+      because the tool reads the code through the compiler.
+    evidence:
+    - kind: file
+      ref: docs/modules/ROOT/pages/configuration/extraction.adoc
+  # the beats of this act, in order: what is said, one point each, with target minutes and transition words
+  beats:
+  - id: getting-started
+    chapter: getting-started
+    label: Getting Started
+    target_minutes: 7
+    transition_words: Here is a small map for the rest of the talk
+    claims:
+    - production
+    media:
+    - live
+    - image
+    - code
+    docs:
+    - demos.adoc
+    - install.adoc
+    - usage.adoc
+    - migration-notes.adoc
+    pause: true
+    slides:
+    - id: roadmap
+      kind: roadmap
+      on_screen: 'getting-started · commands · configuration · generators · extensions'
+      assertion: 'The map of the tour: five chapters in the order of the documentation, each with its picture.'
+      # Getting Started
+      notes: |-
+        Here is a small map for the rest of the talk. 
+        
+        How to get started, how to write documentation comments, the
+        options for the configuration file, the generators that write the output, 
+        and the extension system, which is a very special component of our tool.
+      why: >-
+        The roadmap comes here, after the story has earned it (Winston, Alley): the room now knows why the tool
+        exists, so the outline organises what follows instead of being a table of contents nobody asked for.
+        Pictures rather than a list, so the map is remembered as pictures.
+    - id: demo-boost-url-live
+      kind: image
+      fit: bleed
+      on_screen: Boost.URL
+      assertion: Boost.URL's url_view reference on boost.org, as published today, generated by Mr.Docs.
+      # Getting Started / Demo Gallery, in production
+      notes: |-
+        Here is one of the many demos we have on our website.
+        It's the reference documentation for Boost.URL from the Boost website. 
+        From today.
+      why: 'Evidence, not claims. It also plants the full-circle ending: the same page returns in Act 4.'
+      assets:
+      - assets/story/boost-url-view.png
+      image_role: represents
+      emphasis:
+        element: the synopsis block and the member table below it
+        why: This is the shipped page of a Boost library, not a demo; the declaration is the compiled one.
+    - id: demo-boost-url-live-2
+      kind: image
+      fit: bleed
+      on_screen: ''
+      silent: true
+      assertion: The same Boost.URL page one screen down, with the member table the top of the page hides.
+      notes: |-
+        Same page, one screen down.
+        
+        One thing you can notice here is that the layout of the content is more like
+        cppreference than the old layout we used to use.
+      assets:
+      - assets/story/boost-url-view-2.png
+      image_role: represents
+      emphasis:
+        element: the member function table
+        why: The top of the page only shows the synopsis; the members are what a reader comes for.
+    - id: demo-self-live
+      kind: image
+      fit: bleed
+      on_screen: ''
+      assertion: The Corpus class page of Mr.Docs's own reference, generated by Mr.Docs from Mr.Docs.
+      # Getting Started / Demo Gallery, dogfooding
+      notes: |-
+        And this is the tool documenting itself.
+        
+        This is the corpus class I was just talking about. 
+        
+        Because if Mr.Docs couldn't document itself, nothing else here would be worth showing.
+        
+        There are lots of other examples with famous libraries on the website, but...
+
+      why: Credibility in one sentence. Short slide; move on.
+      assets:
+      - assets/story/mrdocs-corpus.png
+      image_role: represents
+      emphasis:
+        element: the class synopsis and member list
+        why: 'The tool documenting itself: the class the whole talk is about, on a page it produced.'
+    - id: demo-self-live-2
+      kind: image
+      fit: bleed
+      on_screen: ''
+      silent: true
+      assertion: The same Corpus page one screen down, with the types and member tables the top of the page hides.
+      notes: |-
+        Same page, one screen down.
+        
+        We have lots of other demos on our website, and I'm sure you're all going to 
+        love it. Please don't forget to check it out after the talk.
+      assets:
+      - assets/story/mrdocs-corpus-2.png
+      image_role: represents
+      emphasis:
+        element: the member function table
+        why: The top of the page only shows the synopsis and brief; the members are what a reader comes for.
+    - id: understands-cpp
+      kind: line
+      on_screen: It just understands C++.
+      assertion: The first thing you notice using Mr.Docs is that it understands the language.
+      notes: |-
+        But something you notice immediately when you use Mr.Docs is that it just understands C++.
+        Especially the C++ idioms.
+        
+        Let me show you what I mean with some examples.
+      why: >-
+        The transition from the demos into the five landing-page examples: the claim in one sentence before the
+        evidence.
+    - id: snippet-terminate
+      kind: code
+      on_screen: ''
+      title: terminate.hpp
+      file: tests/golden/fixtures/snippets/terminate.hpp
+      language: cpp
+      highlights:
+      - '5,7,9'
+      assertion: >-
+        A function with an attribute, an exception specification and a note in its comment, as written.
+      # Getting Started / Demo Gallery
+      notes: |-
+        Here we have attributes, notes, and exception specifications.
+
+        The @note command.
+      why: >-
+        The first of the five: the smallest possible example where the compiler knows more than the text.
+    - id: snippet-terminate-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/snippets/terminate.html
+      assertion: >-
+        [[noreturn]] and noexcept appear in the synopsis, the note becomes an admonition, and the page says the function does not return.
+      # Getting Started / Demo Gallery
+      notes: |-
+        noreturn and noexcept are part of the signature, so they are in the synopsis;
+        the note in the comment became a note on the page; and because the compiler
+        knows what noreturn means, the page says the function does not return.
+
+        Notice one more thing: the documentation you are seeing is the real generated output,
+        rendered in this presentation's own theme, because the output can be adapted to whatever
+        it is embedded in.
+      why: >-
+        The output shown on its own, large enough to read, after the source has had its moment.
+    - id: snippet-distance
+      kind: code
+      on_screen: ''
+      title: distance.hpp
+      file: tests/golden/fixtures/snippets/distance.hpp
+      language: cpp
+      highlights:
+      - '6-10'
+      assertion: >-
+        A plain documentation comment with parameters and a return value, as written.
+      # Getting Started / Demo Gallery
+      notes: |-
+        A simple case where the description of the parameters and return type become sections.
+      why: >-
+        The baseline everyone expects, shown so the harder cases read as the same mechanism.
+    - id: snippet-distance-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/snippets/distance.html
+      assertion: >-
+        The page: synopsis, description, a parameter table, and the return value, each a section.
+      # Getting Started / Demo Gallery
+      notes: |-
+        And the parameter table is checked against the real parameter list so they never drift.
+      why: >-
+        The baseline output; the parameter table is the part checked against the code.
+    - id: snippet-is-prime
+      kind: code
+      on_screen: ''
+      title: is_prime.hpp
+      file: tests/golden/fixtures/snippets/is_prime.hpp
+      language: cpp
+      highlights:
+      - '3,7-8'
+      assertion: >-
+        Directives for what the signature cannot say, written in whatever order the author liked.
+      # Getting Started / Demo Gallery
+      notes: |-
+        An example with a custom section.
+      why: >-
+        Semantics beyond the signature: the comment carries what the compiler cannot know.
+    - id: snippet-is-prime-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/snippets/is_prime.html
+      assertion: >-
+        The complexity is its own section, and the page has its own order regardless of the comment's.
+      # Getting Started / Demo Gallery
+      notes: |-
+        So you can describe semantics beyond the signature.
+      why: >-
+        The page organises what the comment carried.
+    - id: snippet-sqrt
+      kind: code
+      on_screen: ''
+      title: sqrt.hpp
+      file: tests/golden/fixtures/snippets/sqrt.hpp
+      language: cpp
+      highlights:
+      - '3,6,15'
+      assertion: >-
+        The enable_if from the beginning of the talk, with a LaTeX formula in its comment, as written.
+      # Getting Started / Demo Gallery
+      notes: |-
+        An example with SFINAE.
+      why: >-
+        The full circle of the first failure, on the tour's own terms; the star of the five.
+    - id: snippet-sqrt-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/snippets/sqrt.html
+      assertion: >-
+        The constraint is rendered as the requires clause the author meant, the return type is T again, and the formula is typeset.
+      # Getting Started / Demo Gallery
+      notes: |-
+        Here the constraint is a requires clause. The return type is presented as the template type.
+      why: >-
+        The payoff of the first failure, shown large on its own.
+    - id: snippet-abs
+      kind: code
+      on_screen: ''
+      title: function_object.hpp
+      file: tests/golden/fixtures/snippets/function_object.hpp
+      language: cpp
+      highlights:
+      - '9,13'
+      assertion: >-
+        A function object: a struct with one call operator and a constexpr variable of it, as written.
+      # Getting Started / Demo Gallery
+      notes: |-
+        And a function object. You don't want this documented as a variable and a type.
+      why: >-
+        The second failure from the story, resolved without a macro or a second declaration.
+    - id: snippet-abs-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/snippets/abs.html
+      assertion: >-
+        abs is documented as a callable: the operator's parameters and return type appear on the variable's own page.
+      # Getting Started / Demo Gallery
+      notes: |-
+        Here it is a callable, with the operator's parameters and return type on the page for abs itself, because the tool can see what the variable's type can do.
+      why: >-
+        The output that answers the second failure.
+    - id: install
+      kind: image
+      qr_asset: assets/qr-install.svg
+      cta_url: https://www.mrdocs.com/docs/mrdocs/develop/install.html
+      on_screen: ''
+      # Getting Started / Installation
+      notes: |-
+        To install it, there are binary packages for Linux, macOS, and
+        Windows. Just unpack it, and you're done.
+      assets:
+      - assets/story/install.png
+      image_role: represents
+      why: >-
+        One image, no list. The notes carry the two paths. The audience only needs to learn "it is a download".
+      emphasis:
+        element: 'the release table: seven binary packages for Windows, Linux and macOS'
+        why: >-
+          Install is a download, and the table is the proof; the row of file sizes says it is one archive, not a
+          toolchain.
+      assertion: >-
+        The Installation page of the docs, live: binary packages for every platform in one table, and the build-from-source
+        path below it.
+    - id: install-from-source
+      kind: code
+      on_screen: ''
+      title: terminal
+      assertion: Building from source is a clone and one script; its --help lists every choice the script will ask about.
+      why: Many people build tools from source by habit; the page has the section, and the room should know it is one command.
+      code: |-
+        git clone https://github.com/cppalliance/mrdocs.git
+        cd mrdocs
+        python bootstrap.py --yes
+      language: bash
+      # Getting Started / Installation, from source
+      notes: |-
+        Or build it from source if you'd like.
+      highlights:
+      - lines: '1-2'
+        notes: |-
+          Clone the repository.
+      - lines: '3'
+        notes: |-
+          Run our bootstrap script that does everything for you. 
+          
+          It downloads and builds every dependency, including Clang.
+    - id: usage
+      kind: code
+      on_screen: ''
+      assertion: >-
+        A three-line mrdocs.yml next to the command that runs it, once for each way of getting a compilation database.
+      # Getting Started / Basic Usage
+      notes: |-
+        You drive it with a YAML file or command-line flags; they are the
+        same options. The one thing it needs from you is a compilation
+        database, because that is how it knows how to compile your code the
+        way you do.
+
+        Three ways to get one.
+      why: >-
+        The "one YAML, one command" objective, shown as a morph so the file changes and the command does not. The
+        command and the file are two things, so they are two frames.
+      motion:
+        kind: auto-animate
+        group: usage
+        shared:
+        - code
+      steps:
+      - blocks:
+        - title: docs/mrdocs.yml
+          language: yaml
+          code: |-
+            source-root: ..
+            compilation-database: compile_commands.json
+          highlight:
+          - 2
+        - title: terminal
+          language: bash
+          code: |-
+            mrdocs --config=docs/mrdocs.yml
+        notes: |-
+          To render documentation for your library, if you already have a compile_commands.json, from your
+          build system or by hand, point to it. Mr.Docs will compile it with the same flags.
+      - blocks:
+        - title: docs/mrdocs.yml
+          language: yaml
+          code: |-
+            source-root: ..
+            compilation-database: ../CMakeLists.txt
+          highlight:
+          - 2
+        - title: terminal
+          language: bash
+          code: |-
+            mrdocs --config=docs/mrdocs.yml
+        notes: |-
+          A CMake project: point at the CMakeLists.txt, and Mr.Docs configures it and reads the database CMake writes.
+      - blocks:
+        - title: docs/mrdocs.yml
+          language: yaml
+          code: |-
+            source-root: ..
+            input:
+              - ../include
+            includes:
+              - ../include
+          highlight:
+          - 2
+          - 3
+        - title: terminal
+          language: bash
+          code: |-
+            mrdocs --config=docs/mrdocs.yml
+        notes: |-
+          Or, for simple cases, you can let it generate the compilation database for you
+          from the configuration filters you're likely to define anyway.
+    - id: migration
+      kind: code
+      on_screen: ''
+      title: include/logr/log.hpp
+      assertion: >-
+        A public function returning a detail type, declared once, with its real return type.
+      why: >-
+        Direct answer to the Act 1 villain, in the same visual language: the same idiom, now one declaration.
+      code: |-
+        namespace logr::detail {
+        struct scope_token { ~scope_token(); };
+        }
+        namespace logr {
+        /// Attach a key/value pair to every log line.
+        detail::scope_token
+        scoped_context(char const* key, char const* value);
+        }
+      language: cpp
+      # Getting Started / Migration Notes
+      notes: |-
+        One difference you'll notice immediately is that we have one design decision: we only accept valid code. 
+        
+        The idioms that would need a macro in Doxygen will either be understood directly or need a configuration line or a comment command instead.
+      highlights:
+      - lines: '1-3'
+        notes: |-
+          For instance: we have a detail type that's not part of the API.
+      - lines: '6-7'
+        notes: |-
+          And it's returned by a public function the way the compiler sees it. No workarounds.
+    - id: migration-config
+      kind: code
+      on_screen: ''
+      title: docs/mrdocs.yml
+      assertion: One configuration entry marks the whole detail namespace implementation-defined.
+      # Getting Started / Migration Notes, the configuration
+      notes: |-
+        Then with one line of configuration: everything under logr::detail is declared implementation-defined. 
+        
+        The header doesn't change. Nobody has to write a second declaration the compiler doesn't see.
+        
+        The documentation tool sees the same as the compiler.
+      why: The intent moves out of the header and into one line the whole project shares.
+      code: |-
+        implementation-defined:
+          - 'logr::detail::**'
+      language: yaml
+      highlights:
+      - '2'
+    - id: migration-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/migration-scoped.html
+      assertion: The generated page shows the placeholder where the detail type was; the type itself has no page.
+      # Getting Started / Migration Notes, the page
+      notes: |-
+        And this is the page. We have a placeholder where the detail type was.
+        
+        And the type itself gets no documentation page.
+        
+        By the way, you could also achieve the same, symbol by symbol, with a command in the comment.
+      why: The output is the evidence; a comment describing it would be a claim.
+    - id: migration-function-object
+      kind: code
+      on_screen: ''
+      title: include/numerics/clamp.hpp
+      assertion: An algorithm function object, as libraries write it, with the documentation on the call operator.
+      why: The second idiom from the migration page, in the form libraries actually write.
+      code: |-
+        struct clamp_fn
+        {
+            /// Constrain a value to `[lo, hi]`.
+            template <class T>
+            T operator()(T const& v, T const& lo,
+                         T const& hi) const;
+        };
+        inline constexpr clamp_fn clamp = {};
+      language: cpp
+      # Getting Started / Migration Notes, function objects
+      notes: |-
+        Another idiom where people use macros is functors. And these macros can become extremely ugly.
+      highlights:
+      - lines: '3-6'
+        notes: |-
+          A struct with one call operator; you document the operator, where the signature is.
+      - lines: '8'
+        notes: |-
+          And a constexpr variable of that type.
+    - id: migration-function-object-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/migration-clamp.html
+      assertion: >-
+        The variable's page reads as a function: the operator's signature, brief, and parameters.
+      # Getting Started / Migration Notes, the page
+      notes: |-
+        And the page is just a function page: the operator's signature, brief, and parameters. 
+        
+        You don't need any configuration for this, although you could make any of these features explicit.
+
+        That layer of macros is gone. The documented C++ is the same as the compiled C++.
+      restates_idea: true
+      why: >-
+        The output as evidence, and the last sentence is the idea, cycled (Winston).
+  - id: commands
+    chapter: commands
+    label: Commands
+    target_minutes: 3
+    transition_words: The code should be documented
+    claims:
+    - no-workarounds
+    media:
+    - code
+    - image
+    docs:
+    - commands/index.adoc
+    - commands/blocks.adoc
+    - commands/metadata.adoc
+    - commands/inlines.adoc
+    - commands/reference.adoc
+    contrast: true
+    slides:
+    - id: commands-overview
+      kind: code
+      on_screen: ''
+      assertion: >-
+        A struct, its members, and a function, mixing /** and ///: the example from the Overview page, as written in
+        the docs.
+      # Commands / Overview
+      notes: |-
+        The code should be documented with this format that's officially called the Doc Comment format.
+        
+        But many people just informally call them Javadoc-style or Doxygen-style comments.
+        
+        Over the next 3 minutes, we're going to have a crash course.
+        I'm going to show you guys lots of examples, and after those examples, 
+        you're going to know almost everything you have to know about this.
+      title: A struct, its members, and a function, mixing /** and ///
+      file: tests/golden/fixtures/snippets/commands/intro/person.cpp
+      language: cpp
+      highlights:
+      - lines: '1-15'
+        notes: >-
+          Here's a struct.
+      - lines: '17-24'
+        notes: >-
+          And a function that uses this struct.
+    - id: commands-overview-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-index-person.html
+      symbols:
+      - person
+      assertion: The page for person.
+      # Commands / Overview
+      notes: |-
+        The page for the struct.
+    - id: commands-overview-rendered-4
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-index-person.html
+      symbols:
+      - greet
+      assertion: The page for greet.
+      # Commands / Overview
+      notes: |-
+        And the page for the function.
+    - id: blocks-paragraphs
+      kind: code
+      on_screen: ''
+      assertion: 'Paragraphs: the example from the Block Commands page, as written in the docs.'
+      # Commands / Block Commands
+      notes: |-
+        Plain prose is already a paragraph in this format.
+      title: Paragraphs
+      file: tests/golden/fixtures/snippets/commands/paragraph.cpp
+      language: cpp
+      highlights:
+      - '3-4'
+    - id: blocks-paragraphs-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-blocks-paragraph.html
+      assertion: The page Mr.Docs generates from the Paragraphs and headings example.
+      # Commands / Block Commands
+      notes: |-
+        When rendered, paragraphs become part of the description section of the page.
+    - id: blocks-headings
+      kind: code
+      on_screen: ''
+      assertion: 'Headings: the example from the Block Commands page, as written in the docs.'
+      # Commands / Block Commands
+      notes: |-
+        Here is an example where we add a custom heading in the description.
+      title: Headings
+      file: tests/golden/fixtures/snippets/commands/heading.cpp
+      language: cpp
+      highlights:
+      - '3'
+    - id: blocks-headings-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-blocks-heading.html
+      assertion: The page Mr.Docs generates from the Paragraphs and headings example.
+      # Commands / Block Commands
+      notes: |-
+        That's helpful for custom semantics.
+    - id: blocks-lists
+      kind: code
+      on_screen: ''
+      assertion: 'Lists: the example from the Block Commands page, as written in the docs.'
+      # Commands / Block Commands
+      notes: |-
+        And here is one with a list.
+      title: Lists
+      file: tests/golden/fixtures/snippets/commands/list.cpp
+      language: cpp
+      highlights:
+      - '5-7'
+    - id: blocks-lists-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-blocks-list.html
+      assertion: The page Mr.Docs generates from the Lists and tables example.
+      # Commands / Block Commands
+      notes: |-
+        And the list is rendered as bullet points.
+    - id: blocks-tables
+      kind: code
+      on_screen: ''
+      assertion: 'Tables: the example from the Block Commands page, as written in the docs.'
+      # Commands / Block Commands
+      notes: |-
+        Here's a table in HTML.
+      title: Tables
+      file: tests/golden/fixtures/snippets/commands/table.cpp
+      language: cpp
+      highlights:
+      - '3-8'
+    - id: blocks-tables-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-blocks-table.html
+      assertion: The page Mr.Docs generates from the Lists and tables example.
+      # Commands / Block Commands
+      notes: |-
+        Here's the page with the table rendered.
+    - id: blocks-code
+      kind: code
+      on_screen: ''
+      assertion: 'Code blocks: the example from the Block Commands page, as written in the docs.'
+      # Commands / Block Commands
+      notes: |-
+        A code block.
+      title: Code blocks
+      file: tests/golden/fixtures/snippets/commands/code-block.cpp
+      language: cpp
+      highlights:
+      - '5-7'
+    - id: blocks-code-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-blocks-code-block.html
+      assertion: The page Mr.Docs generates from the Code blocks example.
+      # Commands / Block Commands
+      notes: |-
+        Here's the page.
+    - id: blocks-admonitions
+      kind: code
+      on_screen: ''
+      assertion: 'Admonitions: the example from the Block Commands page, as written in the docs.'
+      # Commands / Block Commands
+      notes: |-
+        An example with three admonitions.
+      title: Admonitions
+      file: tests/golden/fixtures/snippets/commands/admonitions.cpp
+      language: cpp
+      highlights:
+      - '3,6,9'
+    - id: blocks-admonitions-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-blocks-admonitions.html
+      assertion: The page Mr.Docs generates from the Admonitions example.
+      # Commands / Block Commands
+      notes: |-
+        The result.
+    - id: metadata-parameters
+      kind: code
+      on_screen: ''
+      assertion: >-
+        Parameters, template parameters, and return value together: the example from the Metadata Commands page, as
+        written in the docs.
+      # Commands / Metadata Commands
+      notes: |-
+        Function parameters and the return value.
+      title: Parameters, template parameters, and return value together
+      file: tests/golden/fixtures/snippets/commands/resample.cpp
+      language: cpp
+      highlights:
+      - '3-8'
+    - id: metadata-parameters-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-metadata-resample.html
+      assertion: The page Mr.Docs generates from the Parameters and return value example.
+      # Commands / Metadata Commands
+      notes: |-
+        And the page, with a table for the parameters and a section for the return value.
+    - id: metadata-contracts
+      kind: code
+      on_screen: ''
+      assertion: >-
+        Preconditions, postconditions, and exceptions together: the example from the Metadata Commands page, as written
+        in the docs.
+      # Commands / Metadata Commands
+      notes: |-
+        Preconditions, postconditions, and exceptions with reference to the types.
+      title: Preconditions, postconditions, and exceptions together
+      file: tests/golden/fixtures/snippets/commands/transfer.cpp
+      language: cpp
+      highlights:
+      - '3-7'
+    - id: metadata-contracts-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-metadata-transfer.html
+      assertion: The page Mr.Docs generates from the Errors and contracts example.
+      # Commands / Metadata Commands
+      notes: |-
+        Each of them gets its own section.
+    - id: metadata-relates
+      kind: code
+      on_screen: ''
+      assertion: 'Relates: the example from the Metadata Commands page, as written in the docs.'
+      # Commands / Metadata Commands
+      notes: |-
+        Relating a free function to a class.
+      title: Relates
+      file: tests/golden/fixtures/snippets/commands/relates.cpp
+      language: cpp
+      highlights:
+      - '6'
+    - id: metadata-relates-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-metadata-relates.html
+      symbols:
+      - pixel
+      assertion: The class page lists distance under its non-member functions.
+      # Commands / Metadata Commands
+      notes: |-
+        The function is listed as a non-member function.
+    - id: metadata-flags
+      kind: code
+      on_screen: ''
+      assertion: 'Symbol flags: the example from the Metadata Commands page, as written in the docs.'
+      notes: |-
+        There are also symbol metadata flags.
+      title: Symbol flags
+      file: tests/golden/fixtures/snippets/commands/regex.cpp
+      language: cpp
+      highlights:
+      - lines: '1-7'
+        notes: >-
+          An implementation-defined symbol that gets no documentation page.
+      - lines: '9-21'
+        notes: >-
+          A see-below symbol whose members are not documented.
+      - lines: '23-41'
+        notes: >-
+          And an explicit function-object, documented as a function.
+    - id: metadata-flags-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-metadata-regex.html
+      symbols:
+      - regex
+      assertion: The page for regex.
+      # Commands / Metadata Commands
+      notes: |-
+        The see-below class has its body collapsed.
+    - id: metadata-flags-rendered-2
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-metadata-regex.html
+      symbols:
+      - bytecode
+      assertion: The page for bytecode.
+      # Commands / Metadata Commands
+      notes: |-
+        References to the implementation-defined symbol show the placeholder.
+    - id: metadata-flags-rendered-3
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-metadata-regex.html
+      symbols:
+      - compile
+      assertion: The page for compile.
+      # Commands / Metadata Commands
+      notes: |-
+        And the function-object is presented as a function.
+    - id: inlines-formatting
+      kind: code
+      on_screen: ''
+      assertion: 'Text formatting: the example from the Inline Commands page, as written in the docs.'
+      # Commands / Inline Commands
+      notes: |-
+        And then we have commands for inline formatting.
+      title: Text formatting
+      file: tests/golden/fixtures/snippets/commands/text-formatting.cpp
+      language: cpp
+      highlights:
+      - '3-4'
+    - id: inlines-formatting-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-inlines-text-formatting.html
+      assertion: The page Mr.Docs generates from the Text formatting example.
+      # Commands / Inline Commands
+      notes: |-
+        And the page, with the formatting applied.
+    - id: inlines-links
+      kind: code
+      on_screen: ''
+      assertion: 'Links: the example from the Inline Commands page, as written in the docs.'
+      # Commands / Inline Commands
+      notes: |-
+        Here is an example with a link.
+      title: Links
+      file: tests/golden/fixtures/snippets/commands/link.cpp
+      language: cpp
+      highlights:
+      - '2'
+    - id: inlines-links-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-inlines-link.html
+      assertion: The page Mr.Docs generates from the Links example.
+      # Commands / Inline Commands
+      notes: |-
+        The page with the link.
+    - id: inlines-xref
+      kind: code
+      on_screen: ''
+      assertion: 'Cross-references: the example from the Inline Commands page, as written in the docs.'
+      # Commands / Inline Commands
+      notes: |-
+        A reference to another symbol.
+      title: Cross-references
+      file: tests/golden/fixtures/snippets/commands/cross-reference.cpp
+      language: cpp
+      highlights:
+      - '6'
+    - id: inlines-xref-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/commands-inlines-cross-reference.html
+      assertion: The page for triple.
+      # Commands / Inline Commands
+      notes: |-
+        The page with the internal reference resolved.
+  - id: configuration
+    chapter: configuration
+    label: Configuration
+    target_minutes: 7.5
+    transition_words: The smallest useful mrdocs.yml
+    claims:
+    - compiler-knowledge
+    media:
+    - code
+    - word
+    - diagram
+    docs:
+    - configuration/index.adoc
+    - configuration/inputs.adoc
+    - configuration/filters.adoc
+    - configuration/extraction.adoc
+    - configuration/output.adoc
+    - configuration/diagnostics.adoc
+    - configuration/reference.adoc
+    contrast: true
+    pause: true
+    slides:
+    - id: config-minimal
+      kind: code
+      on_screen: ''
+      assertion: 'docs/mrdocs.yml: the example from the Overview page, as written in the docs.'
+      # Configuration / Overview
+      notes: |-
+        So now, let's discuss the configuration file for your project. 
+        
+        The smallest useful mrdocs.yml points at the source tree and tells MrDocs how to compile it. 
+        
+        For a CMake project, that is typically two lines.
+        
+        This typically goes in your documentation directory, but it could go anywhere.
+      title: docs/mrdocs.yml
+      file: examples/getting-started/cmake-header-only/docs/mrdocs.yml
+      include: lines=2..
+      language: yaml
+    - id: config-customized
+      kind: code
+      on_screen: ''
+      assertion: 'docs/mrdocs.yml: the example from the Overview page, as written in the docs.'
+      # Configuration / Overview
+      notes: |-
+        Here's another minimal example with the generator and some basic filters.
+        
+        The project also has a public schema file for that.
+        
+        So if you just open your IDE right now and create a MrDocs.yml file, your IDE probably already understands it.
+      title: docs/mrdocs.yml
+      file: docs/modules/ROOT/examples/configuration/customized.yml
+      language: yaml
+    - id: config-cli
+      kind: code
+      on_screen: ''
+      assertion: 'CLI overrides: the example from the Overview page, as written in the docs.'
+      # Configuration / Overview
+      notes: |-
+        You can also override options from the command line. 
+        
+        This is very useful for adjusting details you want to play with 
+        temporarily, in tests or during the release, where you might need 
+        to customize the workflow a little bit.
+      code: mrdocs --config=path/to/mrdocs.yml --output=../docs/reference
+      language: bash
+    - id: inputs-includes
+      kind: code
+      on_screen: ''
+      assertion: 'docs/mrdocs.yml: the example from the Inputs page, as written in the docs.'
+      # Configuration / Inputs
+      notes: |-
+        And as part of the first set of options, we have options to define what we consider to be input.
+        
+        Here we have extra includes and extra defines you might want to add to the documentation build.
+      title: docs/mrdocs.yml
+      file: examples/configuration/inputs/extra-includes/docs/mrdocs.yml
+      language: yaml
+    - id: filters-names-config
+      kind: code
+      on_screen: ''
+      assertion: 'mrdocs.yml: the example from the Filters page, as written in the docs.'
+      # Configuration / Filters
+      notes: |-
+        The most common configuration people want to change is filters.
+        And the most common filter in C++ libraries is by qualified name.
+        
+        Primarily, they decide what is extracted into the corpus.
+        
+        Secondarily, they allow Mr.Docs to skip unnecessary work.
+        Because, remember, Mr.Docs is using a real compiler to parse the code.
+        When we're traversing the tree, we just ignore those symbols.
+      title: mrdocs.yml
+      file: tests/golden/fixtures/snippets/configuration/name-filters/name-filters.yml
+      include: tags=!test-only
+      language: yaml
+    - id: filters-names
+      kind: code
+      on_screen: ''
+      assertion: 'include/jzon/parser.hpp: the example from the Filters page, as written in the docs.'
+      # Configuration / Filters
+      title: include/jzon/parser.hpp
+      file: tests/golden/fixtures/snippets/configuration/name-filters/include/jzon/parser.hpp
+      include: tag=body
+      language: cpp
+      highlights:
+      - lines: '1'
+        notes: >-
+          Only symbols from this namespace are extracted.
+      - lines: '29,35'
+        notes: >-
+          The unsafe functions are not extracted.
+    - id: filters-names-2
+      kind: code
+      on_screen: ''
+      assertion: 'include/jzon/extra/utilities.hpp: the example from the Filters page, as written in the docs.'
+      # Configuration / Filters
+      notes: |-
+        And the extra functions aren't extracted either.
+      title: include/jzon/extra/utilities.hpp
+      file: tests/golden/fixtures/snippets/configuration/name-filters/include/jzon/extra/utilities.hpp
+      include: tag=body
+      language: cpp
+      highlights:
+      - '1'
+
+    - id: filters-exclude-macros-config
+      kind: code
+      on_screen: ''
+      assertion: 'mrdocs.yml: the example from the Filters page, as written in the docs.'
+      # Configuration / Filters
+      notes: |-
+        This configuration filters the macros we consider public.
+      title: mrdocs.yml
+      file: tests/golden/fixtures/snippets/options/exclude-macros/exclude-macros.yml
+      include: tags=!test-only
+      language: yaml
+    - id: filters-exclude-macros
+      kind: code
+      on_screen: ''
+      assertion: 'Example: the example from the Filters page, as written in the docs.'
+      # Configuration / Filters
+      notes: |-
+        Then from this example:
+      title: Example
+      file: tests/golden/fixtures/snippets/options/exclude-macros/exclude-macros.cpp
+      language: cpp
+      highlights:
+      - '2,5,7-8'
+    - id: filters-exclude-macros-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/configuration-filters-exclude-macros.html
+      assertion: The page Mr.Docs generates from the Excluding macros example.
+      # Configuration / Filters
+      notes: |-
+        ...only the public macro gets there.
+
+    - id: extraction-metadata
+      kind: code
+      on_screen: ''
+      assertion: 'Example: the example from the Extraction page, as written in the docs.'
+      # Configuration / Extraction
+      notes: |-
+        Here is an example with special member functions that have no documentation.
+        
+        Writing documentation for these can be repetitive, and many people just skip them.
+        
+        On the other hand, the user typically prefers the information to be complete.
+      title: Example
+      file: tests/golden/fixtures/snippets/options/auto-function-metadata/auto-function-metadata.cpp
+      language: cpp
+      highlights:
+      - '7-9,11,13'
+    - id: extraction-metadata-config
+      kind: code
+      on_screen: ''
+      assertion: 'mrdocs.yml: the example from the Extraction page, as written in the docs.'
+      # Configuration / Extraction
+      notes: |-
+        And here is the configuration that turns auto-function-metadata on.
+      title: mrdocs.yml
+      file: tests/golden/fixtures/snippets/options/auto-function-metadata/auto-function-metadata.yml
+      include: tags=!test-only
+      language: yaml
+    - id: extraction-metadata-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/configuration-extraction-auto-function-metadata.html
+      symbols:
+      - vec2
+      assertion: The page for vec2.
+      # Configuration / Extraction
+      notes: |-
+        The page for vec2 is this.
+    - id: extraction-inherited-copy
+      kind: code
+      on_screen: ''
+      assertion: 'Example: the example from the Extraction page, as written in the docs.'
+      # Configuration / Extraction
+      notes: |-
+        Here is an example where the base class is a specialization of a template in a detail namespace.
+      title: Example
+      file: >-
+        tests/golden/fixtures/snippets/configuration/inherited-members-specialization/inherited-members-specialization.cpp
+      language: cpp
+      highlights:
+      - lines: '1-13'
+        notes: >-
+          Here is the comparable struct.
+      - lines: '15-28'
+        notes: >-
+          And the version struct, inheriting from an implicit specialization.
+    - id: extraction-inherited-copy-config
+      kind: code
+      on_screen: ''
+      assertion: 'mrdocs.yml: the example from the Extraction page, as written in the docs.'
+      # Configuration / Extraction
+      notes: |-
+        Mr.Docs lets you decide what to do here. It can even instantiate
+        the base class so that it can be documented.
+      title: mrdocs.yml
+      file: >-
+        tests/golden/fixtures/snippets/configuration/inherited-members-specialization/inherited-members-specialization.yml
+      include: tags=!test-only
+      language: yaml
+    - id: extraction-inherited-copy-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/configuration-extraction-inherited-members-specialization.html
+      symbols:
+      - version
+      assertion: The page for version.
+      # Configuration / Extraction
+      notes: |-
+        The page for version is this, with the members copied from the base.
+    - id: extraction-inherited-copy-rendered-4
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/configuration-extraction-inherited-members-specialization.html
+      symbols:
+      - version-operator_eq
+      assertion: The page for version::operator==.
+      # Configuration / Extraction
+      notes: |-
+        And the operators are actually instantiated.
+  - id: generators
+    chapter: generators
+    label: Generators
+    target_minutes: 4.25
+    transition_words: Generators
+    purpose: >-
+      Shows the five formats the room already knows in a breath each, and spends its minutes on the one example that changes a workflow, the no-op linter and repair loop.
+    media:
+    - code
+    - diagram
+    docs:
+    - generators/index.adoc
+    - generators/html.adoc
+    - generators/adoc.adoc
+    - generators/json.adoc
+    - generators/xml.adoc
+    - generators/noop.adoc
+    - generators/reference.adoc
+    question_to_room: true
+    slides:
+    - id: generator-title
+      kind: word
+      on_screen: Generators
+      assertion: Generators
+      # Generators / Overview
+      notes: |-
+        So, what are the generators? As we mentioned, the presentation layer in MrDocs 
+        is independent, which means we can have lots of generators. 
+        And that means you only have to provide the exact amount of customization you need.
+    - id: quadrant
+      kind: diagram
+      on_screen: ''
+      assertion: The redundancy-versus-convenience quadrant chart from the docs.
+      # Generators / Overview
+      notes: |-
+        Among the generators, we have a trade-off between redundancy 
+        and convenience. Customizing is less convenient, so we also
+        don't want to customize more than we need.
+        
+        HTML and AsciiDoc are the most convenient and redundant because the 
+        layout is already set. For both of them, you can customize 
+        the layout and the style, but you have to do it in a way that fits the
+        generator's model.
+        
+        On the other extreme, XML and JSON are the least redundant formats.
+        You can use these as input to other tools.
+        
+        Custom templates and custom generators are in between.
+        MrDocs makes it very easy to create those, and the repository includes 
+        some custom generators already.
+      labels: integrated
+      chart_kind: quadrant
+      chart_rationale: A quadrant because the choice is a trade between two continuous qualities, not a ranking.
+      emphasis:
+        element: the HTML point in the top-right
+        why: It is where most people start, and the chart's job is to show what they trade for that.
+      diagram: |-
+        quadrantChart
+          x-axis Low redundancy --> High redundancy
+          y-axis Low convenience --> High convenience
+          Ideal: [0.04, 0.96] radius: 4, color: #cccccc, stroke-color: #cccccc, stroke-width: 1px
+          HTML: [0.92, 0.94]
+          AsciiDoc: [0.78, 0.84]
+          Custom Templates: [0.64, 0.73]
+          Data-Driven Generators: [0.5, 0.61]
+          Custom Generators: [0.36, 0.48]
+          JSON: [0.08, 0.08]
+          XML: [0.15, 0.23]
+          Clang AST: [0.88, 0.06] radius: 5, color: #f1c7c7, stroke-color: #f1c7c7, stroke-width: 1px
+      why: The docs' own chart; the audience saw it on the website if they looked.
+    - id: noop
+      kind: code
+      on_screen: ''
+      assertion: 'No-op: the example from the No-op page, as written in the docs.'
+      # Generators / No-op
+      notes: |-
+        One interesting generator is the no-op generator.
+      code: 'generator: noop'
+      language: yaml
+    - id: noop-check-config
+      kind: code
+      on_screen: ''
+      assertion: 'mrdocs.yml: the example from the No-op page, as written in the docs.'
+      # Generators / No-op
+      notes: |-
+        It lets Mr.Docs extract the corpus and do nothing with it, just to collect warnings.
+
+        This can be used to quickly catch undocumented symbols, parameters, incorrect documentation arguments, broken references, and malformed comments in general.
+      title: mrdocs.yml
+      file: examples/generators/noop/documentation-check/mrdocs.yml
+      language: yaml
+    - id: noop-check-input
+      kind: code
+      on_screen: ''
+      assertion: 'include/geo/area.hpp: the example from the No-op page, as written in the docs.'
+      # Generators / No-op
+      notes: |-
+        For instance, this is a header that documents a function but forgets its parameters.
+      title: include/geo/area.hpp
+      file: examples/generators/noop/documentation-check/include/geo/area.hpp
+      language: cpp
+    - id: noop-check-report
+      kind: code
+      on_screen: ''
+      assertion: 'report.txt: the example from the No-op page, as written in the docs.'
+      # Generators / No-op
+      notes: |-
+        Here is the report: one warning per problem.
+      title: report.txt
+      file: examples/generators/noop/documentation-check/report.txt
+      language: text
+    - id: noop-check-ctest
+      kind: code
+      on_screen: ''
+      assertion: 'CMakeLists.txt: the example from the No-op page, as written in the docs.'
+      # Generators / No-op
+      notes: |-
+        And then we can just use this as a test to make sure any new commit to the 
+        project doesn't forget to document something.
+      title: CMakeLists.txt
+      file: examples/generators/noop/documentation-check/CMakeLists.txt
+      include: tag=check,indent=0
+      language: cmake
+    - id: noop-agent-loop
+      kind: code
+      on_screen: ''
+      assertion: 'fix-docs.py: the example from the No-op page, as written in the docs.'
+      notes: |-
+        With this, we can even create an AI loop to document the whole library.
+      title: fix-docs.py
+      file: examples/generators/noop/fix-loop/fix-docs.py
+      language: python
+      highlights:
+      - lines: '42-62'
+        notes: >-
+          Here's the main loop for a generous, maximum number of rounds:
+      - lines: '43'
+        notes: >-
+          We check if everything is documented.
+      - lines: '50-54'
+        notes: >-
+          If it's not documented yet, we look at the diagnostics, make sure we're not stalled.
+      - lines: '57'
+        notes: >-
+          Then we ask the agent to repair it.
+          
+          We have a custom prompt in a clean context that tells the agent, 
+          
+          Hey, don't worry about anything. Just fix this function or those problems with those functions.
+          Here are the functions and the line numbers. 
+          Figure out what they do and just do that in a clean context, so you're not going to get tired or something.
+      - lines: '42'
+        notes: >-
+          You run MrDocs again until it's done.
+          
+          At worst, you get a reasonable starting point for your documentation.
+- id: extensions
+  label: 'Act 3. The surprise: extensions'
+  spine:
+  - none
+  # what could be, again, and further than anyone expected: the examples were built for this talk, and nobody has seen
+  # a documentation tool do these things. The star moment is here.
+  side: what_could_be
+  arousal: surprise
+  cycles_idea: true
+  star_moment: true
+  claims:
+  - id: extension-points
+    text: Two hooks on the pipeline give six ways to extend it, from a template to the library.
+    evidence:
+    - kind: file
+      ref: docs/modules/ROOT/pages/extensions/handlebars-extensions.adoc
+  - id: extension-examples
+    text: >-
+      The examples on the extensions pages were built for this talk, and each does something no documentation
+      tool has done: a project's conventions become official reference (is_ predicates get their brief, parse
+      and format pairs cross-link, low-quality briefs fail the build), a technical writer's Markdown merges into
+      the developer's verified brief, one corpus walk emits a search index and a table of contents in three
+      formats, snippets stay in sync between comments and compiled tests, three template directories give JSON
+      Lines, Markdown and LaTeX, and a generator writes Boost.Describe annotations back into the headers.
+    evidence:
+    - kind: file
+      ref: >-
+        examples/extensions/ (project-conventions, ghostwriter) and examples/generators/ (script-driven: json,
+        search-index, toc, snippets, describe; data-driven: jsonl, md, tex)
+    - kind: file
+      ref: docs/modules/ROOT/pages/extensions/corpus-transforms.adoc, script-generators.adoc, data-driven-generators.adoc
+  # the beats of this act, in order: what is said, one point each, with target minutes and transition words
+  beats:
+  - id: ext-hooks
+    chapter: extensions
+    label: Two hooks on the pipeline
+    target_minutes: 4
+    transition_words: Extensions
+    claims:
+    - extension-points
+    media:
+    - diagram
+    - code
+    - image
+    docs:
+    - extensions/handlebars-extensions.adoc
+    - extensions/data-driven-generators.adoc
+    explains_system: true
+    parts_beat: corpus
+    slides:
+    - id: extensions-title
+      kind: word
+      on_screen: Extensions
+      assertion: Extensions
+      # Generators / Overview
+      notes: |-
+        But what I think is the really special feature of MrDocs is the extension system.
+    - id: extension-points
+      kind: diagram
+      on_screen: ''
+      assertion: The Act 2 pipeline again; the two extension hooks (corpus, generators) light up.
+      notes: |-
+        Here is the pipeline from the beginning, with the two places you can
+        manipulate here. 
+        
+        In the extraction phase, you can manipulate and transform the corpus. 
+        
+        In the generator phase, change how it renders, or replace it completely. 
+        
+        We provide many ways to do that, depending on how much customization you need.
+      labels: integrated
+      chart_kind: flow
+      chart_rationale: The same flow chart as the pipeline slide, so the hooks read as additions to a known picture.
+      emphasis:
+        element: the two dashed extension edges
+        why: >-
+          They are the only new elements on a diagram the audience already knows, so they carry the whole point.
+      diagram: |-
+        graph LR
+          classDef input fill:#9FC7FF,stroke:#6FA8FF,stroke-width:2px,color:#1B2440;
+          classDef stage fill:#FFBB33,stroke:#FDD37A,stroke-width:2px,color:#1B2440;
+          classDef output fill:#F6F6F7,stroke:#FF8933,stroke-width:2px,color:#1B2440;
+          classDef ext fill:#C9A7F0,stroke:#A97FD8,stroke-width:2px,stroke-dasharray:4 2,color:#1B2440;
+          CPP["C++ source<br/>doc comments"]:::input
+          CFG[Configuration]:::input
+          CORPUS([Symbol corpus]):::stage
+          GENS([Generators]):::stage
+          RENDERED[Rendered documentation]:::output
+          DATA[Structured data]:::output
+          EXT[Extensions]:::ext
+          CPP --> CORPUS
+          CFG --> CORPUS
+          CORPUS --> GENS
+          GENS --> RENDERED
+          GENS --> DATA
+          EXT <-.-> CORPUS
+          EXT <-.-> GENS
+      why: >-
+        Reusing the Act 2 diagram is the cheapest possible re-orientation, and it makes the extension surface look
+        like what it is: two hooks on a pipeline the audience already knows.
+    - id: handlebars-override-html
+      kind: code
+      on_screen: ''
+      assertion: >-
+        custom-addons/generator/html/partials/markup/code-block.html.hbs: the example from the Handlebars Extensions
+        page, as written in the docs.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        For instance, this is an override for the HTML partial for a code block.
+        
+        A creates a copy button next to each code block.
+      title: custom-addons/generator/html/partials/markup/code-block.html.hbs
+      file: >-
+        tests/golden/fixtures/snippets/extensions/override-code-block/addons/generator/html/partials/markup/code-block.html.hbs
+      language: handlebars
+      highlights:
+      - '1,3'
+    - id: handlebars-override-config
+      kind: code
+      on_screen: ''
+      assertion: 'mrdocs.yml: the addons-supplemental option from the Handlebars Extensions page, as written in the docs.'
+      # Extensions / Handlebars Extensions
+      notes: |-
+        Then we point the configuration file at that directory.
+      title: mrdocs.yml
+      code: |-
+        addons-supplemental:
+          - custom-addons
+      language: yaml
+    - id: handlebars-override-input
+      kind: code
+      on_screen: ''
+      assertion: 'override-code-block.cpp: the example from the Handlebars Extensions page, as written in the docs.'
+      # Extensions / Handlebars Extensions
+      notes: |-
+        Here is the input we run it on.
+      title: override-code-block.cpp
+      file: tests/golden/fixtures/snippets/extensions/override-code-block/override-code-block.cpp
+      language: cpp
+    - id: handlebars-override-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-handlebars-extensions-override-code-block.html
+      assertion: The page Mr.Docs generates from the Overriding a template example.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        And the page, with the new button around the code block.
+        
+        Purposefully ugly because we're proving a point here.
+    - id: handlebars-reorder-symbol
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/common/partials/symbol.hbs: the example from the Handlebars Extensions page, as written in
+        the docs.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        Another interesting example is using this just to reorder the main layout.
+        
+        For instance, some people say the synopsis of a symbol should always come 
+        at the end, and that more classes should have their members omitted, 
+        because the examples are more important.
+      title: addons/generator/common/partials/symbol.hbs
+      file: >-
+        tests/golden/fixtures/snippets/extensions/override-see-below/addons/generator/common/partials/symbol.hbs
+      language: handlebars
+      highlights:
+      - lines: '29'
+        notes: >-
+          Here's the synopsis section, moved to the end of the template.
+    - id: handlebars-reorder-see-below
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/common/partials/symbol/signature/see-below.hbs: the example from the Handlebars Extensions
+        page, as written in the docs.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        But the thing is, see-below symbols now have to say "see above".
+      title: addons/generator/common/partials/symbol/signature/see-below.hbs
+      file: >-
+        tests/golden/fixtures/snippets/extensions/override-see-below/addons/generator/common/partials/symbol/signature/see-below.hbs
+      language: handlebars
+    - id: handlebars-reorder-input
+      kind: code
+      on_screen: ''
+      assertion: 'override-see-below.cpp: the example from the Handlebars Extensions page, as written in the docs.'
+      # Extensions / Handlebars Extensions
+      title: override-see-below.cpp
+      file: tests/golden/fixtures/snippets/extensions/override-see-below/override-see-below.cpp
+      language: cpp
+      highlights:
+      - lines: '3-19'
+        notes: >-
+          Here's a real see-below symbol, with the descriptions and an example.
+    - id: handlebars-reorder-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-handlebars-extensions-override-see-below.html
+      assertion: The page Mr.Docs generates from the Reordering the Main Template example.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        And this is what we get: the discussion first, and the synopsis at the end.
+    - id: handlebars-helper
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/common/helpers/slug.js: the example from the Handlebars Extensions page, as written in the
+        docs.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        We can also customize templates with helper scripts. 
+        All scripts in MrDocs can be written in JavaScript or Lua. 
+        
+        This helper turns a path into a URL slug.
+      title: addons/generator/common/helpers/slug.js
+      file: tests/golden/fixtures/snippets/extensions/helper-slug/addons/generator/common/helpers/slug.js
+      language: javascript
+    - id: handlebars-helper-partial
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/common/partials/location/source.hbs: the example from the Handlebars Extensions page, as written
+        in the docs.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        Here is the partial override that calls the helper.
+      title: addons/generator/common/partials/location/source.hbs
+      file: >-
+        tests/golden/fixtures/snippets/extensions/helper-slug/addons/generator/common/partials/location/source.hbs
+      language: handlebars
+      highlights:
+      - '8'
+    - id: handlebars-helper-input
+      kind: code
+      on_screen: ''
+      assertion: 'helper-slug.cpp: the example from the Handlebars Extensions page, as written in the docs.'
+      # Extensions / Handlebars Extensions
+      notes: |-
+        And the input on which we run it.
+      title: helper-slug.cpp
+      file: tests/golden/fixtures/snippets/extensions/helper-slug/helper-slug.cpp
+      language: cpp
+    - id: handlebars-helper-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-handlebars-extensions-helper-slug.html
+      assertion: The page Mr.Docs generates from the Adding a helper example.
+      # Extensions / Handlebars Extensions
+      notes: |-
+        And this is the page, with the anchor next to the declared-in line.
+    - id: data-driven-manifest
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/jsonl/mrdocs-generator.yml: the example from the Data-Driven Generators page, as written in
+        the docs.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        Another thing we can do with templates is define a completely new data-driven generator. 
+        The only difference here is that, in this case, you control all of the templates for whatever file format you want. 
+        
+        For instance, here we have a JSON lines generator. 
+        Apart from the templates, all we have is a manifest. It tells MrDocs how to escape symbols for this file format with a escape map.
+      title: addons/generator/jsonl/mrdocs-generator.yml
+      file: examples/generators/data-driven/jsonl/addons/generator/jsonl/mrdocs-generator.yml
+      language: yaml
+    - id: data-driven-index
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/jsonl/layouts/index.jsonl.hbs: the example from the Data-Driven Generators page, as written
+        in the docs.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        And here is the main template: one JSON object with a few selected fields per symbol.
+      title: addons/generator/jsonl/layouts/index.jsonl.hbs
+      file: examples/generators/data-driven/jsonl/addons/generator/jsonl/layouts/index.jsonl.hbs
+      language: handlebars
+    - id: data-driven-input
+      kind: code
+      on_screen: ''
+      assertion: 'simple.cpp: the example from the Data-Driven Generators page, as written in the docs.'
+      # Extensions / Data-Driven Generators
+      notes: |-
+        So here is another input file.
+      title: simple.cpp
+      file: examples/generators/data-driven/jsonl/simple.cpp
+      language: cpp
+    - id: data-driven-config
+      kind: code
+      on_screen: ''
+      assertion: 'The manifest: the example from the Data-Driven Generators page, as written in the docs.'
+      # Extensions / Data-Driven Generators
+      notes: |-
+        And now you can just choose your new generator in the configuration file.
+      code: 'generator: jsonl'
+      language: yaml
+    - id: data-driven-cli
+      kind: code
+      on_screen: ''
+      assertion: 'The manifest: the example from the Data-Driven Generators page, as written in the docs.'
+      # Extensions / Data-Driven Generators
+      notes: |-
+        Or on the command line.
+      code: mrdocs --config=path/to/mrdocs.yml --generator=jsonl
+      language: bash
+    - id: data-driven-output
+      kind: code
+      on_screen: ''
+      assertion: 'simple.jsonl: the example from the Data-Driven Generators page, as written in the docs.'
+      # Extensions / Data-Driven Generators
+      notes: |-
+        And here is the output: one line per symbol.
+      title: simple.jsonl
+      file: examples/generators/data-driven/jsonl/simple.jsonl
+      language: json
+    - id: data-driven-inherit-md
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/md/mrdocs-generator.yml: the example from the Data-Driven Generators page, as written in the
+        docs.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        Another interesting thing you can do here is use this `extends` option to inherit 
+        anything you haven't defined from another generator. 
+        
+        This is the manifest for a Markdown generator that falls back to HTML for any 
+        partial that isn't defined.
+        
+        This is great because there are so many conventions for what Markdown can support. 
+        It's hard to have consensus, but one consensus is that we can always fall back to HTML.
+        So you can very easily have a generator for your exact variant of Markdown.
+      title: addons/generator/md/mrdocs-generator.yml
+      file: examples/generators/data-driven/md/addons/generator/md/mrdocs-generator.yml
+      language: yaml
+    - id: data-driven-inherit-tex
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/tex/mrdocs-generator.yml: the example from the Data-Driven Generators page, as written in the
+        docs.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        And this is the manifest for LaTeX (ˈlɑː.tɛk), which extends Markdown, which extends HTML.
+        
+        Whenever we haven't defined the template yet, we fall back to Markdown.
+      title: addons/generator/tex/mrdocs-generator.yml
+      file: examples/generators/data-driven/tex/addons/generator/tex/mrdocs-generator.yml
+      language: yaml
+    - id: data-driven-md-wrapper
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/md/layouts/wrapper.md.hbs: the example from the Data-Driven Generators page, as written in
+        the docs.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        Here is the Markdown wrapper.
+      title: addons/generator/md/layouts/wrapper.md.hbs
+      file: examples/generators/data-driven/md/addons/generator/md/layouts/wrapper.md.hbs
+      language: handlebars
+    - id: data-driven-tex-wrapper
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/generator/tex/layouts/wrapper.tex.hbs: the example from the Data-Driven Generators page, as written in
+        the docs.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        The LaTeX wrapper looks like this.
+      title: addons/generator/tex/layouts/wrapper.tex.hbs
+      file: examples/generators/data-driven/tex/addons/generator/tex/layouts/wrapper.tex.hbs
+      language: handlebars
+    - id: data-driven-md-strong
+      kind: code
+      on_screen: ''
+      assertion: >-
+        And then we define lots of tiny templates like that, explaining how to format things in bold, in italics, in code, and everything else.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        Here is the Markdown partial for bold text.
+      title: addons/generator/md/partials/markup/strong.md.hbs
+      file: examples/generators/data-driven/md/addons/generator/md/partials/markup/strong.md.hbs
+      language: handlebars
+    - id: data-driven-tex-strong
+      kind: code
+      on_screen: ''
+      assertion: >-
+        And then we do the same for LaTeX.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        The LaTeX partial for bold text is this.
+      title: addons/generator/tex/partials/markup/strong.tex.hbs
+      file: examples/generators/data-driven/tex/addons/generator/tex/partials/markup/strong.tex.hbs
+      language: handlebars
+    - id: data-driven-input-2
+      kind: code
+      on_screen: ''
+      assertion: 'simple.cpp: the example from the Data-Driven Generators page, as written in the docs.'
+      # Extensions / Data-Driven Generators
+      notes: |-
+        Here is the input for both.
+      title: simple.cpp
+      file: examples/generators/data-driven/md/simple.cpp
+      language: cpp
+    - id: data-driven-md-output
+      kind: code
+      on_screen: ''
+      assertion: 'simple.md: the example from the Data-Driven Generators page, as written in the docs.'
+      notes: |-
+        Here is the Markdown output.
+      title: simple.md
+      file: examples/generators/data-driven/md/simple.md
+      language: markdown
+    - id: data-driven-md-github
+      kind: image
+      fit: bleed
+      on_screen: ''
+      assertion: The same simple.md as GitHub renders it, in the repository's file view.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        Here's the same Markdown file rendered on GitHub. 
+        
+        Lots of repositories have Markdown files like that as documentation.
+      why: The Markdown output only matters because somewhere renders it; GitHub is where most libraries' Markdown lives.
+      assets:
+      - assets/story/md-output-github.png
+      image_role: represents
+      emphasis:
+        element: the Point heading with its synopsis and member table
+        why: It is the same structure the generated site has, so the audience sees the format changed and the content did not.
+    - id: data-driven-tex-output
+      kind: code
+      on_screen: ''
+      assertion: 'simple.tex: the example from the Data-Driven Generators page, as written in the docs.'
+      notes: |-
+        And the LaTeX output.
+      title: simple.tex
+      file: examples/generators/data-driven/tex/simple.tex
+      language: latex
+    - id: data-driven-tex-pdf
+      kind: image
+      fit: page
+      on_screen: ''
+      assertion: The same simple.tex compiled with pdflatex, the first page of the PDF.
+      # Extensions / Data-Driven Generators
+      notes: |-
+        And here is the LaTeX file compiled with pdflatex, as a PDF page.
+      why: The LaTeX output only matters once it is a document; the page is the proof that the generated file compiles as written.
+      assets:
+        - assets/story/tex-output-pdf.png
+      image_role: represents
+      emphasis:
+        element: the Point section with its synopsis and member table
+        why: It is the same structure as the Markdown and HTML pages, so only the format changed.
+  - id: ext-conventions
+    chapter: extensions
+    label: Conventions become reference
+    target_minutes: 4.75
+    transition_words: Now something I'm very excited about
+    claims:
+    - extension-examples
+    media:
+    - code
+    docs:
+    - extensions/corpus-transforms.adoc
+    contrast: true
+    slides:
+    - id: transforms-title
+      kind: line
+      on_screen: Corpus Transforms
+      assertion: The first extension point, named before its first example.
+      # Extensions / Corpus Transforms
+      notes: |-
+        Now something I'm very excited about: corpus transforms.
+        
+        This is the first feature here that we can only define with a script extension.
+        
+        These are scripts that operate on the whole corpus at the extraction
+        phase, and they send the adjusted corpus to all generators.
+        
+        You can use these scripts to apply project conventions.
+        They are very easy to write and share.
+        
+        As I mentioned, you can write them in both JavaScript and Lua.
+        JavaScript is more familiar to most people. And Lua is a language
+        designed to be embedded in other programs, so it is very small and fast.
+    - id: transforms-modify-input
+      kind: code
+      on_screen: ''
+      assertion: 'brief-from-name.cpp: the example from the Corpus Transforms page, as written in the docs.'
+      # Extensions / Corpus Transforms
+      notes: |-
+        For instance, let's say three predicates called is-something with no documentation.
+        
+        And let's say you have a convention for this kind of function.
+        So you don't want to write documentation for all of them because it's 
+        going to be very repetitive and prone to drift.
+      title: brief-from-name.cpp
+      file: tests/golden/fixtures/snippets/extensions/brief-from-name/brief-from-name.cpp
+      language: cpp
+    - id: transforms-modify
+      kind: code
+      on_screen: ''
+      assertion: >-
+        So we can just write a corpus transform that fills in the documentation for functions that have this pattern.
+      notes: This is a transform that writes the brief from the name.
+      title: addons/extensions/brief_from_name.js
+      file: tests/golden/fixtures/snippets/extensions/brief-from-name/addons/extensions/brief_from_name.js
+      language: javascript
+      highlights:
+      - lines: '2-4'
+        notes: >-
+          We iterate over the symbols in the corpus.
+      - lines: '15-17'
+        notes: >-
+          We filter the functions that have the pattern we need.
+      - lines: '20-24'
+        notes: >-
+          And we give it a brief if it doesn't have one.
+      - lines: '26-32'
+        notes: >-
+          And we give documentation to the parameters.
+    - id: transforms-modify-lua
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/extensions/brief_from_name.js: the example from the Corpus Transforms page, as written in the docs.
+      notes: And here's the Lua version of the same script.
+      title: addons/extensions/brief_from_name.lua
+      file: tests/golden/fixtures/snippets/extensions/brief-from-name/addons/extensions/brief_from_name.lua
+      language: lua
+    - id: transforms-modify-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-brief-from-name.html
+      symbols:
+      - is_empty
+      assertion: The page for is_empty.
+      # Extensions / Corpus Transforms
+      notes: |-
+        The page for the is_empty function looks like this.
+    - id: transforms-modify-rendered-2
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-brief-from-name.html
+      symbols:
+      - is_palindrome
+      assertion: The page for is_palindrome.
+      # Extensions / Corpus Transforms
+      notes: |-
+        And the page for is_palindrome.
+    - id: transforms-modify-rendered-3
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-brief-from-name.html
+      symbols:
+      - is_prime
+      assertion: The page for is_prime.
+      # Extensions / Corpus Transforms
+      notes: |-
+        And for is_prime.
+    - id: transforms-crosslink-input
+      kind: code
+      on_screen: ''
+      assertion: 'parse-format-relates.cpp: the example from the Corpus Transforms page, as written in the docs.'
+      # Extensions / Corpus Transforms
+      notes: |-
+        Now, let's say you have this other convention where you have pairs of functions.
+      title: parse-format-relates.cpp
+      file: tests/golden/fixtures/snippets/extensions/parse-format-relates/parse-format-relates.cpp
+      language: cpp
+      highlights:
+      - '5,8,14,17'
+    - id: transforms-crosslink
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/extensions/parse_format_relates.js: the example from the Corpus Transforms page, as written in the docs.
+      notes: This is a transform that looks up each partner and adds a see-also link.
+      title: addons/extensions/parse_format_relates.js
+      file: >-
+        tests/golden/fixtures/snippets/extensions/parse-format-relates/addons/extensions/parse_format_relates.js
+      language: javascript
+      highlights:
+      - lines: '3-6'
+        notes: >-
+          For each function, you're going to look for its partner.
+      - lines: '7-17'
+        notes: >-
+          If the partner exists, then we create a reference to it.
+    - id: transforms-crosslink-rendered-3
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-parse-format-relates.html
+      symbols:
+      - format_request
+      assertion: The page for format_request.
+      # Extensions / Corpus Transforms
+      notes: |-
+        The page for format_request, with the link to its parse partner.
+    - id: transforms-crosslink-rendered-4
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-parse-format-relates.html
+      symbols:
+      - format_user
+      assertion: The page for format_user.
+      # Extensions / Corpus Transforms
+      notes: |-
+        And the same for format_user.
+    - id: transforms-crosslink-rendered-5
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-parse-format-relates.html
+      symbols:
+      - parse_request
+      assertion: The page for parse_request.
+      # Extensions / Corpus Transforms
+      notes: |-
+        The page for parse_request.
+    - id: transforms-crosslink-rendered-6
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-parse-format-relates.html
+      symbols:
+      - parse_user
+      assertion: The page for parse_user.
+      # Extensions / Corpus Transforms
+      notes: |-
+        And for parse_user.
+    - id: transforms-files
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/extensions/ghostwriter.lua: the example from the Corpus Transforms page, as written in the docs.
+      notes: |-
+        Another interesting thing is that those transforms can make use of external sources of information. 
+        
+        For instance, a common objection to automated documentation is that the documentation for each symbol should
+        be written by external technical writers, not developers.
+        
+        Here's a ghostwriter transform: it reads an extenal file for each symbol and
+        sets its description from it.
+      title: addons/extensions/ghostwriter.lua
+      file: examples/extensions/ghostwriter/addons/extensions/ghostwriter.lua
+      language: lua
+      highlights:
+      - lines: '10'
+        notes: >-
+          Here we read the file corresponding to the symbol.
+      - lines: '12'
+        notes: >-
+          Then we parse the file according to some internal convention.
+          You can even use libraries here.
+      - lines: '17'
+        notes: >-
+          And we also include that in the documentation.
+    - id: transforms-files-input
+      kind: code
+      on_screen: ''
+      assertion: 'simple.cpp: the example from the Corpus Transforms page, as written in the docs.'
+      # Extensions / Corpus Transforms
+      notes: |-
+        Here is the header, with briefs but no descriptions.
+      title: simple.cpp
+      file: examples/extensions/ghostwriter/simple.cpp
+      language: cpp
+      highlights:
+      - lines: '4-16'
+        notes: >-
+          For instance, here is one struct from this file.
+    - id: transforms-files-vec2
+      kind: code
+      on_screen: ''
+      assertion: 'external-docs/app/Vec2.md: the example from the Corpus Transforms page, as written in the docs.'
+      # Extensions / Corpus Transforms
+      notes: |-
+        Here is the writer's file for this struct.
+      title: external-docs/app/Vec2.md
+      file: examples/extensions/ghostwriter/external-docs/app/Vec2.md
+      language: markdown
+    - id: transforms-files-rendered-4
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-corpus-transforms-reference.html
+      symbols:
+      - app-Vec2
+      assertion: The page for app::Vec2.
+      # Extensions / Corpus Transforms
+      notes: |-
+        The page for Vec2, with the description from the file.
+        
+        So you can get very complete documentation, and at the same time, 
+        everything is validated by the tool, so it still ensures the 
+        combination has nothing missing or contradictory.
+  - id: ext-generators
+    chapter: extensions
+    label: The corpus becomes anything
+    target_minutes: 6.5
+    transition_words: A generator does not have to make pages
+    claims:
+    - extension-examples
+    media:
+    - code
+    docs:
+    - extensions/script-generators.adoc
+    pause: true
+    slides:
+    - id: ext-generators-title
+      kind: line
+      on_screen: Script Generators
+      assertion: The second extension point, named before its first example.
+      # Extensions / Script Generators
+      notes: |-
+        On the other hand, a script generator is an extension to take control of the whole presentation layer.
+        
+        They also have extremely interesting use cases.
+    - id: script-filter-input
+      kind: code
+      on_screen: ''
+      assertion: 'simple.cpp: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        Suppose we have this code and we generate documentation for it with another generator, but
+        our documentation website has a search index. All you need is to also generate this search index.
+      title: simple.cpp
+      file: examples/generators/script-driven/search-index/simple.cpp
+      language: cpp
+    - id: script-filter
+      kind: code
+      on_screen: ''
+      assertion: >-
+        addons/extensions/search_index.lua: the example from the Script Generators page, as written in the docs.
+      # Extensions / Script Generators
+      notes: |-
+        And here is a generator in Lua that writes a search index with one entry per symbol, with its URL.
+      title: addons/extensions/search_index.lua
+      file: examples/generators/script-driven/search-index/addons/extensions/search_index.lua
+      language: lua
+      highlights:
+      - lines: '4,9-10'
+        notes: >-
+          We create an entry for each symbol with its URL according to your own conventions.
+      - lines: '14'
+        notes: >-
+          And then we just write it to a file.
+    - id: script-filter-output
+      kind: code
+      on_screen: ''
+      assertion: 'search-index.json: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        The index it writes is this.
+      title: search-index.json
+      file: examples/generators/script-driven/search-index/search-index.json
+      language: json
+    - id: script-toc
+      kind: code
+      on_screen: ''
+      assertion: 'addons/extensions/toc.js: the example from the Script Generators page, as written in the docs.'
+      notes: |-
+        A simple variant of that is just an extension that generates a table of contents. 
+        
+        It's a small variant, but it's a use case people had asked for a lot, so that the
+        reference documentation can be included in your website.
+      title: addons/extensions/toc.js
+      file: examples/generators/script-driven/toc/addons/extensions/toc.js
+      language: javascript
+      highlights:
+      - lines: '1-6'
+        notes: >-
+          It's exactly the same logic for each of these functions.
+      - lines: '139-150'
+        notes: >-
+          Here's the example for a table of contents in HTML
+      - lines: '144-147'
+        notes: >-
+          We just iterate over the nodes
+      - lines: '146'
+        notes: >-
+          And use recursion for the children if there are any
+    - id: script-toc-output
+      kind: code
+      on_screen: ''
+      assertion: 'toc.md: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        And the output, in Markdown, AsciiDoc and HTML.
+      steps:
+      - title: toc.md
+        language: markdown
+        notes: Markdown.
+        file: examples/generators/script-driven/toc/toc.md
+      - title: toc.adoc
+        language: asciidoc
+        notes: AsciiDoc.
+        file: examples/generators/script-driven/toc/toc.adoc
+      - title: toc.html
+        language: html
+        notes: HTML.
+        file: examples/generators/script-driven/toc/toc.html
+      motion:
+        kind: auto-animate
+        group: script-toc-output
+        shared:
+        - code
+    - id: script-describe
+      kind: code
+      on_screen: ''
+      assertion: 'addons/extensions/describe.js: the example from the Script Generators page, as written in the docs.'
+      notes: |-
+        Another very interesting use case is reflection generators.
+        
+        For instance, Boost.Describe is a library where you use a macro to describe classes, 
+        and then gives you a number of functions to operate on the members of those classes. 
+        
+        Here's a Boost describer generator so that our classes have reflection.
+      title: addons/extensions/describe.js
+      file: examples/generators/script-driven/describe/addons/extensions/describe.js
+      language: javascript
+      highlights:
+      - lines: '2'
+        notes: >-
+          We group all symbols by header.
+      - lines: '6'
+        notes: >-
+          And for each header, we write a sidecar header with the description.
+      - lines: '202-204'
+        notes: >-
+          Each sidecar includes the headers it needs, including other descriptions it depends on.
+      - lines: '25'
+        notes: >-
+          And then it writes the macros we generated before.
+    - id: script-describe-circle
+      kind: code
+      on_screen: ''
+      assertion: 'circle.hpp: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        Here is the Circle struct header that depends on Shape struct.
+      title: circle.hpp
+      file: examples/generators/script-driven/describe/include/circle.hpp
+      language: cpp
+    - id: script-describe-sidecar
+      kind: code
+      on_screen: ''
+      assertion: 'Generated sidecars: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        Here is the generated sidecar for circle.
+      title: Generated sidecars
+      file: examples/generators/script-driven/describe/circle.described.hpp
+      language: cpp
+      highlights:
+      - '10,15'
+    - id: script-snippets
+      kind: code
+      on_screen: ''
+      assertion: 'addons/extensions/snippets.lua: the example from the Script Generators page, as written in the docs.'
+      notes: |-
+        Round-trip extensions that define both transforms and generators are very useful at times.
+        
+        For instance, a common use case is making sure all documentation examples work.
+        This means some tested snippets have to be imported into the documentation, and the inline snippets 
+        from the documentation have to be exported and tested directly. 
+        
+        So here is the snippets extension: it imports examples from the test files and exports the inline ones
+        so that they are tested.
+      title: addons/extensions/snippets.lua
+      file: examples/generators/script-driven/snippets/addons/extensions/snippets.lua
+      language: lua
+      highlights:
+      - lines: '14,17'
+        notes: >-
+          Here we register the transform. And for each symbol...
+      - lines: '19,21'
+        notes: >-
+          ...we look for a corresponding file with tests for these symbols.
+      - lines: '27'
+        notes: >-
+          For each snippet in the file that's about this symbol
+      - lines: '46-48'
+        notes: >-
+          Recreate a snippet, writing the documentation as part of the corpus.
+          Then we mark this snippet as imported in a global variable of the module.
+      - lines: '61'
+        notes: >-
+          The very same extension also defines a generator that does the inverse.
+      - lines: '71-76'
+        notes: >-
+          It reads the code blocks from a symbol.
+      - lines: '77-84'
+        notes: >-
+          And stores those blocks as blocks belonging to the corresponding test files.
+      - lines: '88-101'
+        notes: >-
+          It then creates one test file for each group of inline snippets that need tests.
+
+    - id: script-snippets-arithmetic
+      kind: code
+      on_screen: ''
+      assertion: 'arithmetic.hpp: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        Let's see an example.
+      title: arithmetic.hpp
+      file: examples/generators/script-driven/snippets/include/arithmetic.hpp
+      language: cpp
+      highlights:
+      - lines: '5-19'
+        notes: >-
+          Here's the function with inline code.
+      - lines: '21-32'
+        notes: >-
+          And two other functions without any examples.
+    - id: script-snippets-example
+      kind: code
+      on_screen: ''
+      assertion: 'example-code/arithmetic.cpp: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        Here is a test file with the tagged snippets.
+      title: example-code/arithmetic.cpp
+      file: examples/generators/script-driven/snippets/example-code/arithmetic.cpp
+      language: cpp
+      highlights:
+      - '7-8,12-13,17-18'
+    - id: script-snippets-rendered
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-script-generators-reference.html
+      symbols:
+      - app-add
+      assertion: The page for app::add.
+      # Extensions / Script Generators
+      notes: |-
+        So this function keeps its inline snippet.
+    - id: script-snippets-rendered-4
+      kind: rendered
+      on_screen: ''
+      doc_html: assets/rendered/docs/extensions-script-generators-reference.html
+      symbols:
+      - app-multiply
+      assertion: The page for app::multiply.
+      # Extensions / Script Generators
+      notes: |-
+        And this function shows the imported snippets.
+    - id: script-snippets-exported
+      kind: code
+      on_screen: ''
+      assertion: 'Exported test files: the example from the Script Generators page, as written in the docs.'
+      # Extensions / Script Generators
+      notes: |-
+        Here is the test file exported from the inline examples.
+      title: Exported test files
+      file: examples/generators/script-driven/snippets/exported/arithmetic.cpp
+      language: cpp
+  - id: ext-integration
+    chapter: extensions
+    label: Into your site, into your program
+    target_minutes: 2
+    transition_words: And when you want it inside something else
+    purpose: >-
+      Shows where the tool plugs into what people already have: an Antora site, or their own program through the library.
+    media:
+    - image
+    - code
+    docs:
+    - extensions/antora.adoc
+    - extensions/as-library.adoc
+    - reference:index.adoc
+    slides:
+    - id: library-title
+      kind: line
+      on_screen: Mr.Docs as a Library
+      assertion: The third extension point, named before its first example.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        And when you want to integrate Mr.Docs with your own program, you can use it as a library.
+        
+        Besides using it directly, you can use this to write libraries that Mr.Docs will later use as plugins.
+        These plugins can also define transforms and generators.
+    - id: library-cmake
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/CMakeLists.txt: the example from the Mr.Docs as a Library page, as written
+        in the docs.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        You can import it like any other CMake package.
+        
+        We're going to use the library to define this breaking change generator. 
+        It receives another version of the library as input, runs Mr.Docs twice, and prints
+        whether there have been any breaking changes in the library since this other version.
+        
+        This example is very interesting because C++ libraries tend not to 
+        respect semver conventions very well.
+      title: examples/library/breaking-changes/CMakeLists.txt
+      file: examples/library/breaking-changes/CMakeLists.txt
+      include: tags=package;target
+      language: cmake
+    - id: library-corpus
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/src/Corpus.cpp: the example from the Mr.Docs as a Library page, as written
+        in the docs.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        Here is how we build a corpus from a configuration file.
+      title: examples/library/breaking-changes/src/Corpus.cpp
+      file: examples/library/breaking-changes/src/Corpus.cpp
+      include: tag=load-corpus
+      language: cpp
+      highlights: '13,17'
+    - id: library-diff
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/src/Diff.cpp: the example from the Mr.Docs as a Library page, as written in
+        the docs.
+      notes: |-
+        And here is how we read two corpora and compare them.
+      title: examples/library/breaking-changes/src/Diff.cpp
+      file: examples/library/breaking-changes/src/Diff.cpp
+      include: tag=diff
+      language: cpp
+      highlights:
+      - lines: '4-20'
+        notes: >-
+          Here we have a first loop where, for every symbol in one version, we look for the corresponding 
+          symbol in the other version.
+      - lines: '22-39'
+        notes: >-
+          Then we check if anything changed, depending on the kind of symbol.
+      - lines: '43-54'
+        notes: >-
+          And if there's anything in V2 that wasn't in V1, then that's just an addition.
+      - lines: '56-63'
+        notes: >-
+          And then we decide what the impact of the changes is
+    - id: library-generator
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/src/BreakingChangesGenerator.hpp: the example from the Mr.Docs as a Library
+        page, as written in the docs.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        Here is a custom generator, declared as a class.
+      title: examples/library/breaking-changes/src/BreakingChangesGenerator.hpp
+      file: examples/library/breaking-changes/src/BreakingChangesGenerator.hpp
+      include: tag=generator-class,lines=6..22
+      language: cpp
+    - id: library-generator-impl
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/src/BreakingChangesGenerator.cpp: the example from the Mr.Docs as a Library
+        page, as written in the docs.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        And basically, what it does is just call that function we defined.
+      title: examples/library/breaking-changes/src/BreakingChangesGenerator.cpp
+      file: examples/library/breaking-changes/src/BreakingChangesGenerator.cpp
+      include: tag=build
+      language: cpp
+    - id: library-v1
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/test/v1/lib.cpp: the example from the Mr.Docs as a Library page, as written
+        in the docs.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        So let's say that's one version of the library.
+      title: examples/library/breaking-changes/test/v1/lib.cpp
+      file: examples/library/breaking-changes/test/v1/lib.cpp
+      language: cpp
+    - id: library-v2
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/test/v2/lib.cpp: the example from the Mr.Docs as a Library page, as written
+        in the docs.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        And that's version two.
+      title: examples/library/breaking-changes/test/v2/lib.cpp
+      file: examples/library/breaking-changes/test/v2/lib.cpp
+      language: cpp
+    - id: library-expected
+      kind: code
+      on_screen: ''
+      assertion: >-
+        examples/library/breaking-changes/test/expected.txt: the example from the Mr.Docs as a Library page, as written
+        in the docs.
+      # Extensions / Mr.Docs as a Library
+      notes: |-
+        And this is the report of what changed between them.
+      title: Terminal
+      file: examples/library/breaking-changes/test/expected.txt
+      language: text
+- id: new-normal
+  label: Act 4. Ever since then
+  spine:
+  - ever-since-then
+  side: what_could_be
+  arousal: awe
+  cycles_idea: true
+  references_act: story
+  new_bliss: >-
+    The header from the beginning of the story is on boost.org today: one declaration, no macro, read
+    by the compiler and by the documentation tool through the same front end.
+  claims:
+  - id: full-circle
+    text: The same header that broke Doxygen is rendered correctly on boost.org by MrDocs.
+    evidence:
+    - kind: live-page
+      ref: assets/boost-url-live/url_view.html
+  # the beats of this act, in order: what is said, one point each, with target minutes and transition words
+  beats:
+  - id: full-circle
+    label: Full circle
+    target_minutes: 1.5
+    transition_words: Remember the page from the beginning?
+    claims:
+    - full-circle
+    media:
+    - live
+    - table
+    slides:
+    - id: full-circle
+      kind: image
+      fit: bleed
+      on_screen: Boost.URL
+      assertion: The Boost.URL reference on boost.org again, the same library the story started with.
+      notes: |-
+        My starting point was this library. And here it is today. 
+        
+        One declaration per symbol, no ugly macros anymore. No workarounds. No missing symbols.
+        And with a presentation that matches the rest of the documentation.
+        
+        We read it just like the compiler does with the same front end. And everything is verifiable.
+        There's code in these headers that exists just for the documentation tool anymore.
+      why: >-
+        "Ever since then". Going full circle is the strongest close available (SPEAKING-NOTES), and the morph from
+        the broken page to the fixed one makes the story's resolution visible.
+      assets:
+      - assets/story/boost-url-view.png
+      image_role: represents
+      emphasis:
+        element: 'the synopsis: one declaration, no macro'
+        why: The header that needed a second version of the truth now has one, and the page shows it.
+
+    - id: the-trade
+      kind: table
+      on_screen: ''
+      assertion: >-
+        The table from the beginning, with the generated column split in two: Mr.Docs meets every row, the tool
+        you have today shares only the one about staying in sync.
+      notes: |-
+        So here is the same table from the beginning. 
+        
+        Now it's really convenient to get what you want because you don't have to customize more than you need. 
+        And that ensures you're going to get what's best for the user. 
+        
+        And the comments don't only stay next to the code. We also have a single version of
+        the truth because we're using the same symbols for the documentation. 
+        
+        And I think what's even more interesting is how many other use cases we unlocked along the way. 
+        I can't even have a row for each use case. All documentation snippets tested, ghostwriters, 
+        index generators, reflection, identifying breaking changes, ...
+      table:
+        header:
+        - ''
+        - Mr.Docs
+        - Other
+        - By hand
+        - None
+        rows:
+        - - Convenient (author)
+          - 'yes'
+          - maybe
+          - 'no'
+          - 'yes'
+        - - Friendly output (user)
+          - 'yes'
+          - maybe
+          - 'yes'
+          - 'no'
+        - - AI-friendly
+          - 'yes'
+          - 'yes'
+          - 'no'
+          - 'no'
+        - - IDE integration
+          - 'yes'
+          - 'yes'
+          - 'no'
+          - 'no'
+        - - Verifiable
+          - 'yes'
+          - 'no'
+          - 'no'
+          - 'no'
+        - - In sync with source
+          - 'yes'
+          - 'maybe'
+          - 'no'
+          - 'no'
+        - - Single source of truth
+          - 'yes'
+          - 'no'
+          - 'no'
+          - 'no'
+        - - Extensions
+          - 'yes'
+          - 'no'
+          - 'no'
+          - 'no'
+        highlight_cols:
+        - 2
+      why: >-
+        The second half of the design-notes table: the comparison with other tools is a conclusion, not a motivation,
+        so it comes after the tour has shown every row. Same rows and columns as the table the story opened with, so
+        the audience recognizes it; the one change is the generated column split into Mr.Docs and the other tools,
+        and the column that was all questions at "or is it?" is now all yes.
+  - id: close
+    label: The idea and the ask
+    target_minutes: 1.25
+    docs:
+    - license.adoc
+    transition_words: Here is what I would like you to do
+    purpose: >-
+      The ask, then the idea as the last words on screen.
+    media:
+    - line
+    - image
+    slides:
+    - id: call-to-action
+      kind: cta
+      on_screen: mrdocs.com
+      assertion: The QR code, mrdocs.com, and the word Download.
+      notes: |-
+        Here is what I would like you to do. Download it. Point it at your
+        library tonight with the smallest mrdocs.yml you saw earlier. Look
+        at what comes out. If something is wrong, that is a bug report I
+        want. If nothing is wrong, tell someone.
+      cta_url: https://mrdocs.com
+      qr_asset: assets/mrdocs-qr.svg
+      why: >-
+        One action, concrete, tonight (Anderson: worth sharing; the ask is for the audience's benefit). The QR is
+        on screen long enough to scan.
+    - id: the-line-positive
+      kind: conclusions
+      on_screen: 'Mr.Docs: Native C++. No workarounds.'
+      assertion: The hero from the reveal again, with the one idea in its positive form under it and the QR code for the questions.
+      assets:
+      - assets/mrdocs-hero.png
+      qr_asset: assets/mrdocs-qr.svg
+      cta_url: https://mrdocs.com
+      notes: |-
+        And if that is the one thing I want you to take out of this presentation. 
+        More than a feature list, it's a property. 
+        
+        It understands C++ the way the compiler does, so nothing is lost and nothing
+        in your headers has to be faked for it.
+
+        That's all I have. 
+        
+        I believe there's time for two more questions.
+        
+        (This stays on screen while we take questions)
+        
+        (Repeat each question for the room and the recording)
+
+      restates_idea: true
+      why: >-
+        The idea, positive form, as the second and last hero moment. The morph from the negative line is the arc
+        of the talk in one motion. The QR stays up through the questions, the longest any slide is on screen.
+    - id: cppcon-title-card-again
+      kind: title-card
+      on_screen: ''
+      assertion: The conference's card again, so the closing frame is one step away instead of at the start of the deck.
+      notes: |-
+        The conference card, for after the questions. It is here so the frame is one arrow away and the deck does
+        not have to jump back to the first slide.
+      assets:
+      - assets/cppcon-title-card.png
+      why: A copy of the first slide at the end, so the card can be shown after the questions without leaving the closing slides.
+# the map shown to the audience: the nav sections the tour visits, in nav order. Contribute is deliberately not a
+# chapter: it is for people who come back after the talk, the call to action points there, and its six pages would
+# cost minutes the Extensions act needs.
+chapters:
+- id: getting-started
+  label: Getting Started
+  mnemonic_image: assets/roadmap/getting-started.svg
+  points:
+  - Demo gallery, in production on boost.org and dogfooded on mrdocs.com
+  - Install is a download
+  - One YAML file, one command, three ways to get a compilation database
+  - Idioms without workarounds
+- id: commands
+  label: Commands
+  mnemonic_image: assets/roadmap/commands.svg
+  points:
+  - The comments you already write
+  - Metadata commands replace macros with words
+  - 'Inline commands: formatting, links, cross-references, copydoc'
+- id: configuration
+  label: Configuration
+  mnemonic_image: assets/roadmap/configuration.svg
+  points:
+  - One file, every key a flag
+  - 'Five groups: inputs, filters, extraction, output, diagnostics'
+  - Filters decide what exists; extraction decides how it reads
+- id: generators
+  label: Generators
+  mnemonic_image: assets/roadmap/generators.svg
+  points:
+  - Five generators, one corpus
+  - Redundancy versus convenience
+- id: extensions
+  label: Extensions
+  mnemonic_image: assets/roadmap/extensions.svg
+  points:
+  - Two hooks on the pipeline
+  - Templates, folders, scripts, Antora, the library
+  - Contribute

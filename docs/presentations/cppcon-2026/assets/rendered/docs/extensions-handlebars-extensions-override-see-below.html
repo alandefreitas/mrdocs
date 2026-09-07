@@ -1,0 +1,20 @@
+<div class="symbol">
+<div class="header">
+<h2 id="net-connection">net::connection</h2>
+<div class="brief">
+<p>A move-only handle to an open TCP connection.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="description">
+<h3>Description</h3>
+<p>Obtain one from <code>connect</code>; it closes the socket when it goes out of scope. Send and receive through the free functions in this namespace:</p>
+<pre><code class="language-cpp">
+auto c = net::connect("example.org", 80);
+net::write(c, request);
+</code></pre><p>Its representation is an implementation detail that changes between releases, so the definition is not shown here; use it only through the operations described above.</p>
+</div><!-- /description -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;override-see-below.cpp&gt;</code></p>
+<pre><code class="source-code cpp">class connection { /* see above */ };</code></pre>
+</div><!-- /synopsis -->
+</div><!-- /symbol -->

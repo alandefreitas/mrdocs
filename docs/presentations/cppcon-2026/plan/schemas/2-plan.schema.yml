@@ -1,0 +1,1602 @@
+# JSON Schema (draft 2020-12) for levels/2-plan.yml, written as YAML.
+# The tool loads this file directly; `pipeline.py schemas` writes a JSON copy to build/schemas/ for editors that need one.
+title: >-
+  Level 2: the plan. The story as acts, each with its claims and its beats, each beat with its slides; and the map
+  of chapters.
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+required:
+- dramatic_question
+- insight
+- fence
+- context
+- memorability
+- metaphors
+- candidate_points
+- acts
+- chapters
+additionalProperties: false
+properties:
+  dramatic_question:
+    description: >-
+      The question the whole talk exists to answer, as the audience will hear it early on. It creates the appetite
+      for the answer; the popular science stories almost always pose one explicitly. Why: Popular science stories
+      almost always pose an explicit question up front; it creates the appetite for the answer. The one slide allowed
+      to show a question must show this one. Evidence, strongest first (experiment): C3-2-03 (experiment; Alley2006);
+      C2-1-05 (observational; Huang2020); C2-2-03 (expert opinion; Anderson2016, Duarte2011). Checks: P3 (schema:
+      an explicit dramatic question in the opening act), S24 (script: no on-screen text of kind line ends with a
+      question mark unless flagged hostile_audience).
+    type: string
+    pattern: \?$
+    minLength: 15
+  insight:
+    description: >-
+      The answer to the dramatic question, stated outright rather than left to be inferred, in the words used at
+      the reveal. It explains the idea statement in the meta file rather than repeating it: the statement is the
+      handle, the insight is the mechanism. Why: Stating the insight outright, rather than leaving it implicit,
+      is one of the story components that predicted popularity; it must differ from the statement so the reveal
+      explains rather than repeats, and it must be said in the notes. Evidence, strongest first (observational):
+      C2-1-05 (observational; Huang2020); C1-01 (expert opinion; Anderson2016, Stephens2010). Checks: P5 (script:
+      the insight answers the dramatic question outright, in words other than the idea).
+    type: string
+    minLength: 10
+  fence:
+    description: >-
+      The boundary around the idea: what it is not, and what nearby things it will be mistaken for, so the audience
+      files it in the right place. Why: An idea is understood partly by what it is not; drawing the boundary stops
+      the audience filing it under the nearest familiar thing. Evidence, strongest first (expert opinion): C2-3-05
+      (expert opinion; Winston2018). Checks: P8 (schema: fence: what the idea is not, and what it is confused with).
+    type: object
+    required:
+    - is_not
+    - confused_with
+    additionalProperties: false
+    properties:
+      is_not:
+        description: >-
+          Things the idea might be taken for but is not, each as a sentence the speaker could say. Why: Each is
+          a sentence the speaker can say when the wrong filing is likely. Evidence, strongest first (expert opinion):
+          C2-3-05 (expert opinion; Winston2018). Checks: P8 (schema: fence: what the idea is not, and what it is
+          confused with).
+        type: array
+        minItems: 1
+        items:
+          type: string
+          minLength: 10
+      confused_with:
+        description: >-
+          The neighbouring ideas or tools the audience will compare it to, so the talk can say how it differs. Why:
+          Names the neighbours the audience will compare it to, so the talk can say how it differs. Evidence, strongest
+          first (expert opinion): C2-3-05 (expert opinion; Winston2018). Checks: P8 (schema: fence: what the idea
+          is not, and what it is confused with).
+        type: array
+        minItems: 1
+        items:
+          type: string
+          minLength: 10
+  context:
+    description: >-
+      The situation the work sits in, so the audience knows why it exists before hearing what it does. Why: The
+      audience needs to know why the work exists before hearing what it does: the problem, who else worked on it,
+      and what is at stake. Evidence, strongest first (expert opinion): C2-3-18 (expert opinion; Winston2018). Checks:
+      P16 (schema: context).
+    type: object
+    required:
+    - problem
+    - others
+    - why_matters
+    additionalProperties: false
+    properties:
+      problem:
+        description: >-
+          The problem being solved, in one or two sentences. Why: The problem in one or two sentences, so the talk
+          can state it before solving it. Evidence, strongest first (expert opinion): C2-3-18 (expert opinion; Winston2018).
+          Checks: P16 (schema: context).
+        type: string
+        minLength: 20
+      others:
+        description: >-
+          Who else has worked on the problem, which of them the talk compares against, and why those and not the
+          others. Why: Placing the work among others is part of the context Winston asks for; saying which of them
+          the talk compares against, and why, keeps the comparison honest and inoffensive. Evidence, strongest first
+          (expert opinion): C2-3-18 (expert opinion; Winston2018). Checks: P16 (schema: context).
+        type: string
+        minLength: 10
+      why_matters:
+        description: >-
+          Why solving the problem is worth the audience's hour: the benefits the work claims, in the form the project
+          itself states them. Why: The benefits the project itself claims, so the talk's argument and the documentation's
+          are the same argument. Evidence, strongest first (expert opinion): C2-3-18 (expert opinion; Winston2018).
+          Checks: P16 (schema: context).
+        type: string
+        minLength: 20
+  memorability:
+    description: >-
+      The handles that make the work stick in memory: a symbol, a surprise, and the idea that will stand out afterwards.
+      Why: Winston's handles for being remembered: a symbol, a surprise, a salient idea. The slogan is the meta
+      file's idea statement. Evidence, strongest first (expert opinion): C2-3-19 (expert opinion; Winston2018).
+      Checks: P17 (schema: memorability: symbol, surprise, salient idea).
+    type: object
+    required:
+    - symbol
+    - surprise
+    - salient_idea
+    additionalProperties: false
+    properties:
+      symbol:
+        description: >-
+          A picture or a number that stands for the work and can be shown or said in a breath. Why: Something that
+          can be shown or said in a breath and stands for the work afterwards. Evidence, strongest first (expert
+          opinion): C2-3-19 (expert opinion; Winston2018). Checks: P17 (schema: memorability: symbol, surprise,
+          salient idea).
+        type: string
+        minLength: 5
+      surprise:
+        description: >-
+          The fact or turn the audience will not expect. Why: The turn the audience does not expect; surprise is
+          also one of the high-arousal feelings that make talks travel. Evidence, strongest first (expert opinion):
+          C2-3-19 (expert opinion; Winston2018). Checks: P17 (schema: memorability: symbol, surprise, salient idea).
+        type: string
+        minLength: 10
+      salient_idea:
+        description: >-
+          The idea that will stick out afterwards, whether or not it is the most important one. Why: The thing that
+          will stick out afterwards, planned rather than left to chance. Evidence, strongest first (expert opinion):
+          C2-3-19 (expert opinion; Winston2018). Checks: P17 (schema: memorability: symbol, surprise, salient idea).
+        type: string
+        minLength: 10
+  metaphors:
+    description: >-
+      Metaphors the talk may use to explain the new idea through something the audience already has. Why: Optional.
+      The research does not ask for a metaphor; it asks that the idea be built from what the room already knows,
+      and here that ground is the audience's own experience with Doxygen, not a figure of speech. A metaphor is
+      worth listing only when it is instantly recognised; one that has to be explained costs more than it gives.
+      No experiment in the reading list measures the effect of metaphor in a talk. Evidence, strongest first (expert
+      opinion): C1-10 (expert opinion; Anderson2016, Garner2009, Kosslyn2012); C2-3-11 (expert opinion; Anderson2016,
+      Duarte2011). Checks: P13 (script: at least one metaphor drawn from something the audience already knows),
+      R3 (review: metaphors and examples are familiar to this audience).
+    type: array
+    minItems: 0
+    items:
+      type: object
+      required:
+      - text
+      - familiar_because
+      additionalProperties: false
+      properties:
+        text:
+          description: >-
+            The metaphor as it will be said. Why: The metaphor as it will be said, so the reviewer judges the real
+            wording. Evidence, strongest first (expert opinion): C1-10 (expert opinion; Anderson2016, Garner2009,
+            Kosslyn2012). Checks: R3 (review: metaphors and examples are familiar to this audience).
+          type: string
+          minLength: 10
+        familiar_because:
+          description: >-
+            Why this audience already has the thing the metaphor leans on. Why: Forces the claim of familiarity
+            to be written down where a reviewer can dispute it; a metaphor that needs this explained to the room
+            fails. Evidence, strongest first (expert opinion): C1-10 (expert opinion; Anderson2016, Garner2009,
+            Kosslyn2012); C2-3-11 (expert opinion; Anderson2016, Duarte2011). Checks: P13 (script: at least one
+            metaphor drawn from something the audience already knows), R3 (review: metaphors and examples are familiar
+            to this audience).
+          type: string
+          minLength: 10
+  candidate_points:
+    description: >-
+      Everything that could be said about the topic, written down as prose before choosing: the curiosities that
+      are not in the documentation, and a pointer to the documentation for the rest, page by page as nav.adoc lists
+      it, rather than a copy of it. Why: Choosing from a long list is recognising what matters; choosing from memory
+      is forgetting. The dump must outweigh what is kept, and the documentation already is the long list, so it
+      is referenced here and counted, not repeated. Evidence, strongest first (expert opinion): C2-1-02 (expert
+      opinion; Conway2014); C2-1-03 (expert opinion; Conway2014); C2-3-01 (expert opinion; Conway2014, Duarte2011,
+      Freitas2026). Checks: P11 (script: the candidate dump is prose, at least twice the chapter points in weight).
+    type: string
+    minLength: 200
+  acts:
+    description: >-
+      The talk as a story, in order: each act sits on the story spine, on one side of the gap between what is and
+      what could be, aims at a feeling, and asserts claims backed by evidence. Why: The acts are the structure of
+      the story, the divisions the audience feels but never sees named; the claims inside them are the argument.
+      The chapters below are only how the middle acts are shown, and what the tour visits is decided by the beats'
+      docs lists, not here. The structural checks all read the acts. Evidence, strongest first (experiment): C1-14
+      (experiment; Berger2012); C2-1-05 (observational; Huang2020); C2-1-04 (expert opinion; Duarte2011); C2-2-03
+      (expert opinion; Anderson2016, Duarte2011); C2-3-01 (expert opinion; Conway2014, Duarte2011, Freitas2026);
+      and 11 more in levels/0-criteria.yml under the checks below. Checks: P1 (script: acts carry the story-spine
+      beats in order: once upon a time, every day, until one day,), P2 (script: opening act has both sides of the
+      gap), P4 (script: at least one moment of change), P6 (script: every act declares an arousal target), P7 (script:
+      exactly one star moment), P9 (script: the one idea is restated in at least three acts), P12 (script: every
+      claim has at least one evidence item), P14 (script: closing act references the opening beat), P15 (schema:
+      closing act has new_bliss text).
+    type: array
+    minItems: 3
+    items:
+      type: object
+      required:
+      - id
+      - label
+      - spine
+      - side
+      - arousal
+      - cycles_idea
+      - claims
+      - beats
+      additionalProperties: false
+      properties:
+        label:
+          description: >-
+            The act's working name, for people reading the file. Why: For people reading the file. Bookkeeping.
+            No research criterion behind it.
+          type: string
+        id:
+          description: >-
+            A short identifier the beats use to place themselves in this act. Why: Cross-reference used by the beats
+            and by references_act. Bookkeeping. No research criterion behind it.
+          type: string
+          pattern: ^[a-z0-9-]+$
+        spine:
+          description: >-
+            Which steps of the story spine this act carries, in order: once upon a time, every day, until one day,
+            because of that, until finally, ever since then; or none for a tour section that is not part of the
+            story. Why: The story spine gives causal steps instead of a list of complaints; the steps must appear
+            in order across the acts. Evidence, strongest first (expert opinion): C2-3-01 (expert opinion; Conway2014,
+            Duarte2011, Freitas2026); C2-2-02 (own experience; Freitas2026); C2-2-06 (own experience; Freitas2026);
+            C2-2-07 (own experience; Freitas2026); C2-2-09 (own experience; Freitas2026). Checks: P1 (script: acts
+            carry the story-spine beats in order: once upon a time, every day, until one day,).
+          type: array
+          minItems: 1
+          items:
+            enum:
+            - once-upon-a-time
+            - every-day
+            - until-one-day
+            - because-of-that
+            - until-finally
+            - ever-since-then
+            - none
+        side:
+          description: >-
+            Whether the act shows the present (status_quo), the future with the idea adopted (what_could_be), or
+            sets the two against each other (both). An act on one side may still cross the gap inside itself, through
+            beats flagged contrast. Why: The opening act must show both sides of the gap and the middle must alternate
+            at least twice. Evidence, strongest first (expert opinion): C2-1-04 (expert opinion; Duarte2011); C2-2-03
+            (expert opinion; Anderson2016, Duarte2011); C2-3-02 (expert opinion; Duarte2011). Checks: P2 (script:
+            opening act has both sides of the gap).
+          enum:
+          - status_quo
+          - what_could_be
+          - both
+        arousal:
+          description: >-
+            The feeling the act aims to produce. High-arousal feelings (awe, surprise, tension, amusement, anger)
+            make talks travel; sadness does the opposite. Why: Arousal, not valence, drives sharing; at least one
+            act must aim at a high-arousal feeling and none at sadness. Evidence, strongest first (experiment):
+            C1-14 (experiment; Berger2012); C2-1-05 (observational; Huang2020). Checks: P6 (script: every act declares
+            an arousal target).
+          enum:
+          - awe
+          - surprise
+          - tension
+          - amusement
+          - anger
+          - curiosity
+          - calm
+          - sadness
+          - none
+        cycles_idea:
+          description: >-
+            True when this act restates the one idea from a new side. At least three acts should. Why: At any moment
+            a fifth of the room is fogged out; three passes at the idea make it likely everyone catches it. Evidence,
+            strongest first (expert opinion): C2-3-04 (expert opinion; Duarte2011, Lortie2017, Winston2018). Checks:
+            P9 (script: the one idea is restated in at least three acts).
+          type: boolean
+        star_moment:
+          description: >-
+            True on the one act that contains the moment the audience will remember. Why: One moment the audience
+            will remember, planned; exactly one act and one slide carry it. Evidence, strongest first (expert opinion):
+            C2-3-09 (expert opinion; Duarte2011, Winston2018). Checks: P7 (script: exactly one star moment), S15
+            (script: exactly one slide flagged star_moment, and it matches the story's).
+          type: boolean
+        moment_of_change:
+          description: >-
+            True when something turns in this act: a twist, a reversal, a 'but'. Why: A turn is one of the story
+            components that predicted popularity; at least one act must have one. Evidence, strongest first (observational):
+            C2-1-05 (observational; Huang2020). Checks: P4 (script: at least one moment of change).
+          type: boolean
+        opener_type:
+          description: >-
+            How the act opens, from the catalog of openers that work: a story, a shocking fact, a question, a direct
+            statement, a quotation, a visual, an object, a joke, an 'imagine', a personal experience, or a promise.
+            Why: Names the way in from the catalogue of openers that work, so the choice is deliberate. Evidence,
+            strongest first (expert opinion): C2-3-01 (expert opinion; Conway2014, Duarte2011, Freitas2026); C2-2-02
+            (own experience; Freitas2026); C2-2-06 (own experience; Freitas2026); C2-2-07 (own experience; Freitas2026);
+            C2-2-09 (own experience; Freitas2026). Checks: P1 (script: acts carry the story-spine beats in order:
+            once upon a time, every day, until one day,).
+          enum:
+          - story
+          - shocking-fact
+          - question
+          - direct-statement
+          - quotation
+          - visual
+          - object
+          - joke
+          - imagine
+          - personal
+          - promise
+        references_act:
+          description: >-
+            For the closing act, the id of the opening act it returns to, so the talk comes full circle. Why: The
+            closing act must return to the opening, so the talk comes full circle. Evidence, strongest first (own
+            experience): C2-4-04 (own experience; Alley2005, Freitas2026). Checks: P14 (script: closing act references
+            the opening beat).
+          type: string
+        new_bliss:
+          description: >-
+            For the closing act, the picture of the world with the idea adopted, described poetically rather than
+            summarised. Why: The close paints the world with the idea adopted, described rather than summarised.
+            Evidence, strongest first (expert opinion): C2-4-03 (expert opinion; Duarte2011). Checks: P15 (schema:
+            closing act has new_bliss text).
+          type: string
+          minLength: 20
+        claims:
+          description: >-
+            What the act asserts, each backed by evidence. Claims are the argument, not the itinerary: an act that
+            tours thirty pages may assert five things, and the pages it visits are recorded in the beats' docs lists.
+            Each claim must be carried by at least one beat, which names it in its claims list. Why: Every claim
+            the act makes is listed with its evidence, so nothing in the talk rests on memory alone, and every claim
+            is delivered by a beat, so nothing in the argument is silently dropped. Evidence, strongest first (expert
+            opinion): C2-3-13 (expert opinion; Alley2005); C2-3-03 (own experience; Blome2017, Freitas2026). Checks:
+            P12 (script: every claim has at least one evidence item), P28 (script: every claim of an act is carried
+            by at least one of its beats).
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+            - id
+            - text
+            - evidence
+            additionalProperties: false
+            properties:
+              id:
+                description: >-
+                  A short identifier for the claim. Why: Cross-reference for slides and reviews. Bookkeeping. No
+                  research criterion behind it.
+                type: string
+                pattern: ^[a-z0-9-]+$
+              text:
+                description: >-
+                  The claim, as a sentence. Why: The claim as a sentence, so it can be checked as stated. Evidence,
+                  strongest first (expert opinion): C2-3-13 (expert opinion; Alley2005); C2-3-03 (own experience;
+                  Blome2017, Freitas2026). Checks: P12 (script: every claim has at least one evidence item).
+                type: string
+                minLength: 10
+              evidence:
+                description: >-
+                  Where the support for the claim lives. Why: Where the support lives; facts marked verify must
+                  be verified before strict mode passes. Evidence, strongest first (expert opinion): C2-3-13 (expert
+                  opinion; Alley2005); C2-3-03 (own experience; Blome2017, Freitas2026). Checks: P12 (script: every
+                  claim has at least one evidence item).
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  required:
+                  - kind
+                  - ref
+                  additionalProperties: false
+                  properties:
+                    kind:
+                      description: >-
+                        The form the evidence takes: a grep result, a file, a screenshot, a memory that needs confirming,
+                        a paper, a URL, a live page, or code. Why: Says what sort of thing the reference is, so
+                        it can be checked the right way. Evidence, strongest first (expert opinion): C2-3-13 (expert
+                        opinion; Alley2005); C2-3-03 (own experience; Blome2017, Freitas2026). Checks: P12 (script:
+                        every claim has at least one evidence item).
+                      enum:
+                      - grep
+                      - file
+                      - screenshot
+                      - memory
+                      - paper
+                      - url
+                      - live-page
+                      - code
+                    ref:
+                      description: >-
+                        Path, command, citation or description locating the evidence. Why: Locates the evidence:
+                        path, command, citation or description. Evidence, strongest first (expert opinion): C2-3-13
+                        (expert opinion; Alley2005); C2-3-03 (own experience; Blome2017, Freitas2026). Checks: P12
+                        (script: every claim has at least one evidence item).
+                      type: string
+                      minLength: 3
+                    verify:
+                      description: >-
+                        True when this is a fact only the speaker can confirm from memory. Why: Marks facts only
+                        the speaker can confirm, so they are not mistaken for checked ones. Evidence, strongest
+                        first (expert opinion): C2-3-13 (expert opinion; Alley2005); C2-3-03 (own experience; Blome2017,
+                        Freitas2026). Checks: P12 (script: every claim has at least one evidence item).
+                      type: boolean
+                    verified:
+                      description: >-
+                        True once a fact marked verify has been confirmed. Why: Flips when confirmed; the check
+                        warns until every verify fact is verified. Evidence, strongest first (expert opinion): C2-3-13
+                        (expert opinion; Alley2005); C2-3-03 (own experience; Blome2017, Freitas2026). Checks: P12
+                        (script: every claim has at least one evidence item).
+                      type: boolean
+        beats:
+          description: >-
+            The talk as a timed sequence, in order. A beat is one stretch of speech with one point to make, placed
+            in an act and, for the tour, a chapter, given minutes, and opened with spoken words that mark the transition.
+            Why: The timed spine of the talk: minutes that must sum to the talk time, one assertion each, transitions
+            said aloud, pauses where segments run long, and more than one kind of medium. Evidence, strongest first
+            (experiment): C2-3-07 (experiment; Mayer2003); C2-3-15 (experiment; Kosslyn2012, Mayer2003); C2-3-17
+            (experiment; Mayer2003); C2-1-07 (expert opinion; Bourne2007); C2-2-12 (expert opinion; Winston2018);
+            and 6 more in levels/0-criteria.yml under the checks below. Checks: P18 (script: beat target minutes
+            fit the meta file's talk minutes), P19 (script: every beat has transition words, and the notes of its
+            first slide contain them), P20 (script: every beat either carries at least one claim of its act or states
+            its purpose), P21 (script: a beat that explains a system names the earlier beat that introduced its
+            parts), P22 (script: no beat longer than six minutes without a pause or a question to the room), P23
+            (script: at least one beat asks the room a question and waits), P24 (script: at least two distinct media
+            kinds across the talk), P25 (script: closing act has at least two beats and at least two minutes), P26
+            (script: a beat flagged establishes_vision starts within the first five minutes).
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+            - id
+            - label
+            - transition_words
+            - media
+            - slides
+            additionalProperties: false
+            properties:
+              label:
+                description: >-
+                  The beat's working name, for people reading the file. Why: For people reading the file. Bookkeeping.
+                  No research criterion behind it.
+                type: string
+                minLength: 3
+              id:
+                description: >-
+                  A short identifier the slides use to say which beat they belong to. Why: Cross-reference used
+                  by the slides. Bookkeeping. No research criterion behind it.
+                type: string
+                pattern: ^[a-z0-9-]+$
+              chapter:
+                description: >-
+                  For tour beats, the id of the chapter on the map this beat belongs to. Why: Places tour beats
+                  on the map, so the structure the audience was shown is the structure they get. Evidence, strongest
+                  first (experiment): C2-3-07 (experiment; Mayer2003); C2-3-06 (expert opinion; Kosslyn2012, Winston2018).
+                  Checks: P19 (script: every beat has transition words, and the notes of its first slide contain
+                  them).
+                type: string
+                pattern: ^[a-z0-9-]+$
+              target_minutes:
+                description: >-
+                  How long this beat should take to say. All beats together add up to the talk time. Why: The minutes
+                  the beat is meant to take; the pace report compares it with the minutes the notes take to say.
+                  Targets must sum to the talk time, and a beat over six minutes needs a pause or a question. The
+                  meta file's talk time is the budget: beats with a target take theirs from it, and the beats without
+                  one share what is left in proportion to the minutes their notes take to say. A beat with a target
+                  and no notes yet is estimated at its target. Evidence, strongest first (experiment): C2-3-15 (experiment;
+                  Kosslyn2012, Mayer2003); C2-3-16 (expert opinion; Lortie2017); C3-3-06 (expert opinion; Alley2005,
+                  Blome2017, Bourne2007, Conway2014, Naegle2021); C6-2-01 (own experience; Blome2017, Freitas2026,
+                  Kosslyn2012). Checks: P18 (script: beat target minutes fit the meta file's talk minutes), P22
+                  (script: no beat longer than six minutes without a pause or a question to the room), S27 (script:
+                  speaking time implied by the notes at the meta speaking rate matches each slide's).
+                type: number
+                minimum: 0.25
+                maximum: 10
+              transition_words:
+                description: >-
+                  The words said to open the beat and mark the transition for a listener who drifted: an enumeration,
+                  a heading said aloud, a name for where we are. They appear in the spoken notes of the beat's first
+                  slide. Why: A listener who drifted needs a spoken marker to rejoin (Winston's verbal punctuation);
+                  the first slide's notes must contain these words. Evidence, strongest first (experiment): C2-3-07
+                  (experiment; Mayer2003); C2-3-06 (expert opinion; Kosslyn2012, Winston2018). Checks: P19 (script:
+                  every beat has transition words, and the notes of its first slide contain them).
+                type: string
+                minLength: 3
+              purpose:
+                description: >-
+                  Why the beat exists when it carries no claim: a transition, a demo, an opening, an ask. Beats
+                  that carry claims need no purpose; the claims are the purpose. Why: A beat is a stretch of speech
+                  with one point; if the point is not a claim of the act, it must still be sayable in a sentence,
+                  or the beat is talking without something to say. Evidence, strongest first (expert opinion): C2-1-07
+                  (expert opinion; Bourne2007). Checks: P20 (script: every beat either carries at least one claim
+                  of its act or states its purpose).
+                type: string
+                minLength: 10
+              claims:
+                description: >-
+                  The ids of the act's claims this beat carries: says, shows or proves. A beat may carry none (a
+                  title card, a pure demo), one, or several; the same claim may be carried by more than one beat.
+                  Why: Claims are the argument and beats are the delivery; without this list nothing ties them,
+                  and a claim can silently have no beat, as one did. P28 requires every claim of the act to be carried
+                  by at least one of its beats. Evidence, strongest first (expert opinion): C2-3-13 (expert opinion;
+                  Alley2005). Checks: P28 (script: every claim of an act is carried by at least one of its beats).
+                type: array
+                items:
+                  type: string
+              media:
+                description: >-
+                  What kinds of thing appear on screen during the beat: words, lines, images, code, diagrams, tables,
+                  live pages, a prop. The talk as a whole should use more than one kind. Why: A talk should use
+                  more than one kind of medium; at least two distinct kinds across the beats. Evidence, strongest
+                  first (expert opinion): C2-3-08 (expert opinion; Duarte2011). Checks: P24 (script: at least two
+                  distinct media kinds across the talk).
+                type: array
+                minItems: 1
+                items:
+                  enum:
+                  - word
+                  - line
+                  - image
+                  - code
+                  - diagram
+                  - table
+                  - live
+                  - prop
+                  - blank
+              pause:
+                description: >-
+                  True when the beat includes a planned pause: a moment of silence over a slide for the audience
+                  to absorb it. Why: Segmenting content with pauses improves learning; a long beat must have a pause
+                  or a question. The six-minute figure is a policy, not evidence. Evidence, strongest first (experiment):
+                  C2-3-15 (experiment; Kosslyn2012, Mayer2003); C2-3-16 (expert opinion; Lortie2017). Checks: P22
+                  (script: no beat longer than six minutes without a pause or a question to the room).
+                type: boolean
+              question_to_room:
+                description: >-
+                  True when the speaker asks the room a question and waits for an answer. Why: Asking the room and
+                  waiting seven seconds is the one recommended audience interaction; at least one beat should, and
+                  it also counts as a pause. Evidence, strongest first (experiment): C2-3-15 (experiment; Kosslyn2012,
+                  Mayer2003); C2-3-14 (expert opinion; Winston2018); C2-3-16 (expert opinion; Lortie2017). Checks:
+                  P22 (script: no beat longer than six minutes without a pause or a question to the room), P23 (script:
+                  at least one beat asks the room a question and waits).
+                type: boolean
+              explains_system:
+                description: >-
+                  True when the beat explains how a system works as a whole. Such a beat should come after the beat
+                  that introduced its parts. Why: A system is understood after its parts; a beat that explains a
+                  whole must name the beat that introduced the parts. Evidence, strongest first (experiment): C2-3-17
+                  (experiment; Mayer2003). Checks: P21 (script: a beat that explains a system names the earlier
+                  beat that introduced its parts).
+                type: boolean
+              parts_beat:
+                description: >-
+                  The id of the earlier beat that introduced the parts this beat assembles. Why: The earlier beat
+                  whose parts this one assembles. Evidence, strongest first (experiment): C2-3-17 (experiment; Mayer2003).
+                  Checks: P21 (script: a beat that explains a system names the earlier beat that introduced its
+                  parts).
+                type: string
+              establishes_vision:
+                description: >-
+                  True on the beat that first shows the problem and the new approach; it should arrive within the
+                  first five minutes. Why: The audience decides within about five minutes whether there is a vision;
+                  the beat that shows it must start within the first five. Evidence, strongest first (expert opinion):
+                  C2-2-12 (expert opinion; Winston2018). Checks: P26 (script: a beat flagged establishes_vision
+                  starts within the first five minutes).
+                type: boolean
+              contrast:
+                description: >-
+                  True when the beat shows the old way and then the new way of the same thing, so the audience crosses
+                  the gap between what is and what could be inside the beat. Why: Duarte's alternation between what
+                  is and what could be does not have to happen between acts; a tour that shows the old way and then
+                  the new way in each chapter crosses the gap inside the act, and this flag is how P2 counts those
+                  crossings. Evidence, strongest first (expert opinion): C2-1-04 (expert opinion; Duarte2011); C2-2-03
+                  (expert opinion; Anderson2016, Duarte2011); C2-3-02 (expert opinion; Duarte2011). Checks: P2 (script:
+                  opening act has both sides of the gap).
+                type: boolean
+              docs:
+                description: >-
+                  The documentation pages this beat covers, as paths under docs/modules/ROOT/pages (or reference:index.adoc
+                  for the library reference); empty for a beat that covers none. Why: Ties the talk to the documentation
+                  so the two share one map; a record for the reader of the plan, not a checked property. Bookkeeping.
+                  No research criterion behind it.
+                type: array
+                items:
+                  type: string
+                  pattern: ^([a-z0-9-]+/)?[a-z0-9-]+\.adoc$|^reference:index\.adoc$
+              slides:
+                description: >-
+                  Everything the generator needs to render the deck, one entry per slide, in order. A slide holds
+                  what is on screen, what is said, and how it moves; the audience is meant to look at it, not read
+                  it. Why: One entry per slide, in order, with everything the generator needs; the slide checks
+                  (L) read this list and the HTML checks (H) compare the output to it. Evidence, strongest first
+                  (observational): C3-3-07 (observational; Kosslyn2012); C2-4-06 (expert opinion; Alley2005, Bourne2007,
+                  Kosslyn2012, Lortie2017, Winston2018); C3-2-06 (expert opinion; Alley2005, Alley2006); C3-3-01
+                  (expert opinion; Conway2014, Kosslyn2012, Naegle2021, Phillips2014); C3-3-04 (expert opinion;
+                  Blome2017, Winston2018); and 3 more in levels/0-criteria.yml under the checks below. Checks: S1
+                  (script: first slide is the title card), S4 (script: slide durations sum to the talk minutes within
+                  ten percent), H1 (script: one top-level section per slide, same ids and order, notes present).
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  required:
+                  - id
+                  - kind
+                  - on_screen
+                  - assertion
+                  additionalProperties: false
+                  properties:
+                    id:
+                      description: >-
+                        A short identifier; it becomes the section id in the HTML. Why: Becomes the section id in
+                        the HTML, which is how the built deck is matched back to the plan. Evidence, strongest first
+                        (expert opinion): C3-3-01 (expert opinion; Conway2014, Kosslyn2012, Naegle2021, Phillips2014).
+                        Checks: H1 (script: one top-level section per slide, same ids and order, notes present).
+                      type: string
+                      pattern: ^[a-z0-9-]+$
+                    kind:
+                      description: >-
+                        What sort of slide this is: the conference title card, a cover, a single word, a single
+                        line, an image, code, a diagram, a table, a live web page, a blank, the roadmap, the conclusions,
+                        the call to action, or a backup slide kept after the end for questions. The renderer and
+                        the on-screen limits depend on it. A rendered slide shows the documentation Mr.Docs generated
+                        from the code on the slide before it, the HTML fragment named by doc_html filling the slide,
+                        so every example is the input and then the real output, never an output described in a comment.
+                        Why: A slide of kind same keeps the previous slide on screen and changes only the notes.
+                        Nothing in the research asks for a slide per point: the one experiment on the question (Moulton2017,
+                        1,069 viewers) found slides no better than no visuals unless they carry meaningful motion,
+                        and the only recommended blank is during questions (Berk2012), so same is the evidence-backed
+                        default whenever a new point has no new picture worth showing. The renderer and the on-screen
+                        limits depend on the kind: word and line slides have word caps, picture slides must be explained
+                        in speech, the title card must be first and the conclusions last. Evidence, strongest first
+                        (meta-analysis): C3-1-03 (meta-analysis; Mayer2003); C3-1-05 (meta-analysis; Trypke2023);
+                        C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-4-02 (meta-analysis; Mayer2003); C3-3-07
+                        (observational; Kosslyn2012); and 12 more in levels/0-criteria.yml under the checks below.
+                        Checks: S1 (script: first slide is the title card), S2 (script: on-screen limits by kind:
+                        word ≤3 words, line ≤14 words, table ≤4x4, code ≤8 lines and), S6 (script: image and diagram
+                        slides carry the explanation in notes).
+                      enum:
+                      - title-card
+                      - cover
+                      - word
+                      - line
+                      - image
+                      - code
+                      - diagram
+                      - table
+                      - live
+                      - blank
+                      - roadmap
+                      - conclusions
+                      - cta
+                      - backup
+                      - same
+                      - snippet
+                      - rendered
+                    on_screen:
+                      description: >-
+                        The exact text shown, if any: a few words on a word slide, one line on a line slide, nothing
+                        on pictures and live pages. It is never a transcript of what is said. Why: Slides are for
+                        looking at, not reading: word caps by kind, no list-shaped text, no run of words that repeats
+                        the notes, the statement verbatim on the conclusions, a question only on the dramatic-question
+                        slide. Evidence, strongest first (meta-analysis): C3-1-04 (meta-analysis; Mayer2003, Trypke2023);
+                        C3-1-05 (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-2-03
+                        (experiment; Alley2006); C3-1-09 (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018);
+                        and 20 more in levels/0-criteria.yml under the checks below. Checks: S2 (script: on-screen
+                        limits by kind: word ≤3 words, line ≤14 words, table ≤4x4, code ≤8 lines and), S9 (script:
+                        no run of more than eight consecutive on-screen words appears verbatim in the notes), S16
+                        (script: conclusions slide on-screen text is the one idea), S20 (script: at least three
+                        slides flagged restates_idea), S24 (script: no on-screen text of kind line ends with a question
+                        mark unless flagged hostile_audience).
+                      type: string
+                    assertion:
+                      description: >-
+                        The one claim this slide makes, as a sentence, whether or not it is shown. If a slide makes
+                        two claims it is two slides. Why: Sentence assertions, not topic phrases, are the one slide
+                        design choice with experimental support; deciding each slide's assertion also surfaces the
+                        concepts the audience lacks. Evidence, strongest first (experiment): C3-2-01 (experiment;
+                        Garner2013); C6-1-01 (experiment; Aippersbach2013, Alley2005, Garner2009); C2-3-12 (expert
+                        opinion; Naegle2021); C3-2-05 (expert opinion; Blome2017, Naegle2021, Phillips2014); C3-2-07
+                        (expert opinion; Alley2005, Garner2009); and 2 more in levels/0-criteria.yml under the checks
+                        below. Checks: S3 (schema: every slide has exactly one assertion sentence).
+                      type: string
+                      minLength: 15
+                    notes:
+                      description: >-
+                        What the speaker says over this slide, written out in full as it will be spoken; the audience
+                        never reads it. Why: Slides are looked at and speech is listened to, so everything the audience
+                        should hear is written here as speech: pictures are explained in these words, the promise
+                        and the cue are in the opening ones, banned phrases are absent, the take-home and the insight
+                        are said, and the speaking time per slide is estimated from them. Evidence, strongest first
+                        (meta-analysis): C3-1-03 (meta-analysis; Mayer2003); C3-1-04 (meta-analysis; Mayer2003,
+                        Trypke2023); C3-4-02 (meta-analysis; Mayer2003); C2-3-07 (experiment; Mayer2003); C2-1-05
+                        (observational; Huang2020); and 18 more in levels/0-criteria.yml under the checks below.
+                        Checks: S6 (script: image and diagram slides carry the explanation in notes), S7 (script:
+                        every slide that is not an example carries at least twelve words of notes unless marked),
+                        S9 (script: no run of more than eight consecutive on-screen words appears verbatim in the
+                        notes), S22 (script: banned phrases absent from notes: apologies, 'is the mic on', 'a lot
+                        to tell you', 'great), S23 (script: opening slide notes contain the promise, the questions
+                        policy when it is announced, and), S26 (script: notes across the talk use inclusive 'we'
+                        at least ten times), S27 (script: speaking time implied by the notes at the meta speaking
+                        rate matches each slide's), M3 (script: The take-home is a problem, a proof and an action,
+                        none of them a restatement of the one), P5 (script: the insight answers the dramatic question
+                        outright, in words other than the idea), P19 (script: every beat has transition words, and
+                        the notes of its first slide contain them).
+                      type: string
+                    silent:
+                      description: >-
+                        True when nothing is said over the slide, as on the conference title card. Why: Exempts
+                        a slide from the minimum-notes and speaking-time checks when nothing is said over it. Evidence,
+                        strongest first (expert opinion): C3-3-06 (expert opinion; Alley2005, Blome2017, Bourne2007,
+                        Conway2014, Naegle2021); C3-1-01 (own experience; Conway2014, Freitas2026, Naegle2021, Phillips2014,
+                        Winston2018); C6-2-01 (own experience; Blome2017, Freitas2026, Kosslyn2012). Checks: S7
+                        (script: every slide that is not an example carries at least twelve words of notes unless
+                        marked), S27 (script: speaking time implied by the notes at the meta speaking rate matches
+                        each slide's).
+                      type: boolean
+                    duration_s:
+                      description: >-
+                        How many seconds the slide is on screen. Optional: when absent it is derived from the notes
+                        (words at the meta speaking rate plus a look-time for the kind), so write it only to override,
+                        where the time is not the speech: a live demo, a pause on a picture, the title card. Why:
+                        The notes are the source and the time is a consequence; a declared number is a promise the
+                        notes are then checked against (S27), and the durations sum to the talk time and drive the
+                        speaker view's pacing bar. Evidence, strongest first (observational): C3-3-07 (observational;
+                        Kosslyn2012); C3-2-06 (expert opinion; Alley2005, Alley2006); C3-3-01 (expert opinion; Conway2014,
+                        Kosslyn2012, Naegle2021, Phillips2014); C3-3-04 (expert opinion; Blome2017, Winston2018);
+                        C3-3-06 (expert opinion; Alley2005, Blome2017, Bourne2007, Conway2014, Naegle2021); C6-2-01
+                        (own experience; Blome2017, Freitas2026, Kosslyn2012). Checks: S4 (script: slide durations
+                        sum to the talk minutes within ten percent), S27 (script: speaking time implied by the notes
+                        at the meta speaking rate matches each slide's).
+                      type: integer
+                      minimum: 3
+                      maximum: 300
+                    motion:
+                      description: >-
+                        Deliberate motion into this slide: an auto-animate morph (shared elements move into their
+                        new place) or a named reveal.js transition. Absent on most slides, which then use the deck's
+                        default transition, read by the audience as simply 'next'. Why: Motion that shows how things
+                        relate is the one visual feature audiences measurably reward, and decorative motion is a
+                        seductive detail that hurts; so motion is declared where it carries meaning and defaulted
+                        everywhere else, with no justification needed for the default. Evidence, strongest first
+                        (meta-analysis): C3-3-13 (meta-analysis; Conway2014, Kosslyn2012, Mayer2003, Trypke2023);
+                        C3-4-02 (meta-analysis; Mayer2003); C3-4-05 (meta-analysis; Tversky2002); C3-4-06 (observational;
+                        Blome2017, Kosslyn2012, Moulton2017, Naegle2021, Phillips2014, Tversky2002); C3-5-05 (expert
+                        opinion; Kosslyn2012); C3-4-01 (own experience; Freitas2026, Moulton2017). Checks: S5 (script:
+                        motion is declared only where it shows a relation), H8 (script: consecutive auto-animate
+                        sections share at least one data-id), H9 (script: no <audio>, no autoplay video, transitions
+                        limited to none/fade/slide plus one zoom).
+                      type: object
+                      required:
+                      - kind
+                      additionalProperties: false
+                      properties:
+                        kind:
+                          description: >-
+                            The kind of motion: auto-animate (a morph in which shared elements move into their new
+                            place) or transition (a named reveal.js transition for this slide only). Why: Auto-animate
+                            morphs shared elements between consecutive slides (the build-ups, the pipeline lighting
+                            up its hooks, two tables of the same shape); a named transition is for the one place
+                            a different reveal is the point. Evidence, strongest first (meta-analysis): C3-3-13
+                            (meta-analysis; Conway2014, Kosslyn2012, Mayer2003, Trypke2023); C3-4-02 (meta-analysis;
+                            Mayer2003); C3-4-05 (meta-analysis; Tversky2002); C3-4-06 (observational; Blome2017,
+                            Kosslyn2012, Moulton2017, Naegle2021, Phillips2014, Tversky2002); C3-5-05 (expert opinion;
+                            Kosslyn2012); C3-4-01 (own experience; Freitas2026, Moulton2017). Checks: S5 (script:
+                            motion is declared only where it shows a relation), H8 (script: consecutive auto-animate
+                            sections share at least one data-id), H9 (script: no <audio>, no autoplay video, transitions
+                            limited to none/fade/slide plus one zoom).
+                          enum:
+                          - auto-animate
+                          - transition
+                        group:
+                          description: >-
+                            For auto-animate: the name of the run of consecutive slides that morph into one another.
+                            Why: Names the run of consecutive slides that morph into one another; consecutive sections
+                            in a group must share an element. Evidence, strongest first (own experience): C3-4-01
+                            (own experience; Freitas2026, Moulton2017). Checks: H8 (script: consecutive auto-animate
+                            sections share at least one data-id).
+                          type: string
+                          minLength: 1
+                        shared:
+                          description: >-
+                            For auto-animate: the names of the elements present on both this slide and the previous
+                            one, so the morph has something to move. Why: The elements present on both slides, so
+                            the morph has something to move. Evidence, strongest first (meta-analysis): C3-4-02
+                            (meta-analysis; Mayer2003); C3-4-01 (own experience; Freitas2026, Moulton2017). Checks:
+                            S5 (script: motion is declared only where it shows a relation), H8 (script: consecutive
+                            auto-animate sections share at least one data-id).
+                          type: array
+                          minItems: 1
+                          items:
+                            type: string
+                        name:
+                          description: >-
+                            For transition: none, fade, slide, zoom, convex or concave; the deck allows zoom once,
+                            for the reveal. Why: Transitions are limited to none, fade, slide and one zoom for the
+                            reveal; anything showier is decoration. Evidence, strongest first (meta-analysis): C3-3-13
+                            (meta-analysis; Conway2014, Kosslyn2012, Mayer2003, Trypke2023); C3-4-05 (meta-analysis;
+                            Tversky2002); C3-4-06 (observational; Blome2017, Kosslyn2012, Moulton2017, Naegle2021,
+                            Phillips2014, Tversky2002); C3-5-05 (expert opinion; Kosslyn2012). Checks: H9 (script:
+                            no <audio>, no autoplay video, transitions limited to none/fade/slide plus one zoom).
+                          enum:
+                          - none
+                          - fade
+                          - slide
+                          - zoom
+                          - convex
+                          - concave
+                      allOf:
+                      - if:
+                          properties:
+                            kind:
+                              const: auto-animate
+                        then:
+                          required:
+                          - group
+                          - shared
+                      - if:
+                          properties:
+                            kind:
+                              const: transition
+                        then:
+                          required:
+                          - name
+                    assets:
+                      description: >-
+                        The files the slide shows: images, the title card. Each must exist. Why: Every file the
+                        slide shows must exist, or the deck breaks on stage. Evidence, strongest first (experiment):
+                        C3-4-04 (experiment; Alley2005, Blome2017, Conway2014, Garner2009, Garner2013, Naegle2021).
+                        Checks: S8 (script: every referenced asset file exists).
+                      type: array
+                      items:
+                        type: string
+                    image_role:
+                      description: >-
+                        What the picture does: represents the subject, or explains something about it. Decorative
+                        pictures hurt recall, so there is no value for them. Why: Pictures that represent or explain
+                        help recall; decorative pictures hurt it, so there is no value for them. Evidence, strongest
+                        first (meta-analysis): C3-3-13 (meta-analysis; Conway2014, Kosslyn2012, Mayer2003, Trypke2023);
+                        C3-4-04 (experiment; Alley2005, Blome2017, Conway2014, Garner2009, Garner2013, Naegle2021).
+                        Checks: S10 (schema: image slides declare image_role represents|explains).
+                      enum:
+                      - represents
+                      - explains
+                    labels:
+                      description: >-
+                        Where labels go on a diagram: on the thing they label, never in a separate key. Why: Labels
+                        on the thing, never in a separate key, so the eye does not have to travel. Evidence, strongest
+                        first (experiment): C3-4-07 (experiment; Kosslyn2012, Mayer2003, Trypke2023); C3-4-10 (expert
+                        opinion; Blome2017, Kosslyn2012, Phillips2014). Checks: S11 (schema: diagram and chart slides
+                        declare labels integrated and a chart_kind with a rationale).
+                      const: integrated
+                    chart_kind:
+                      description: >-
+                        The graphic form of a diagram or chart, chosen for the point it makes: a line for a trend,
+                        bars for values, a flow for a process, a tree for a hierarchy, a quadrant for a trade-off,
+                        a map for territory, a table for comparison, a screenshot for the real thing, a sequence
+                        for steps. Why: The graphic form should be chosen for the point, not the data; naming it
+                        forces the choice. Evidence, strongest first (experiment): C3-4-07 (experiment; Kosslyn2012,
+                        Mayer2003, Trypke2023); C3-4-10 (expert opinion; Blome2017, Kosslyn2012, Phillips2014).
+                        Checks: S11 (schema: diagram and chart slides declare labels integrated and a chart_kind
+                        with a rationale).
+                      enum:
+                      - line
+                      - bar
+                      - flow
+                      - tree
+                      - quadrant
+                      - map
+                      - table
+                      - screenshot
+                      - sequence
+                    chart_rationale:
+                      description: >-
+                        Why this graphic form fits the point, in a sentence. Why: Why this form fits the point,
+                        so a reviewer can disagree. Evidence, strongest first (experiment): C3-4-07 (experiment;
+                        Kosslyn2012, Mayer2003, Trypke2023); C3-4-10 (expert opinion; Blome2017, Kosslyn2012, Phillips2014).
+                        Checks: S11 (schema: diagram and chart slides declare labels integrated and a chart_kind
+                        with a rationale).
+                      type: string
+                      minLength: 10
+                    emphasis:
+                      description: >-
+                        What the eye should land on first, and why it is the point. The most salient element on
+                        a slide must be the most important one. Why: The most salient element must be the most important
+                        one; picture slides must say what the eye lands on and why. Evidence, strongest first (observational):
+                        C3-4-11 (observational; Kosslyn2012, Phillips2014). Checks: S25 (script: image and diagram
+                        slides declare emphasis: the element that is largest and why).
+                      type: object
+                      required:
+                      - element
+                      - why
+                      additionalProperties: false
+                      properties:
+                        element:
+                          description: >-
+                            The element made largest or brightest. Why: The element made largest or brightest. Evidence,
+                            strongest first (observational): C3-4-11 (observational; Kosslyn2012, Phillips2014).
+                            Checks: S25 (script: image and diagram slides declare emphasis: the element that is
+                            largest and why).
+                          type: string
+                        why:
+                          description: >-
+                            Why that element is the point of the slide. Why: Why that element is the point of the
+                            slide. Evidence, strongest first (observational): C3-4-11 (observational; Kosslyn2012,
+                            Phillips2014). Checks: S25 (script: image and diagram slides declare emphasis: the element
+                            that is largest and why).
+                          type: string
+                          minLength: 10
+                    steps:
+                      description: >-
+                        For code slides, the code shown one step at a time, each step its own view with the lines
+                        being discussed brightened and the rest dimmed. At most eight lines per step. Why: Code
+                        shown in paced discrete steps with the discussed lines highlighted is the form the animation
+                        research supports; at most eight lines per step, highlights on every step of a multi-step
+                        slide. Evidence, strongest first (meta-analysis): C3-4-05 (meta-analysis; Tversky2002);
+                        C3-4-03 (expert opinion; Conway2014); C3-4-08 (no evidence mark; no source tag). Checks:
+                        S12 (script: a code slide with several highlight steps gives every step after the first
+                        its own notes), S13 (schema: code steps of at most forty lines each, in sequence).
+                      type: array
+                      minItems: 1
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          code:
+                            description: >-
+                              The code shown in this step. Why: The code shown in this step; at most eight lines
+                              and sixty columns. Evidence, strongest first (meta-analysis): C3-1-05 (meta-analysis;
+                              Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-4-05 (meta-analysis;
+                              Tversky2002); C3-3-07 (observational; Kosslyn2012); C3-3-08 (observational; Garner2009);
+                              and 10 more in levels/0-criteria.yml under the checks below. Checks: S2 (script: on-screen
+                              limits by kind: word ≤3 words, line ≤14 words, table ≤4x4, code ≤8 lines and), S13
+                              (schema: code steps of at most forty lines each, in sequence).
+                            type: string
+                          language:
+                            description: >-
+                              The language, for syntax highlighting. Why: For syntax highlighting. Bookkeeping.
+                              No research criterion behind it.
+                            type: string
+                          highlight:
+                            description: >-
+                              The lines lit in this step, all together: line numbers or ranges (6-9). A step is
+                              one position and its notes are the step's notes. Why: The lines being talked about,
+                              brightened; a step without highlights leaves the eye to wander. Evidence, strongest
+                              first (expert opinion): C3-4-03 (expert opinion; Conway2014); C3-4-08 (no evidence
+                              mark; no source tag). Checks: S12 (script: a code slide with several highlight steps
+                              gives every step after the first its own notes).
+                            type: array
+                            items:
+                              anyOf:
+                              - type: integer
+                                minimum: 1
+                              - type: string
+                                pattern: ^\d+(-\d+)?$
+                          notes:
+                            description: >-
+                              What is said over this step, when it differs from the slide's notes. Why: What is
+                              said over this step when it differs from the slide's notes; counted in the speaking-time
+                              estimate. Evidence, strongest first (expert opinion): C3-3-06 (expert opinion; Alley2005,
+                              Blome2017, Bourne2007, Conway2014, Naegle2021); C6-2-01 (own experience; Blome2017,
+                              Freitas2026, Kosslyn2012). Checks: S27 (script: speaking time implied by the notes
+                              at the meta speaking rate matches each slide's).
+                            type: string
+                          title:
+                            description: >-
+                              The file this step's code comes from, shown as a tab above the frame. Why: One frame
+                              is one file; the tab names it. Bookkeeping. No research criterion behind it.
+                            type: string
+                            minLength: 1
+                          blocks:
+                            description: >-
+                              Two files shown on one step, each in its own frame with its own title, stacked. Why:
+                              A command and the file it reads are two things; two frames say so, and one block with
+                              a comment naming the second file does not. Evidence, strongest first (meta-analysis):
+                              C3-1-05 (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023);
+                              C3-3-07 (observational; Kosslyn2012); C3-3-08 (observational; Garner2009); C3-1-08
+                              (expert opinion; Conway2014, Garner2013, Winston2018); and 10 more in levels/0-criteria.yml
+                              under the checks below. Checks: S2 (script: on-screen limits by kind: word ≤3 words,
+                              line ≤14 words, table ≤4x4, code ≤8 lines and), S12 (script: a code slide with several
+                              highlight steps gives every step after the first its own notes).
+                            type: array
+                            minItems: 1
+                            maxItems: 2
+                            items:
+                              type: object
+                              required:
+                              - title
+                              additionalProperties: false
+                              properties:
+                                code:
+                                  description: >-
+                                    The code of this block; at most eight lines and sixty columns. Why: The code
+                                    of this block; at most eight lines and sixty columns. Evidence, strongest first
+                                    (meta-analysis): C3-1-05 (meta-analysis; Trypke2023); C3-1-06 (meta-analysis;
+                                    Mayer2003, Trypke2023); C3-3-07 (observational; Kosslyn2012); C3-3-08 (observational;
+                                    Garner2009); C3-1-08 (expert opinion; Conway2014, Garner2013, Winston2018);
+                                    and 8 more in levels/0-criteria.yml under the checks below. Checks: S2 (script:
+                                    on-screen limits by kind: word ≤3 words, line ≤14 words, table ≤4x4, code ≤8
+                                    lines and).
+                                  type: string
+                                title:
+                                  description: >-
+                                    The file (or the shell, as $) this block is. Why: The file, or the shell as
+                                    $, that this block is. Bookkeeping. No research criterion behind it.
+                                  type: string
+                                  minLength: 1
+                                language:
+                                  description: >-
+                                    The language, for syntax highlighting. Why: For syntax highlighting. Bookkeeping.
+                                    No research criterion behind it.
+                                  type: string
+                                highlight:
+                                  description: >-
+                                    The line numbers brightened in this block. Why: The lines being talked about,
+                                    brightened. Evidence, strongest first (expert opinion): C3-4-03 (expert opinion;
+                                    Conway2014); C3-4-08 (no evidence mark; no source tag). Checks: S12 (script:
+                                    a code slide with several highlight steps gives every step after the first its
+                                    own notes).
+                                  type: array
+                                  items:
+                                    type: integer
+                                    minimum: 1
+                                file:
+                                  description: >-
+                                    A path in the repository the code is read from at build time, instead of a copy
+                                    typed here. Why: The block's code read from a repository file instead of typed.
+                                    Evidence, strongest first (experiment): C3-4-04 (experiment; Alley2005, Blome2017,
+                                    Conway2014, Garner2009, Garner2013, Naegle2021). Checks: S8 (script: every referenced
+                                    asset file exists).
+                                  type: string
+                                  minLength: 1
+                                include:
+                                  description: >-
+                                    How much of the file: tag=name, tags=a;!b, lines=a..b (after the tags), indent=0.
+                                    Why: How much of the file, as for the slide. Bookkeeping. No research criterion
+                                    behind it.
+                                  type: string
+                                  minLength: 1
+                              anyOf:
+                              - required:
+                                - code
+                              - required:
+                                - file
+                          file:
+                            description: >-
+                              A path in the repository the code is read from at build time, instead of a copy typed
+                              here. Why: The step's code read from a repository file instead of typed. Evidence,
+                              strongest first (experiment): C3-4-04 (experiment; Alley2005, Blome2017, Conway2014,
+                              Garner2009, Garner2013, Naegle2021). Checks: S8 (script: every referenced asset file
+                              exists).
+                            type: string
+                            minLength: 1
+                          include:
+                            description: >-
+                              How much of the file: tag=name, tags=a;!b, lines=a..b (after the tags), indent=0.
+                              Why: How much of the file, as for the slide. Bookkeeping. No research criterion behind
+                              it.
+                            type: string
+                            minLength: 1
+                        anyOf:
+                        - required:
+                          - code
+                        - required:
+                          - blocks
+                        - required:
+                          - file
+                    live_url:
+                      description: >-
+                        The web page shown as an interactive background: the real site rather than a screenshot
+                        of it. Relative paths are resolved from the deck directory. Why: The real page rather than
+                        a screenshot; live pages are a medium the beats count, and rehearsals must include them.
+                        Evidence, strongest first (expert opinion): C2-3-08 (expert opinion; Duarte2011); C6-2-02
+                        (expert opinion; Bourne2007, Conway2014); C6-2-05 (expert opinion; Anderson2016, Winston2018);
+                        C6-2-06 (expert opinion; Naegle2021); C2-2-02 (own experience; Freitas2026); C6-2-01 (own
+                        experience; Blome2017, Freitas2026, Kosslyn2012). Checks: P24 (script: at least two distinct
+                        media kinds across the talk), D1 (logged: at least three live, timed rehearsals within the
+                        slot, at least one to people who do not).
+                      type: string
+                    cta_url:
+                      description: >-
+                        The address on the call-to-action slide; it must be the one in the meta file. Why: Must
+                        be the url in the meta file, so the slide and the ask agree. Evidence, strongest first (own
+                        experience): C2-4-02 (own experience; Duarte2011, Freitas2026). Checks: S17 (script: call-to-action
+                        slide carries a URL and a QR asset that exists).
+                      type: string
+                      format: uri
+                    qr_asset:
+                      description: >-
+                        Path to the QR code image for that address. Why: The QR image for the address; it must exist.
+                        Evidence, strongest first (own experience): C2-4-02 (own experience; Duarte2011, Freitas2026).
+                        Checks: S17 (script: call-to-action slide carries a URL and a QR asset that exists).
+                      type: string
+                    table:
+                      description: >-
+                        A small table, for when the comparison itself is the picture: at most five columns, and
+                        if more than four rows, the rows to highlight. Why: For when the comparison itself is the
+                        picture; small, with the rows that matter highlighted so the eye goes there. Evidence, strongest
+                        first (meta-analysis): C3-1-05 (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003,
+                        Trypke2023); C3-3-07 (observational; Kosslyn2012); C3-3-08 (observational; Garner2009);
+                        C3-4-11 (observational; Kosslyn2012, Phillips2014); and 9 more in levels/0-criteria.yml
+                        under the checks below. Checks: S2 (script: on-screen limits by kind: word ≤3 words, line
+                        ≤14 words, table ≤4x4, code ≤8 lines and), S25 (script: image and diagram slides declare
+                        emphasis: the element that is largest and why).
+                      type: object
+                      required:
+                      - header
+                      - rows
+                      additionalProperties: false
+                      properties:
+                        header:
+                          description: >-
+                            The column headers. Why: Column headers; at most four columns. Evidence, strongest first
+                            (meta-analysis): C3-1-05 (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003,
+                            Trypke2023); C3-3-07 (observational; Kosslyn2012); C3-3-08 (observational; Garner2009);
+                            C3-1-08 (expert opinion; Conway2014, Garner2013, Winston2018); and 8 more in levels/0-criteria.yml
+                            under the checks below. Checks: S2 (script: on-screen limits by kind: word ≤3 words,
+                            line ≤14 words, table ≤4x4, code ≤8 lines and).
+                          type: array
+                          maxItems: 5
+                          items:
+                            type: string
+                        rows:
+                          description: >-
+                            The rows, each a list of cells; the first cell is the row label. Cells that are yes,
+                            no or maybe render as a check, a cross and a question mark, so the column pattern is
+                            seen rather than read; an empty cell renders empty. Why: A table is the picture only
+                            when its pattern can be taken in at a glance; eighteen words of yes and no have to be
+                            read one by one. Evidence, strongest first (meta-analysis): C3-1-05 (meta-analysis;
+                            Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-3-07 (observational;
+                            Kosslyn2012); C3-3-08 (observational; Garner2009); C3-1-08 (expert opinion; Conway2014,
+                            Garner2013, Winston2018); and 8 more in levels/0-criteria.yml under the checks below.
+                            Checks: S2 (script: on-screen limits by kind: word ≤3 words, line ≤14 words, table ≤4x4,
+                            code ≤8 lines and).
+                          type: array
+                          maxItems: 8
+                          items:
+                            type: array
+                            maxItems: 5
+                            items:
+                              type: string
+                        highlight_rows:
+                          description: >-
+                            The rows (counting from 1) drawn in the accent colour, when some rows are the point
+                            and the rest are context. Optional: a table whose rows are all equal is shown plain.
+                            Why: Salience should match importance; a highlight where nothing is more important than
+                            the rest misleads the eye, so none is the right choice there. Evidence, strongest first
+                            (observational): C3-4-11 (observational; Kosslyn2012, Phillips2014). Checks: S25 (script:
+                            image and diagram slides declare emphasis: the element that is largest and why).
+                          type: array
+                          items:
+                            type: integer
+                        steps:
+                          description: >-
+                            Optional: the same table shown one emphasis at a time, each step its own view in one
+                            morph group, with the words said over it. Rows, then columns, in the order they are
+                            talked about. Why: Talking through a table while all of it sits still is the slide the
+                            room stops watching; moving the emphasis with the speech is informative motion, the
+                            one kind audiences reward, and it splits the notes into the pieces they belong to. The
+                            steps' words count toward the slide's speaking time. Evidence, strongest first (meta-analysis):
+                            C3-4-02 (meta-analysis; Mayer2003); C3-3-06 (expert opinion; Alley2005, Blome2017, Bourne2007,
+                            Conway2014, Naegle2021); C3-1-01 (own experience; Conway2014, Freitas2026, Naegle2021,
+                            Phillips2014, Winston2018); C3-4-01 (own experience; Freitas2026, Moulton2017); C6-2-01
+                            (own experience; Blome2017, Freitas2026, Kosslyn2012). Checks: S5 (script: motion is
+                            declared only where it shows a relation), S7 (script: every slide that is not an example
+                            carries at least twelve words of notes unless marked), S27 (script: speaking time implied
+                            by the notes at the meta speaking rate matches each slide's), H8 (script: consecutive
+                            auto-animate sections share at least one data-id).
+                          type: array
+                          minItems: 2
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required:
+                            - notes
+                            properties:
+                              rows:
+                                description: >-
+                                  Rows (from 1) emphasised in this step. Why: Rows (from 1) emphasised in this step;
+                                  the rest of the table dims. Evidence, strongest first (meta-analysis): C3-1-05
+                                  (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-3-07
+                                  (observational; Kosslyn2012); C3-3-08 (observational; Garner2009); C3-1-08 (expert
+                                  opinion; Conway2014, Garner2013, Winston2018); and 8 more in levels/0-criteria.yml
+                                  under the checks below. Checks: S2 (script: on-screen limits by kind: word ≤3
+                                  words, line ≤14 words, table ≤4x4, code ≤8 lines and).
+                                type: array
+                                items:
+                                  type: integer
+                                  minimum: 1
+                              cols:
+                                description: >-
+                                  Columns (from 1, the label column is 1) emphasised in this step. Why: Columns
+                                  (from 1, the label column is 1) emphasised in this step; the rest of the table
+                                  dims. Evidence, strongest first (meta-analysis): C3-1-05 (meta-analysis; Trypke2023);
+                                  C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-3-07 (observational; Kosslyn2012);
+                                  C3-3-08 (observational; Garner2009); C3-1-08 (expert opinion; Conway2014, Garner2013,
+                                  Winston2018); and 8 more in levels/0-criteria.yml under the checks below. Checks:
+                                  S2 (script: on-screen limits by kind: word ≤3 words, line ≤14 words, table ≤4x4,
+                                  code ≤8 lines and).
+                                type: array
+                                items:
+                                  type: integer
+                                  minimum: 1
+                              notes:
+                                description: >-
+                                  What is said over this step, as it will be spoken. A stepped slide may carry all
+                                  its speech in its steps and have no notes of its own. Why: Each step's words are
+                                  its speaking time, so the pacing bar and the estimates follow the emphasis rather
+                                  than the slide. Evidence, strongest first (expert opinion): C3-3-06 (expert opinion;
+                                  Alley2005, Blome2017, Bourne2007, Conway2014, Naegle2021); C3-1-01 (own experience;
+                                  Conway2014, Freitas2026, Naegle2021, Phillips2014, Winston2018); C6-2-01 (own
+                                  experience; Blome2017, Freitas2026, Kosslyn2012). Checks: S7 (script: every slide
+                                  that is not an example carries at least twelve words of notes unless marked),
+                                  S27 (script: speaking time implied by the notes at the meta speaking rate matches
+                                  each slide's).
+                                type: string
+                                minLength: 10
+                        highlight_cols:
+                          description: >-
+                            The columns (counting from 1; the label column is 1) drawn in the accent colour, when
+                            one column is the point of the slide. Why: Salience should match importance; when the
+                            argument is about one column (the generated one, the tool you have), the eye should
+                            be sent there and nowhere else. Evidence, strongest first (meta-analysis): C3-1-05 (meta-analysis;
+                            Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-3-07 (observational;
+                            Kosslyn2012); C3-3-08 (observational; Garner2009); C3-4-11 (observational; Kosslyn2012,
+                            Phillips2014); and 9 more in levels/0-criteria.yml under the checks below. Checks: S2
+                            (script: on-screen limits by kind: word ≤3 words, line ≤14 words, table ≤4x4, code ≤8
+                            lines and), S25 (script: image and diagram slides declare emphasis: the element that
+                            is largest and why).
+                          type: array
+                          items:
+                            type: integer
+                            minimum: 1
+                    diagram:
+                      description: >-
+                        The Mermaid source for a diagram slide. Why: Mermaid source for a diagram slide; diagrams
+                        are the recommended alternative to text and must carry labels and a chart kind. Evidence,
+                        strongest first (experiment): C3-4-07 (experiment; Kosslyn2012, Mayer2003, Trypke2023);
+                        C3-4-10 (expert opinion; Blome2017, Kosslyn2012, Phillips2014). Checks: S11 (schema: diagram
+                        and chart slides declare labels integrated and a chart_kind with a rationale).
+                      type: string
+                    star_moment:
+                      description: >-
+                        True on the one slide that is the moment the audience will remember. Why: Exactly one slide
+                        is the moment the audience will remember, and it must match the story's. Evidence, strongest
+                        first (expert opinion): C2-3-09 (expert opinion; Duarte2011, Winston2018). Checks: S15 (script:
+                        exactly one slide flagged star_moment, and it matches the story's).
+                      type: boolean
+                    restates_idea:
+                      description: >-
+                        True when this slide says the one idea again; at least three slides should. Why: The idea
+                        is cycled; at least three slides say it again. Evidence, strongest first (expert opinion):
+                        C1-01 (expert opinion; Anderson2016, Stephens2010); C2-3-04 (expert opinion; Duarte2011,
+                        Lortie2017, Winston2018); C2-4-01 (own experience; Blome2017, Freitas2026). Checks: S20
+                        (script: at least three slides flagged restates_idea).
+                      type: boolean
+                    deliberately_complex:
+                      description: >-
+                        True on the one slide allowed to be impossible to read, shown to make the point that the
+                        thing is complex. Why: One slide may be impossible to read, to make the point that the thing
+                        is complex; at most one. Evidence, strongest first (expert opinion): C3-3-15 (expert opinion;
+                        Winston2018). Checks: S19 (script: at most one slide flagged deliberately_complex).
+                      type: boolean
+                    emotion_cue:
+                      description: >-
+                        How the speaker models the feeling this slide should produce: pause, marvel, lean in. Why:
+                        The speaker models the feeling the slide should produce; reviewed on the recording, not
+                        measured. Evidence, strongest first (experiment): C3-1-07 (experiment; Trypke2023); C3-3-14
+                        (experiment; Conway2014, Moulton2017); C2-3-10 (expert opinion; Duarte2011); C2-3-12 (expert
+                        opinion; Naegle2021); C3-3-11 (expert opinion; Naegle2021, Phillips2014); and 3 more in
+                        levels/0-criteria.yml under the checks below. Checks: R4 (review: each slide gives its point
+                        to a lapsed listener).
+                      type: string
+                    why:
+                      description: >-
+                        Why the slide exists, for people reading the file; not rendered. Why: For people reading
+                        the file; not rendered. Bookkeeping. No research criterion behind it.
+                      type: string
+                    dramatic_question:
+                      description: >-
+                        True on the single slide allowed to show a question as its text: the story's dramatic question,
+                        answered on the next slide. Why: A question as headline recalls worse than a sentence; one
+                        slide is exempt, the story's dramatic question, and its text must equal it. Evidence, strongest
+                        first (experiment): C3-2-03 (experiment; Alley2006). Checks: S24 (script: no on-screen text
+                        of kind line ends with a question mark unless flagged hostile_audience).
+                      type: boolean
+                    code:
+                      description: >-
+                        For a code slide: one block of code, shown once, up to 40 lines and 60 columns; the highlights
+                        walk through it and the deck scrolls to each. Why: One block with moving emphasis is how
+                        a reader follows code: the lines keep their numbers and the eye keeps its place, where separate
+                        slides of the same code reset both. Evidence, strongest first (meta-analysis): C3-1-05 (meta-analysis;
+                        Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-4-05 (meta-analysis; Tversky2002);
+                        C3-3-07 (observational; Kosslyn2012); C3-3-08 (observational; Garner2009); and 11 more in
+                        levels/0-criteria.yml under the checks below. Checks: S2 (script: on-screen limits by kind:
+                        word ≤3 words, line ≤14 words, table ≤4x4, code ≤8 lines and), S12 (script: a code slide
+                        with several highlight steps gives every step after the first its own notes), S13 (schema:
+                        code steps of at most forty lines each, in sequence).
+                      type: string
+                      minLength: 1
+                    language:
+                      description: >-
+                        The language of code or source, for syntax highlighting. Why: The language name highlight.js
+                        uses to colour the code or the snippet source. No research criterion behind it.
+                      type: string
+                    highlights:
+                      description: >-
+                        For a single-block code slide: the positions lit one after another, each a fragment. Every
+                        position is an object with the lines it lights and the notes said while they are lit, or
+                        a bare range string lit under the slide's own notes; a single highlight may be the bare
+                        string itself, without a list. Why: Each highlight is one point about the code, at most
+                        eight lines, so the audience is never asked to read more than a paragraph of it at once.
+                        Evidence, strongest first (meta-analysis): C3-1-05 (meta-analysis; Trypke2023); C3-1-06
+                        (meta-analysis; Mayer2003, Trypke2023); C3-3-07 (observational; Kosslyn2012); C3-3-08 (observational;
+                        Garner2009); C3-1-08 (expert opinion; Conway2014, Garner2013, Winston2018); and 10 more
+                        in levels/0-criteria.yml under the checks below. Checks: S2 (script: on-screen limits by
+                        kind: word ≤3 words, line ≤14 words, table ≤4x4, code ≤8 lines and), S12 (script: a code
+                        slide with several highlight steps gives every step after the first its own notes).
+                      anyOf:
+                      - type: string
+                        pattern: ^\d+(-\d+)?(,\d+(-\d+)?)*$
+                      - type: array
+                        items:
+                          anyOf:
+                          - type: string
+                            pattern: ^\d+(-\d+)?(,\d+(-\d+)?)*$
+                          - type: object
+                            required:
+                            - lines
+                            - notes
+                            additionalProperties: false
+                            properties:
+                              lines:
+                                description: >-
+                                  The lines lit in this position, in reveal.js syntax: one line (4), a range (6-9),
+                                  or several lit together (1,29,35). Why: The lines lit in this position: one line,
+                                  a range, or several lit together. Evidence, strongest first (meta-analysis): C3-1-05
+                                  (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-3-07
+                                  (observational; Kosslyn2012); C3-3-08 (observational; Garner2009); C3-1-08 (expert
+                                  opinion; Conway2014, Garner2013, Winston2018); and 10 more in levels/0-criteria.yml
+                                  under the checks below. Checks: S2 (script: on-screen limits by kind: word ≤3
+                                  words, line ≤14 words, table ≤4x4, code ≤8 lines and), S12 (script: a code slide
+                                  with several highlight steps gives every step after the first its own notes).
+                                type: string
+                                pattern: ^\d+(-\d+)?(,\d+(-\d+)?)*$
+                              notes:
+                                description: >-
+                                  What is said while these lines are lit; the speaker view shows it with the fragment.
+                                  Why: A highlight is a point being made, and the speaker needs the words for that
+                                  point when it lights, not the whole slide's notes on every step. Evidence, strongest
+                                  first (expert opinion): C3-3-06 (expert opinion; Alley2005, Blome2017, Bourne2007,
+                                  Conway2014, Naegle2021); C3-4-03 (expert opinion; Conway2014); C6-2-01 (own experience;
+                                  Blome2017, Freitas2026, Kosslyn2012); C3-4-08 (no evidence mark; no source tag).
+                                  Checks: S12 (script: a code slide with several highlight steps gives every step
+                                  after the first its own notes), S27 (script: speaking time implied by the notes
+                                  at the meta speaking rate matches each slide's).
+                                type: string
+                                minLength: 1
+                    source:
+                      description: >-
+                        For a snippet slide: the C++ source exactly as the author wrote it, shown on the left; or
+                        name the file it lives in with `file` and let the build read it. Why: The point of a snippet
+                        slide is the pair: this is what you wrote, and that is what came out; the source is the
+                        half the room recognises as their own. Evidence, strongest first (meta-analysis): C3-1-05
+                        (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-3-07 (observational;
+                        Kosslyn2012); C3-3-08 (observational; Garner2009); C3-1-08 (expert opinion; Conway2014,
+                        Garner2013, Winston2018); and 8 more in levels/0-criteria.yml under the checks below. Checks:
+                        S2 (script: on-screen limits by kind: word ≤3 words, line ≤14 words, table ≤4x4, code ≤8
+                        lines and).
+                      type: string
+                      minLength: 1
+                    doc_html:
+                      description: >-
+                        For a snippet slide, the documentation Mr.Docs generated from that source, shown on the
+                        right; for a rendered slide, the documentation generated from the code on the slide before,
+                        filling the slide. An HTML fragment under assets/, shown in the deck's own palette. Why:
+                        Showing the generated output rather than describing it is the evidence; rendering it in
+                        the deck's theme rather than the website's shows that the output adapts to wherever it is
+                        embedded. Evidence, strongest first (experiment): C3-4-04 (experiment; Alley2005, Blome2017,
+                        Conway2014, Garner2009, Garner2013, Naegle2021). Checks: S8 (script: every referenced asset
+                        file exists).
+                      type: string
+                      pattern: ^assets/.*\.html$
+                    title:
+                      description: >-
+                        For a code slide: the file the code comes from, shown as a tab above the frame. Why: One
+                        frame is one file. Naming the file in the frame's tab, not in a comment inside the code,
+                        keeps the code the code and lets two files on a slide be two frames. Bookkeeping. No research
+                        criterion behind it.
+                      type: string
+                      minLength: 1
+                    fit:
+                      description: >-
+                        For an image slide: contain (default) keeps the picture inside the slide's margins; bleed
+                        fills the slide to its edges; page is a tall picture (a document page) that reaches the
+                        top and bottom edges and leaves the canvas visible at the sides. Why: A captured page is
+                        shown as the page, edge to edge, so the room sees the site and not a picture of it. Bookkeeping.
+                        No research criterion behind it.
+                      enum:
+                      - contain
+                      - bleed
+                      - page
+                    file:
+                      description: >-
+                        A path in the repository the code is read from at build time, instead of a copy typed here.
+                        Why: An example that already exists as a file is shown from that file, so the plan carries
+                        a pointer and not a second copy that could drift from it. Evidence, strongest first (experiment):
+                        C3-4-04 (experiment; Alley2005, Blome2017, Conway2014, Garner2009, Garner2013, Naegle2021).
+                        Checks: S8 (script: every referenced asset file exists).
+                      type: string
+                      minLength: 1
+                    include:
+                      description: >-
+                        How much of the file: tag=name, tags=a;!b, lines=a..b (after the tags), indent=0. Why: How
+                        much of the file: tag=name, tags=a;!b, lines=a..b (after the tags), indent=0; the same attributes
+                        the docs use. Bookkeeping. No research criterion behind it.
+                      type: string
+                      minLength: 1
+                    symbols:
+                      description: >-
+                        For a rendered slide: the symbols of the generated page to show, by name; the rest of the
+                        fragment is left out. Why: A generated page with several symbols is too small to read on
+                        one slide; showing one symbol per slide keeps each readable. Bookkeeping. No research criterion
+                        behind it.
+                      type: array
+                      minItems: 1
+                      items:
+                        type: string
+                  allOf:
+                  - if:
+                      properties:
+                        kind:
+                          const: image
+                    then:
+                      required:
+                      - assets
+                      - image_role
+                      - emphasis
+                  - if:
+                      properties:
+                        kind:
+                          const: diagram
+                    then:
+                      required:
+                      - labels
+                      - chart_kind
+                      - chart_rationale
+                      - emphasis
+                  - if:
+                      properties:
+                        kind:
+                          const: code
+                    then:
+                      anyOf:
+                      - required:
+                        - steps
+                      - required:
+                        - code
+                      - required:
+                        - file
+                  - if:
+                      properties:
+                        kind:
+                          const: live
+                    then:
+                      required:
+                      - live_url
+                  - if:
+                      properties:
+                        kind:
+                          const: cta
+                    then:
+                      required:
+                      - cta_url
+                      - qr_asset
+                  - if:
+                      properties:
+                        kind:
+                          const: table
+                    then:
+                      required:
+                      - table
+                  - if:
+                      properties:
+                        kind:
+                          const: title-card
+                    then:
+                      required:
+                      - assets
+                  - if:
+                      properties:
+                        kind:
+                          const: snippet
+                    then:
+                      required:
+                      - doc_html
+                      anyOf:
+                      - required:
+                        - source
+                      - required:
+                        - file
+                  - if:
+                      properties:
+                        kind:
+                          const: rendered
+                    then:
+                      required:
+                      - doc_html
+                  anyOf:
+                  - required:
+                    - notes
+                  - required:
+                    - steps
+                  - properties:
+                      table:
+                        required:
+                        - steps
+                        description: >-
+                          . Why: For when the comparison itself is the picture; small, with the rows that matter
+                          highlighted so the eye goes there. Evidence, strongest first (meta-analysis): C3-1-05
+                          (meta-analysis; Trypke2023); C3-1-06 (meta-analysis; Mayer2003, Trypke2023); C3-3-07 (observational;
+                          Kosslyn2012); C3-3-08 (observational; Garner2009); C3-4-11 (observational; Kosslyn2012,
+                          Phillips2014); and 9 more in levels/0-criteria.yml under the checks below. Checks: S2
+                          (script: on-screen limits by kind: word ≤3 words, line ≤14 words, table ≤4x4, code ≤8
+                          lines and), S25 (script: image and diagram slides declare emphasis: the element that is
+                          largest and why).
+                    required:
+                    - table
+                  - required:
+                    - highlights
+  chapters:
+    description: >-
+      The sections of the tour the audience will be shown as a map, each with an image that stands for it, so the
+      map is remembered as pictures rather than as a list of names. Tour beats name their chapter and list the docs
+      pages under it. Why: The chapters are not the structure of the talk, the acts are; they are how the tour is
+      presented to the audience, as a map, and they are where the decision of which docs sections to tour is made:
+      a nav section that is not a chapter is not toured. An early map helps people organise what follows, and pictures
+      are remembered better than a list of names; the research's cap is five. Evidence, strongest first (experiment):
+      C2-3-07 (experiment; Mayer2003); C2-2-05 (expert opinion; Alley2005, Freitas2026, Kosslyn2012); C2-3-06 (expert
+      opinion; Kosslyn2012, Winston2018). Checks: P10 (script: roadmap chapters, each with a mnemonic image asset
+      that exists), P19 (script: every beat has transition words, and the notes of its first slide contain them).
+    type: array
+    minItems: 1
+    maxItems: 6
+    items:
+      type: object
+      required:
+      - id
+      - label
+      - mnemonic_image
+      - points
+      additionalProperties: false
+      properties:
+        label:
+          description: >-
+            The chapter's name as it will be said or shown on the map. Why: The name as it is said and shown on
+            the map. Evidence, strongest first (experiment): C2-3-07 (experiment; Mayer2003); C2-2-05 (expert opinion;
+            Alley2005, Freitas2026, Kosslyn2012). Checks: P10 (script: roadmap chapters, each with a mnemonic image
+            asset that exists).
+          type: string
+          minLength: 3
+        id:
+          description: >-
+            A short identifier the beats and slides use to refer to this chapter. Why: Cross-reference used by the
+            beats to place themselves in a chapter. Bookkeeping. No research criterion behind it.
+          type: string
+          pattern: ^[a-z0-9-]+$
+        mnemonic_image:
+          description: >-
+            Path to the picture that stands for this chapter on the map slide and reappears when the chapter arrives.
+            Why: The map is remembered as pictures; each image must exist. Evidence, strongest first (experiment):
+            C2-3-07 (experiment; Mayer2003); C2-2-05 (expert opinion; Alley2005, Freitas2026, Kosslyn2012). Checks:
+            P10 (script: roadmap chapters, each with a mnemonic image asset that exists).
+          type: string
+        points:
+          description: >-
+            The few things this chapter says, at most five, each in one line; a summary of the chapter's pages,
+            not a list of them. Why: At most five per chapter, so the map stays a map and not an outline. Evidence,
+            strongest first (experiment): C2-3-07 (experiment; Mayer2003); C2-2-05 (expert opinion; Alley2005, Freitas2026,
+            Kosslyn2012). Checks: P10 (script: roadmap chapters, each with a mnemonic image asset that exists).
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+            minLength: 5

@@ -1,0 +1,168 @@
+# JSON Schema (draft 2020-12) for levels/0-criteria.yml, written as YAML.
+# Level 0 is generated: `pipeline.py criteria` derives it from research/HOW-TO-GIVE-GREAT-TALKS.md and tools/criteria_map.py. Edit those, not the file.
+title: 'Level 0: criteria. Every research claim, the evidence behind it, and the check that enforces it.'
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+required:
+- about
+- checks
+- criteria
+additionalProperties: false
+properties:
+  about:
+    description: >-
+      One paragraph saying what the file is and that it is generated. Why: a reader who opens this file first needs
+      to know not to edit it. No research criterion behind it; bookkeeping.
+    type: string
+    minLength: 40
+  checks:
+    description: >-
+      The catalogue of checks the pipeline can run, keyed by check id, each with the level it runs at, the kind of
+      enforcement, and what it verifies in plain words. Why: a criterion is only enforced if it names a check, and a
+      check only means something if it is described once, here, and referenced by id everywhere else. The ids are
+      M (meta), P (plan: the story and its beats), S (slides), H (html), D (logs: preparation and delivery), R (reviews), and N/A for claims that create no
+      criterion. Consumed by every criterion's checks list and by the report.
+    type: object
+    propertyNames:
+      pattern: ^([MPSHDR][0-9]{1,2}|N/A)$
+    additionalProperties:
+      type: object
+      required:
+      - level
+      - kind
+      - what
+      additionalProperties: false
+      properties:
+        level:
+          description: The pipeline level the check runs at; none for the informational N/A entry.
+          enum:
+          - meta
+          - plan
+          - slides
+          - html
+          - logs
+          - reviews
+          - none
+        kind:
+          description: >-
+            How the check is enforced. 
+            
+            schema: the field must exist with the shape. The field being required is the enforcement.
+            script: a script measures it (counts, durations, orders, cross-references, file existence, string
+            containment, CSS values).
+            review: a reader judges it and records a verdict in the logs.
+            logged: the speaker did something and wrote it down; a script counts the entries.
+            informational: nothing is enforced; the claim is background, a consequence, or a refuted belief.
+          enum:
+          - schema
+          - script
+          - review
+          - logged
+          - informational
+        what:
+          description: >-
+            What the check verifies, in one or two sentences, with the threshold when there is one and the word
+            'policy' when the threshold is a design choice rather than a research finding.
+          type: string
+          minLength: 10
+  criteria:
+    description: >-
+      One entry per claim in the research synthesis, in the order the bullets appear, each mapped to the checks that
+      enforce it. Why: this is the bridge between the reading and the deck; a claim with no check is a claim the
+      talk may silently ignore, and a check with no claim is a rule nobody asked for. Ids follow bullet order
+      (C<section>-<bullet>), so inserting a bullet shifts every id after it. Consumed by the report, which shows
+      per claim whether the deck currently satisfies it.
+    type: array
+    minItems: 1
+    items:
+      type: object
+      required:
+      - id
+      - section
+      - claim
+      - sources
+      - evidence
+      - evidence_level
+      - checks
+      - levels
+      - enforcement
+      additionalProperties: false
+      properties:
+        id:
+          description: C, the research section number with dots as dashes, a dash, and the bullet's position in the section, two digits.
+          type: string
+          pattern: ^C[0-9]+(-[0-9]+)?-[0-9]{2}$
+        section:
+          description: The heading of the research section the claim sits under, as written there.
+          type: string
+          minLength: 3
+        claim:
+          description: >-
+            The first sentence of the research bullet, with the evidence marks and source tags stripped; the rest of
+            the bullet is in the research file.
+          type: string
+          minLength: 10
+        sources:
+          description: The source tags cited in the bullet, as they appear in the research log ([Author2012] without the brackets).
+          type: array
+          items:
+            type: string
+            pattern: ^[A-Za-z]+[0-9]{4}$
+        evidence:
+          description: >-
+            The evidence mark exactly as written in the research, so nothing is lost: for example 'exp, one randomised
+            study' or 'expert; the fifth is Winston's estimate'. Empty when the bullet carries no mark, which the
+            report shows rather than hides.
+          type: string
+        evidence_level:
+          description: >-
+            The strongest kind of evidence in the mark, normalised so criteria can be filtered: meta (meta-analysis
+            or systematic review), exp (experiment), obs (observational or survey), expert-consensus (a count of
+            advice sources agreeing), expert (one practitioner's advice), own (the speaker's own notes), none (no
+            mark). Why: the descriptions in the level schemas and the report lead with this, so a rule resting on one
+            person's opinion is never mistaken for a finding.
+          enum:
+          - meta
+          - exp
+          - obs
+          - expert-consensus
+          - expert
+          - own
+          - none
+        checks:
+          description: >-
+            The ids of the checks that enforce the claim, or N/A when nothing should. Every id must exist in checks
+            above; TODO marks an unmapped claim and fails validation.
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: ^([MPSHDR][0-9]{1,2}|N/A)$
+        levels:
+          description: The pipeline levels of the mapped checks, derived; empty for N/A.
+          type: array
+          items:
+            enum:
+            - meta
+            - plan
+            - slides
+            - html
+            - logs
+            - reviews
+            - none
+        enforcement:
+          description: The kinds of the mapped checks, derived, so a reader sees at a glance whether the claim is proven, measured, reviewed or merely noted.
+          type: array
+          items:
+            enum:
+            - schema
+            - script
+            - review
+            - logged
+            - informational
+        note:
+          description: >-
+            Why the mapping is what it is when that is not obvious: a policy decision that overrides the claim, why a
+            myth maps to N/A, which field carries an implied criterion. Present only when the map has something to say.
+          type: string
+          minLength: 3

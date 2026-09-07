@@ -1,0 +1,394 @@
+# JSON Schema (draft 2020-12) for logs/logs.yml (level 4), written as YAML.
+# The tool loads this file directly; `pipeline.py schemas` writes a JSON copy to build/schemas/ for editors that need one.
+title: >-
+  Level 6: preparation logs and review sign-offs. What cannot be enforced on content is recorded here and counted.
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+required:
+- rehearsals
+- checklist
+- reviews
+additionalProperties: false
+properties:
+  rehearsals:
+    description: >-
+      One entry for every rehearsal, appended as they happen. The pipeline counts them: the talk needs three live,
+      timed run-throughs, at least one to a listener who does not know the work, and at least one recorded. Why:
+      Rehearsing out loud, timed, more than once, to someone who does not know the work, and once recorded, is the
+      most repeated advice in the research; the counts are checked. Evidence, strongest first (expert opinion):
+      C4-01 (expert opinion; Conway2014); C4-02 (expert opinion; Blome2017, Freitas2026); C4-03 (expert opinion;
+      Blome2017, Moulton2017, Winston2018); C4-04 (expert opinion; Blome2017, Freitas2026, Naegle2021); C4-07 (expert
+      opinion; Bourne2007, Lortie2017); and 8 more in levels/0-criteria.yml under the checks below. Checks: D1 (logged:
+      at least three live, timed rehearsals within the slot, at least one to people who do not), D2 (logged: at
+      least one rehearsal recorded and reviewed, with captions check).
+    type: array
+    items:
+      type: object
+      required:
+      - date
+      - live
+      - timed_minutes
+      - audience
+      - recorded
+      - opening_rehearsed
+      - issues
+      additionalProperties: false
+      properties:
+        date:
+          description: 'When the rehearsal happened. Why: When. Bookkeeping. No research criterion behind it.'
+          type: string
+          format: date
+        live:
+          description: >-
+            True when it was given standing, out loud, in the real time slot, as if to an audience. Why: Only a
+            standing, out-loud, full-time run counts as a rehearsal. Evidence, strongest first (expert opinion):
+            C6-2-02 (expert opinion; Bourne2007, Conway2014); C6-2-05 (expert opinion; Anderson2016, Winston2018);
+            C6-2-06 (expert opinion; Naegle2021); C2-2-02 (own experience; Freitas2026); C6-2-01 (own experience;
+            Blome2017, Freitas2026, Kosslyn2012). Checks: D1 (logged: at least three live, timed rehearsals within
+            the slot, at least one to people who do not).
+          type: boolean
+        timed_minutes:
+          description: >-
+            How long it took, timed. Why: Timed against the talk time; also gives the measured speaking rate that
+            replaces speaking_wpm. Evidence, strongest first (expert opinion): C3-3-06 (expert opinion; Alley2005,
+            Blome2017, Bourne2007, Conway2014, Naegle2021); C6-2-02 (expert opinion; Bourne2007, Conway2014); C6-2-05
+            (expert opinion; Anderson2016, Winston2018); C6-2-06 (expert opinion; Naegle2021); C2-2-02 (own experience;
+            Freitas2026); C6-2-01 (own experience; Blome2017, Freitas2026, Kosslyn2012). Checks: D1 (logged: at
+            least three live, timed rehearsals within the slot, at least one to people who do not), S27 (script:
+            speaking time implied by the notes at the meta speaking rate matches each slide's).
+          type: number
+          minimum: 1
+        audience:
+          description: >-
+            Who listened. Why: Who listened, so the naive-listener requirement can be checked. Evidence, strongest
+            first (expert opinion): C6-2-02 (expert opinion; Bourne2007, Conway2014); C6-2-05 (expert opinion; Anderson2016,
+            Winston2018); C6-2-06 (expert opinion; Naegle2021); C2-2-02 (own experience; Freitas2026); C6-2-01 (own
+            experience; Blome2017, Freitas2026, Kosslyn2012). Checks: D1 (logged: at least three live, timed rehearsals
+            within the slot, at least one to people who do not).
+          type: array
+          items:
+            type: object
+            required:
+            - who
+            - knows_topic
+            additionalProperties: false
+            properties:
+              who:
+                description: 'The listener''s name or role. Why: Name or role. Bookkeeping. No research criterion
+                  behind it.'
+                type: string
+              knows_topic:
+                description: >-
+                  Whether the listener already knew the work. People who know it hallucinate content that is not
+                  there, so at least one listener should not. Why: Listeners who know the work hallucinate content
+                  that is not there; at least one rehearsal needs one who does not. Evidence, strongest first (expert
+                  opinion): C6-2-02 (expert opinion; Bourne2007, Conway2014); C6-2-05 (expert opinion; Anderson2016,
+                  Winston2018); C6-2-06 (expert opinion; Naegle2021); C2-2-02 (own experience; Freitas2026); C6-2-01
+                  (own experience; Blome2017, Freitas2026, Kosslyn2012). Checks: D1 (logged: at least three live,
+                  timed rehearsals within the slot, at least one to people who do not).
+                type: boolean
+        recorded:
+          description: >-
+            Whether the rehearsal was recorded for review. Why: At least one rehearsal is recorded so delivery can
+            be reviewed rather than remembered. Evidence, strongest first (expert opinion): C4-01 (expert opinion;
+            Conway2014); C4-02 (expert opinion; Blome2017, Freitas2026); C4-03 (expert opinion; Blome2017, Moulton2017,
+            Winston2018); C4-04 (expert opinion; Blome2017, Freitas2026, Naegle2021); C4-07 (expert opinion; Bourne2007,
+            Lortie2017); and 3 more in levels/0-criteria.yml under the checks below. Checks: D2 (logged: at least
+            one rehearsal recorded and reviewed, with captions check).
+          type: boolean
+        captions_check:
+          description: >-
+            Whether the recording was watched with automatic captions on, to see where pace and articulation lose
+            words. Why: Automatic captions show where pace and articulation lose words. Evidence, strongest first
+            (expert opinion): C4-01 (expert opinion; Conway2014); C4-02 (expert opinion; Blome2017, Freitas2026);
+            C4-03 (expert opinion; Blome2017, Moulton2017, Winston2018); C4-04 (expert opinion; Blome2017, Freitas2026,
+            Naegle2021); C4-07 (expert opinion; Bourne2007, Lortie2017); and 3 more in levels/0-criteria.yml under
+            the checks below. Checks: D2 (logged: at least one rehearsal recorded and reviewed, with captions check).
+          type: boolean
+        opening_rehearsed:
+          description: >-
+            Whether the opening two minutes were rehearsed until automatic. Why: The opening is prepared better
+            than anything else, until automatic. Evidence, strongest first (expert opinion): C6-2-02 (expert opinion;
+            Bourne2007, Conway2014); C6-2-05 (expert opinion; Anderson2016, Winston2018); C6-2-06 (expert opinion;
+            Naegle2021); C2-2-02 (own experience; Freitas2026); C6-2-01 (own experience; Blome2017, Freitas2026,
+            Kosslyn2012). Checks: D1 (logged: at least three live, timed rehearsals within the slot, at least one
+            to people who do not).
+          type: boolean
+        issues:
+          description: >-
+            What this rehearsal showed needs fixing: slides that ran long, details to cut, transitions that stumbled.
+            Why: What to fix, so the next rehearsal has a target. Informational. No research criterion behind it.
+          type: array
+          items:
+            type: string
+        delivery_review:
+          description: >-
+            Notes from watching the recording against the delivery section of the research. Why: The delivery section
+            of the research applied to the recording; the reviewer records it as R5. Evidence, strongest first (observational):
+            C3-1-09 (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018); C4-09 (observational; Blome2017,
+            Garner2009, Kosslyn2012, Winston2018); C1-04 (expert opinion; Conway2014); C2-2-10 (expert opinion;
+            Blome2017, Winston2018); C4-01 (expert opinion; Conway2014); and 9 more in levels/0-criteria.yml under
+            the checks below. Checks: D2 (logged: at least one rehearsal recorded and reviewed, with captions check),
+            R5 (review: delivery review of the recording: energy, eye contact, pace, hands, pauses, not reading).
+          type: object
+          additionalProperties: false
+          properties:
+            energy:
+              description: >-
+                Did the energy carry: was there passion the room could feel?. Why: Visible passion is what audiences
+                report being inspired by. Evidence, strongest first (observational): C3-1-09 (observational; Blome2017,
+                Garner2009, Kosslyn2012, Winston2018); C4-09 (observational; Blome2017, Garner2009, Kosslyn2012,
+                Winston2018); C1-04 (expert opinion; Conway2014); C2-2-10 (expert opinion; Blome2017, Winston2018);
+                C4-01 (expert opinion; Conway2014); and 8 more in levels/0-criteria.yml under the checks below.
+                Checks: R5 (review: delivery review of the recording: energy, eye contact, pace, hands, pauses,
+                not reading).
+              type: string
+            eye_contact:
+              description: >-
+                Was there eye contact with the room, one person at a time?. Why: One person at a time, not the back
+                wall. Evidence, strongest first (observational): C3-1-09 (observational; Blome2017, Garner2009,
+                Kosslyn2012, Winston2018); C4-09 (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018);
+                C1-04 (expert opinion; Conway2014); C2-2-10 (expert opinion; Blome2017, Winston2018); C4-01 (expert
+                opinion; Conway2014); and 8 more in levels/0-criteria.yml under the checks below. Checks: R5 (review:
+                delivery review of the recording: energy, eye contact, pace, hands, pauses, not reading).
+              type: string
+            pace:
+              description: >-
+                Was the pace right and the voice varied?. Why: The research's one direction on pace is slower, with
+                a varied voice. Evidence, strongest first (observational): C3-1-09 (observational; Blome2017, Garner2009,
+                Kosslyn2012, Winston2018); C4-09 (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018);
+                C1-04 (expert opinion; Conway2014); C2-2-10 (expert opinion; Blome2017, Winston2018); C4-01 (expert
+                opinion; Conway2014); and 8 more in levels/0-criteria.yml under the checks below. Checks: R5 (review:
+                delivery review of the recording: energy, eye contact, pace, hands, pauses, not reading).
+              type: string
+            hands:
+              description: >-
+                Were the hands free and doing something, not in pockets?. Why: Free and doing something. Evidence,
+                strongest first (observational): C3-1-09 (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018);
+                C4-09 (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018); C1-04 (expert opinion; Conway2014);
+                C2-2-10 (expert opinion; Blome2017, Winston2018); C4-01 (expert opinion; Conway2014); and 8 more
+                in levels/0-criteria.yml under the checks below. Checks: R5 (review: delivery review of the recording:
+                energy, eye contact, pace, hands, pauses, not reading).
+              type: string
+            pauses:
+              description: >-
+                Were there pauses instead of fillers?. Why: Pauses instead of fillers. Evidence, strongest first
+                (observational): C3-1-09 (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018); C4-09
+                (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018); C1-04 (expert opinion; Conway2014);
+                C2-2-10 (expert opinion; Blome2017, Winston2018); C4-01 (expert opinion; Conway2014); and 8 more
+                in levels/0-criteria.yml under the checks below. Checks: R5 (review: delivery review of the recording:
+                energy, eye contact, pace, hands, pauses, not reading).
+              type: string
+            read_slides:
+              description: >-
+                True if the slides or notes were read aloud at any point. Why: Reading slides or notes aloud is
+                the failure the whole design exists to avoid. Evidence, strongest first (observational): C3-1-09
+                (observational; Blome2017, Garner2009, Kosslyn2012, Winston2018); C4-09 (observational; Blome2017,
+                Garner2009, Kosslyn2012, Winston2018); C1-04 (expert opinion; Conway2014); C2-2-10 (expert opinion;
+                Blome2017, Winston2018); C4-01 (expert opinion; Conway2014); and 8 more in levels/0-criteria.yml
+                under the checks below. Checks: R5 (review: delivery review of the recording: energy, eye contact,
+                pace, hands, pauses, not reading).
+              type: boolean
+  checklist:
+    description: >-
+      The preparation facts, filled in as they become known. Nulls are allowed until then, and the checks warn until
+      each is filled. Why: The preparation facts, nullable until known; each check warns until its fact is filled.
+      Evidence, strongest first (experiment): C6-3-01 (experiment; Brooks2014, Conway2014); C6-3-02 (experiment;
+      Brooks2014); C6-4-01 (observational; Blome2017, Kosslyn2012, Naegle2021); C2-3-20 (expert opinion; Duarte2011);
+      C5-01 (expert opinion; Blome2017, Naegle2021); and 12 more in levels/0-criteria.yml under the checks below.
+      Checks: D3 (logged: equipment tested), D4 (logged: room visited), D5 (logged: lights-up request recorded),
+      D6 (logged: pre-talk ritual includes the 'I am excited' relabel), D7 (logged: Q&A conduct checklist acknowledged),
+      D8 (logged: feedback plan recorded).
+    type: object
+    required:
+    - room
+    - equipment_tested
+    - pdf_backup
+    - still_backups
+    - clicker_contingency
+    - room_visited
+    - lights_request
+    - pre_talk_ritual
+    - qa_conduct_acknowledged
+    - feedback_plan
+    - logistics
+    additionalProperties: false
+    properties:
+      equipment_tested:
+        description: >-
+          The date the venue's equipment was tested with the actual laptop and deck. Why: Test with the actual laptop
+          and deck before the day. Evidence, strongest first (observational): C6-4-01 (observational; Blome2017,
+          Kosslyn2012, Naegle2021); C2-3-20 (expert opinion; Duarte2011); C6-4-06 (own experience; Freitas2026);
+          C6-4-07 (own experience; Freitas2026). Checks: D3 (logged: equipment tested).
+        type:
+        - string
+        - 'null'
+      pdf_backup:
+        description: >-
+          The path of the PDF export carried in case the deck cannot run. Why: The deck that runs when the deck
+          cannot. Evidence, strongest first (observational): C6-4-01 (observational; Blome2017, Kosslyn2012, Naegle2021);
+          C2-3-20 (expert opinion; Duarte2011); C6-4-06 (own experience; Freitas2026); C6-4-07 (own experience;
+          Freitas2026). Checks: D3 (logged: equipment tested).
+        type:
+        - string
+        - 'null'
+      still_backups:
+        description: >-
+          Still images standing in for any video or live page, for when the network or the player fails. Why: Stills
+          for every video or live page, for when the network fails. Evidence, strongest first (observational): C6-4-01
+          (observational; Blome2017, Kosslyn2012, Naegle2021); C2-3-20 (expert opinion; Duarte2011); C6-4-06 (own
+          experience; Freitas2026); C6-4-07 (own experience; Freitas2026). Checks: D3 (logged: equipment tested).
+        type: array
+        items:
+          type: string
+      clicker_contingency:
+        description: >-
+          What happens when the clicker or the laptop dies, decided in advance, including what to say while recovering.
+          Why: Decided in advance, including what to say while recovering. Evidence, strongest first (observational):
+          C6-4-01 (observational; Blome2017, Kosslyn2012, Naegle2021); C2-3-20 (expert opinion; Duarte2011); C6-4-06
+          (own experience; Freitas2026); C6-4-07 (own experience; Freitas2026). Checks: D3 (logged: equipment tested).
+        type: string
+        minLength: 10
+      room_visited:
+        description: >-
+          The date the room was seen before the talk. Why: Seeing the room removes the unknowns that feed anxiety.
+          Evidence, strongest first (expert opinion): C6-4-02 (expert opinion; Winston2018). Checks: D4 (logged:
+          room visited).
+        type:
+        - string
+        - 'null'
+      lights_request:
+        description: >-
+          How and when the request to keep the room lights up was made. Why: Lights up so the room can be seen and
+          the audience stays awake; ask in advance. Evidence, strongest first (expert opinion): C6-4-03 (expert
+          opinion; Blome2017, Winston2018). Checks: D5 (logged: lights-up request recorded).
+        type:
+        - string
+        - 'null'
+      pre_talk_ritual:
+        description: >-
+          What the speaker does in the minutes before walking on. It must include saying 'I am excited' out loud,
+          which measurably beats trying to calm down. Why: Saying 'I am excited' out loud beats trying to calm down,
+          in a randomised experiment; the ritual must include it. Evidence, strongest first (experiment): C6-3-01
+          (experiment; Brooks2014, Conway2014); C6-3-02 (experiment; Brooks2014); C6-3-03 (expert opinion; Conway2014).
+          Checks: D6 (logged: pre-talk ritual includes the 'I am excited' relabel).
+        type: array
+        minItems: 1
+        items:
+          type: string
+      qa_conduct_acknowledged:
+        description: >-
+          True once the question-and-answer conduct in the research has been read and accepted: repeat every question,
+          defer the persistent questioner, say 'I don't know' when it is true. Why: The question-and-answer conduct
+          is read and accepted in advance: repeat every question, defer the persistent questioner, say 'I don't
+          know' when true. Evidence, strongest first (expert opinion): C5-01 (expert opinion; Blome2017, Naegle2021);
+          C5-02 (expert opinion; Berk2012); C5-04 (own experience; Conway2014, Freitas2026); C5-05 (own experience;
+          Conway2014, Freitas2026); C5-06 (own experience; Freitas2026); and 2 more in levels/0-criteria.yml under
+          the checks below. Checks: D7 (logged: Q&A conduct checklist acknowledged).
+        type: boolean
+      feedback_plan:
+        description: >-
+          How feedback will be gathered afterwards. Why: Decided before the talk, or it does not happen. Evidence,
+          strongest first (own experience): C6-4-08 (own experience; Freitas2026). Checks: D8 (logged: feedback
+          plan recorded).
+        type: string
+        minLength: 10
+      logistics:
+        description: >-
+          The practical arrangements for the day. Why: The practical arrangements for the day. Informational. No
+          research criterion behind it.
+        type: object
+        required:
+        - directions
+        - contact
+        - dressed
+        - hydration
+        - return
+        additionalProperties: false
+        properties:
+          directions:
+            description: >-
+              How to get to the venue and the room. Why: How to get there. Bookkeeping. No research criterion behind
+              it.
+            type: string
+          contact:
+            description: 'Who to call if something goes wrong. Why: Who to call. Bookkeeping. No research criterion
+              behind it.'
+            type: string
+          dressed:
+            description: 'What to wear. Why: What to wear. Bookkeeping. No research criterion behind it.'
+            type: string
+          hydration:
+            description: 'The water plan. Why: The water plan. Bookkeeping. No research criterion behind it.'
+            type: string
+          return:
+            description: >-
+              When and how you leave afterwards. Why: Leaving afterwards. Bookkeeping. No research criterion behind
+              it.
+            type: string
+      room:
+        description: >-
+          The room the talk is in, once the schedule publishes it. Why: Needed for the visit and the equipment test;
+          warns until the schedule publishes it. Evidence, strongest first (expert opinion): C6-4-02 (expert opinion;
+          Winston2018). Checks: D4 (logged: room visited).
+        type:
+        - string
+        - 'null'
+  reviews:
+    description: >-
+      The recorded verdicts of the read-through reviews the pipeline cannot perform: narrative flow, humour placement,
+      familiarity of metaphors, each slide's point surviving a lapsed listener, and delivery on the recording. Strict
+      mode requires a pass for each. Why: The verdicts of the read-throughs the pipeline cannot perform; strict
+      mode requires a pass for each. Evidence, strongest first (experiment): C3-1-07 (experiment; Trypke2023); C3-3-14
+      (experiment; Conway2014, Moulton2017); C2-2-15 (observational; Freitas2026, Kosslyn2012); C3-1-09 (observational;
+      Blome2017, Garner2009, Kosslyn2012, Winston2018); C4-09 (observational; Blome2017, Garner2009, Kosslyn2012,
+      Winston2018); and 23 more in levels/0-criteria.yml under the checks below. Checks: R1 (review: narrative read-through:
+      flow, one idea, no tangents, story causes not lists), R2 (review: humour is inside a safe story, relevant,
+      not at the open), R3 (review: metaphors and examples are familiar to this audience), R4 (review: each slide
+      gives its point to a lapsed listener), R5 (review: delivery review of the recording: energy, eye contact,
+      pace, hands, pauses, not reading).
+    type: array
+    items:
+      type: object
+      required:
+      - check
+      - reviewer
+      - date
+      - verdict
+      additionalProperties: false
+      properties:
+        check:
+          description: >-
+            Which review this is: R1 flow, R2 humour, R3 metaphors, R4 slides, R5 delivery. Why: Which review the
+            verdict belongs to. Evidence, strongest first (experiment): C3-1-07 (experiment; Trypke2023); C3-3-14
+            (experiment; Conway2014, Moulton2017); C2-2-15 (observational; Freitas2026, Kosslyn2012); C3-1-09 (observational;
+            Blome2017, Garner2009, Kosslyn2012, Winston2018); C4-09 (observational; Blome2017, Garner2009, Kosslyn2012,
+            Winston2018); and 23 more in levels/0-criteria.yml under the checks below. Checks: R1 (review: narrative
+            read-through: flow, one idea, no tangents, story causes not lists), R2 (review: humour is inside a safe
+            story, relevant, not at the open), R3 (review: metaphors and examples are familiar to this audience),
+            R4 (review: each slide gives its point to a lapsed listener), R5 (review: delivery review of the recording:
+            energy, eye contact, pace, hands, pauses, not reading).
+          enum:
+          - R1
+          - R2
+          - R3
+          - R4
+          - R5
+        reviewer:
+          description: 'Who reviewed. Why: Who. Bookkeeping. No research criterion behind it.'
+          type: string
+        date:
+          description: 'When. Why: When. Bookkeeping. No research criterion behind it.'
+          type: string
+          format: date
+        verdict:
+          description: >-
+            pass or fail. Why: The gate strict mode reads. Read by every R check. No research criterion behind it.
+          enum:
+          - pass
+          - fail
+        notes:
+          description: >-
+            The reviewer's notes, especially on a fail. Why: Especially on a fail. Bookkeeping. No research criterion
+            behind it.
+          type: string

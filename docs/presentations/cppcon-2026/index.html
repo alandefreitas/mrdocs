@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mr.Docs &middot; C++ reference documentation, from the real AST</title>
+  <link rel="icon" href="assets/mrdocs-favicon.svg">
+
+  <!-- reveal.js core. The syntax-highlight palette lives in the deck theme,
+       so no separate highlight.js theme is loaded here. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+
+  <!-- The deck theme: CppCon's broadcast palette (see DESIGN-NOTES.md).
+       The ?v= query is a cache-buster: bump it whenever the CSS changes so
+       browsers fetch the new file instead of a stale cached copy. -->
+  <link rel="stylesheet" href="css/mrdocs-theme.css?v=15">
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ===================================================================
+         0. CPPCON TITLE CARD  (required first slide)
+         CppCon supplies every speaker a title card and requires it as slide
+         one; it is also what Bash Films reads the YouTube title off. Full
+         Sized "contain", not "cover": the card must never be cropped or
+         pushed past the screen edges, so on a screen that is not 16:9 it
+         letterboxes against the card's own edge colour instead. Swap the
+         image file when Digital Medium sends the corrected card (see README).
+         ================================================================ -->
+    <section class="title-card" data-state="cover"
+             data-background-image="assets/cppcon-title-card.png"
+             data-background-size="contain"
+             data-background-repeat="no-repeat"
+             data-background-position="center"
+             data-background-color="#1F2844">
+      <aside class="notes">
+        CppCon's own title card. Say nothing over it: open, then move straight on.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         1. TITLE  (cover)
+         Banner art (the detective), the logo, and the C++ Alliance lockup.
+         ================================================================ -->
+    <section class="centered" data-state="cover">
+      <img class="title-banner" src="assets/MrDocsBanner.png" alt="Mr.Docs">
+      <p class="subtitle">C++ reference documentation, generated from the real Clang/LLVM AST</p>
+      <p style="margin-top:1.2em;">
+        <span class="alliance">
+          <span>A C++ Alliance project</span>
+          <img src="assets/cpp-alliance-logo.svg" alt="C++ Alliance">
+        </span>
+      </p>
+      <aside class="notes">
+        Welcome. Mr.Docs is a C++ reference documentation generator built on Clang/LLVM,
+        a C++ Alliance project.
+        Navigation: press <strong>S</strong> for speaker notes, <strong>F</strong> for fullscreen,
+        <strong>ESC</strong> (or O) for the slide overview, <strong>B</strong> to blank the screen.
+        Use Space or the arrow keys to advance &mdash; the deck is one straight line, no vertical stacks.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         2. WHAT IT IS  (Home)
+         ================================================================ -->
+    <section data-auto-animate>
+      <h2 data-id="hdr">What Mr.Docs is</h2>
+      <p class="lead">A C++ reference documentation generator built on Clang/LLVM.</p>
+      <p>It reads your project's source through a <strong>compilation database</strong>, builds a complete <strong>symbol corpus</strong> from the real Clang AST, and emits documentation in several formats.</p>
+      <p class="fragment">The same corpus feeds <em>rendered documents</em> for human readers and <em>structured data</em> for downstream tools.</p>
+      <aside class="notes">
+        Key words: compilation database, symbol corpus, real Clang AST. One corpus, many outputs.
+      </aside>
+    </section>
+
+    <!-- 2b. AUTO-ANIMATE: the heading slides up, the pipeline appears -->
+    <section data-auto-animate>
+      <h2 data-id="hdr">What Mr.Docs is</h2>
+      <!-- Native mermaid. Same graph as the docs landing page.
+           Canonical <pre class="mermaid"> form (no <code>, which the highlight plugin would mangle). -->
+      <pre class="mermaid">
+graph LR
+  classDef input fill:#9FC7FF,stroke:#6FA8FF,stroke-width:2px,color:#1B2440;
+  classDef stage fill:#FFBB33,stroke:#FDD37A,stroke-width:2px,color:#1B2440;
+  classDef output fill:#F6F6F7,stroke:#FF8933,stroke-width:2px,color:#1B2440;
+  classDef ext fill:#C9A7F0,stroke:#A97FD8,stroke-width:2px,stroke-dasharray:4 2,color:#1B2440;
+
+  CPP["C++ source<br/>doc comments"]:::input
+  CFG[Configuration]:::input
+  CORPUS([Symbol corpus]):::stage
+  GENS([Generators]):::stage
+  RENDERED[Rendered documentation]:::output
+  DATA[Structured data]:::output
+  EXT[Extensions]:::ext
+
+  CPP --> CORPUS
+  CFG --> CORPUS
+  CORPUS --> GENS
+  GENS --> RENDERED
+  GENS --> DATA
+  EXT <-.-> CORPUS
+  EXT <-.-> GENS
+      </pre>
+      <aside class="notes">
+        Configuration and source go in; Clang produces a corpus; generators turn it into output.
+        Extensions hook into both the corpus and the generators.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         3. DEMO GALLERY  (first item under "Getting Started")
+         FEATURE: the live mrdocs.com website AS the slide background, interactive.
+         ================================================================ -->
+    <section data-background-iframe="https://mrdocs.com" data-background-interactive>
+      <div class="url-chip">https://mrdocs.com &mdash; live (click to interact)</div>
+      <div class="demo-card" style="position:absolute; bottom:6%; left:6%; max-width:42%;">
+        <h3>The project, live</h3>
+        <p class="muted" style="font-size:0.8em;">The real website is the background of this slide. Click into it to scroll the docs without leaving the deck.</p>
+      </div>
+      <aside class="notes">
+        This is reveal's iframe background, made interactive. Click the page to scroll mrdocs.com live.
+        Press the down/right arrow keys (focus the deck first) to move on.
+      </aside>
+    </section>
+
+    <!-- 3b. DEMO GALLERY content slide -->
+    <section class="centered">
+      <h2>Demo Gallery</h2>
+      <p>Reference docs Mr.Docs generated for real third-party libraries, in every output format:</p>
+      <p>
+        <span class="tag">boost-url</span>
+        <span class="tag">fmt</span>
+        <span class="tag">nlohmann-json</span>
+        <span class="tag">mp-units</span>
+        <span class="tag">beman-optional</span>
+        <span class="tag">mrdocs</span>
+      </p>
+      <p class="muted">Browse them at <a href="https://mrdocs.com/demos/">mrdocs.com/demos</a> &mdash; HTML, AsciiDoc, and XML side by side.</p>
+      <aside class="notes">
+        Pick a library the audience knows and open its generated reference. Next, the same library two ways.
+      </aside>
+    </section>
+
+    <!-- 3c. Lead-in: real production reference docs -->
+    <section class="centered">
+      <h2>In production</h2>
+      <p class="lead">Reference documentation served to real users, right now.</p>
+      <p class="muted">Boost.URL on boost.org &mdash; then Mr.Docs documenting itself.</p>
+      <aside class="notes">
+        These aren't demos. The next two slides are live/published reference docs people read every day.
+      </aside>
+    </section>
+
+    <!-- 3d. Boost.URL as it ships in production (boost.org), LIVE & interactive.
+         boost.org sends X-Frame-Options: SAMEORIGIN, so the page is bundled locally
+         (single-file, all assets inlined) and served from this origin, which can be framed.
+         Fallback static capture remains at assets/boost-url-production.png. -->
+    <section data-background-iframe="assets/boost-url-live/url_view.html" data-background-interactive data-background-color="#ffffff">
+      <div class="url-chip">boost.org &middot; Boost.URL reference &mdash; boost::urls::url_view (live, click to scroll)</div>
+      <aside class="notes">
+        The real boost::urls::url_view reference from boost.org, bundled locally so it can be embedded and
+        scrolled live (boost.org blocks remote framing). Click to scroll. Static fallback: boost-url-production.png.
+      </aside>
+    </section>
+
+    <!-- 3e. Mr.Docs documenting itself, live in production (dogfooding) -->
+    <section data-background-iframe="https://mrdocs.com/docs/mrdocs/reference/index.html" data-background-interactive>
+      <div class="url-chip">mrdocs.com &middot; Mr.Docs documents itself &mdash; live (click to scroll)</div>
+      <aside class="notes">
+        This is Mr.Docs's own library reference, generated by Mr.Docs and published on mrdocs.com.
+        The project eats its own dog food: the reference you're looking at came out of the Mr.Docs headers.
+        Live &mdash; click to scroll and explore.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         4. INSTALLATION  (was last; now early, matching docs nav)
+         ================================================================ -->
+    <section data-auto-animate>
+      <h2 data-id="install-h">Install</h2>
+      <h3>Binary packages</h3>
+      <p>Grab a release from the <a href="https://github.com/cppalliance/mrdocs/releases">GitHub Releases page</a>. Most users start here.</p>
+      <aside class="notes">
+        Two paths: a prebuilt binary, or build from source with the bootstrap script. We'll auto-animate to the source path.
+      </aside>
+    </section>
+
+    <!-- 4b. AUTO-ANIMATE to the "build from source" path -->
+    <section data-auto-animate>
+      <h2 data-id="install-h">Install</h2>
+      <h3>Build from source</h3>
+      <pre data-id="install-code"><code class="language-bash" data-trim data-line-numbers>
+git clone https://github.com/cppalliance/mrdocs.git
+cd mrdocs
+python bootstrap.py
+      </code></pre>
+      <p class="muted">The script provisions every dependency (LLVM, Clang, third-party libs), configures, and builds. Add <code>--yes</code> for non-interactive installs.</p>
+      <aside class="notes">
+        Prerequisites: Python, a recent C++ toolchain, CMake, Git. Pass --install-system-deps if any are missing.
+        Verify with `mrdocs --version`.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         5. BASIC USAGE  (compilation database)
+         ================================================================ -->
+    <section>
+      <h2>Driving Clang: the compilation database</h2>
+      <p>Mr.Docs drives Clang with a <strong>compilation database</strong>: the per-file list of compile flags. That's what lets it see the code with the right include paths, defines, and language standard.</p>
+      <div class="cards">
+        <div class="card fragment"><h4>compile_commands.json</h4><p>You already have one. Mr.Docs reads it from disk.</p></div>
+        <div class="card fragment"><h4>CMake</h4><p>Point at <code>CMakeLists.txt</code>; Mr.Docs configures and reads the generated database.</p></div>
+        <div class="card fragment"><h4>Header scan</h4><p>No build system. Mr.Docs walks <code>input</code> and synthesizes one.</p></div>
+      </div>
+      <aside class="notes">
+        Three sources cover almost every project. Each has a starter under examples/getting-started/.
+      </aside>
+    </section>
+
+    <!-- 5b. MAGIC MOVE: a config file grows line by line (auto-animate) -->
+    <section data-auto-animate>
+      <h3 data-id="cfg-h">A minimal configuration</h3>
+      <pre data-id="cfg"><code class="language-yaml" data-trim data-line-numbers>
+# docs/mrdocs.yml
+source-root: ..
+compilation-database: compile_commands.json
+      </code></pre>
+      <aside class="notes">Start with where the code is and how to compile it.</aside>
+    </section>
+
+    <section data-auto-animate>
+      <h3 data-id="cfg-h">A minimal configuration</h3>
+      <pre data-id="cfg"><code class="language-yaml" data-trim data-line-numbers>
+# docs/mrdocs.yml
+source-root: ..
+compilation-database: compile_commands.json
+generator: html
+output: build/docs
+      </code></pre>
+      <aside class="notes">Then pick a generator and an output directory. Watch the new lines slide in.</aside>
+    </section>
+
+    <section data-auto-animate>
+      <h3 data-id="cfg-h">A minimal configuration</h3>
+      <pre data-id="cfg"><code class="language-yaml" data-trim data-line-numbers="6-8">
+# docs/mrdocs.yml
+source-root: ..
+compilation-database: compile_commands.json
+generator: html
+output: build/docs
+# optional: trim what gets documented
+include-symbols: ['fmt::**']
+exclude-symbols: ['fmt::detail::**']
+      </code></pre>
+      <p class="muted">Then run: <code>mrdocs --config=docs/mrdocs.yml</code> &mdash; CLI flags win over the file.</p>
+      <aside class="notes">
+        Filters decide what enters the corpus. The highlighted lines keep fmt's public namespace and drop its detail.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         6. MIGRATION NOTES  (the one design choice)
+         ================================================================ -->
+    <section class="centered" data-transition="zoom">
+      <h2>The one design choice</h2>
+      <p class="r-fit-text" style="margin:0.4em 0;">Only valid C++</p>
+      <p class="muted">Mr.Docs parses the source as the compiler does, so symbols come from a real AST rather than from text.</p>
+      <aside class="notes">
+        r-fit-text scales that line to fill the slide. Almost every difference from other tools flows from this decision.
+      </aside>
+    </section>
+
+    <!-- 6b. MAGIC MOVE: the "two declarations" workaround collapses to one -->
+    <section data-auto-animate>
+      <h3 data-id="idiom-h">Idioms without workarounds</h3>
+      <p class="muted" style="font-size:0.65em;">Other tools need a doc-only declaration guarded by a macro &mdash; two versions of the same symbol:</p>
+      <pre data-id="idiom"><code class="language-cpp" data-trim data-line-numbers>
+#ifdef DOXYGEN
+// what the docs should show
+using scope_token = /* implementation-defined */;
+#else
+// what actually compiles
+using scope_token = detail::scope_token_impl&lt;Tag&gt;;
+#endif
+      </code></pre>
+      <aside class="notes">
+        The source carries two versions. This is the workaround Mr.Docs removes.
+      </aside>
+    </section>
+
+    <section data-auto-animate>
+      <h3 data-id="idiom-h">Idioms without workarounds</h3>
+      <p class="muted" style="font-size:0.65em;">Mr.Docs reads the real declaration; configuration expresses the intent:</p>
+      <pre data-id="idiom"><code class="language-cpp" data-trim data-line-numbers>
+using scope_token = detail::scope_token_impl&lt;Tag&gt;;
+      </code></pre>
+      <pre><code class="language-yaml" data-trim>
+# mrdocs.yml
+implementation-defined: ['logr::detail::scope_token_impl']
+      </code></pre>
+      <p class="muted">The synopsis renders <code>/* implementation-defined */</code>; the documented C++ stays the compiled C++.</p>
+      <aside class="notes">
+        Same effect from the doc comment with @implementationdefined. Also: see-below, include-symbols, overloads.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         7. DOCUMENTING THE CODE  (Commands) -- PRIMARY MAGIC-MOVE SHOWCASE
+         A doc comment builds up across three slides, then sections highlight.
+         ================================================================ -->
+    <section data-auto-animate>
+      <h3 data-id="doc-h">Documenting the code</h3>
+      <pre data-id="doc"><code class="language-cpp" data-trim data-line-numbers>
+template &lt;std::floating_point T&gt;
+T sqrt(T x);
+      </code></pre>
+      <p class="muted">Start with the declaration.</p>
+      <aside class="notes">The magic-move you wanted: the comment grows around a stable signature.</aside>
+    </section>
+
+    <section data-auto-animate>
+      <h3 data-id="doc-h">Documenting the code</h3>
+      <pre data-id="doc"><code class="language-cpp" data-trim data-line-numbers>
+/// Computes the square root of a number.
+template &lt;std::floating_point T&gt;
+T sqrt(T x);
+      </code></pre>
+      <p class="muted">Add a brief. The first sentence becomes the summary.</p>
+      <aside class="notes">Block and inline commands follow the Javadoc / Doxygen tradition.</aside>
+    </section>
+
+    <section data-auto-animate>
+      <h3 data-id="doc-h">Documenting the code</h3>
+      <pre data-id="doc"><code class="language-cpp" data-trim data-line-numbers>
+/** Computes the square root of a number.
+
+    @param x The number to take the square root of.
+    @return The square root of `x`.
+    @pre `x >= 0`
+*/
+template &lt;std::floating_point T&gt;
+T sqrt(T x);
+      </code></pre>
+      <p class="muted">Params, return, precondition &mdash; each renders into its own part of the page.</p>
+      <aside class="notes">Mr.Docs reads signature and comment together and emits a synopsis, a parameter table, return docs, and the precondition.</aside>
+    </section>
+
+    <!-- 7d. SAME code, stepping highlights through its sections (data-line-numbers steps) -->
+    <section data-auto-animate>
+      <h3 data-id="doc-h">Documenting the code</h3>
+      <pre data-id="doc"><code class="language-cpp" data-trim data-line-numbers="1|3|4|5|7-8">
+/** Computes the square root of a number.
+
+    @param x The number to take the square root of.
+    @return The square root of `x`.
+    @pre `x >= 0`
+*/
+template &lt;std::floating_point T&gt;
+T sqrt(T x);
+      </code></pre>
+      <p class="muted">Step through with the arrow keys: brief &rarr; param &rarr; return &rarr; precondition &rarr; signature.</p>
+      <aside class="notes">
+        This is reveal's line-number stepping over a single block: a clean way to walk different sections of the same code.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         8. CONFIGURATION  (overview)
+         ================================================================ -->
+    <section>
+      <h2>Configuration</h2>
+      <p>One YAML file (or CLI flags) shapes the whole run. The options group into:</p>
+      <div class="columns">
+        <div>
+          <ul>
+            <li><strong>Inputs</strong> &mdash; where the code is, how to compile it</li>
+            <li><strong>Filters</strong> &mdash; what enters the corpus</li>
+            <li><strong>Extraction</strong> &mdash; how much detail to pull</li>
+          </ul>
+        </div>
+        <div>
+          <ul>
+            <li><strong>Output</strong> &mdash; generator, destination, layout</li>
+            <li><strong>Diagnostics</strong> &mdash; how strict to be about problems</li>
+          </ul>
+        </div>
+      </div>
+      <p class="muted">Every option has a CLI equivalent; the full list lives in the Configuration Reference.</p>
+      <aside class="notes">Placeholder grouping for the feature pass &mdash; reorganize the option taxonomy later as you prefer.</aside>
+    </section>
+
+    <!-- ===================================================================
+         9. GENERATORS
+         ================================================================ -->
+    <section>
+      <h2>Generators</h2>
+      <p>A generator turns the corpus into output. Three ship built in:</p>
+      <div class="cards">
+        <div class="card"><h4>HTML</h4><p>The default. Self-contained pages, bundled stylesheet, serve from any static host.</p></div>
+        <div class="card"><h4>AsciiDoc</h4><p>Source for AsciiDoc tooling and Antora. Fold the reference into a larger site.</p></div>
+        <div class="card"><h4>XML</h4><p>Structured intermediate. Diff the corpus across releases, or test its shape.</p></div>
+      </div>
+      <p class="muted">Data-driven starting points also ship: Markdown, LaTeX, JSON Lines.</p>
+      <aside class="notes">A new format via a data-driven generator is cheap: a directory of Handlebars templates plus a manifest.</aside>
+    </section>
+
+    <!-- 9b. Native mermaid quadrant chart -->
+    <section>
+      <h3>Choosing a format: redundancy vs. convenience</h3>
+      <pre class="mermaid">
+quadrantChart
+    title Output format trade-off
+    x-axis Low redundancy --> High redundancy
+    y-axis Low convenience --> High convenience
+    "Ideal": [0.04, 0.96]
+    "HTML": [0.88, 0.94]
+    "AsciiDoc": [0.78, 0.78]
+    "Custom Templates": [0.5, 0.6]
+    "Data-Driven Generators": [0.36, 0.5]
+    "Custom Generators": [0.2, 0.3]
+    "XML": [0.05, 0.12]
+    "Clang AST": [0.88, 0.06]
+      </pre>
+      <aside class="notes">
+        HTML and AsciiDoc cluster top-right; XML bottom-left. Custom templates and generators slide along the diagonal.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         10. EXTENSIONS
+         ================================================================ -->
+    <section>
+      <h2>Extension surface</h2>
+      <div class="columns">
+        <div>
+          <h3>Hook points</h3>
+          <ul>
+            <li>Custom generators</li>
+            <li>Handlebars helpers</li>
+            <li>Corpus transforms before rendering</li>
+            <li>Use <code>mrdocs-core</code> as a library</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Antora integration</h3>
+          <ul>
+            <li>Hand-written prose links into the reference</li>
+            <li>The <code>cpp:</code> macro resolves symbols</li>
+            <li>Tagfiles connect across projects</li>
+          </ul>
+        </div>
+      </div>
+      <aside class="notes">Where Mr.Docs goes beyond "run it and get HTML".</aside>
+    </section>
+
+    <!-- ===================================================================
+         11. DESIGN NOTES  (why automate -- the comparison table)
+         ================================================================ -->
+    <section>
+      <h2>Why automate documentation?</h2>
+      <blockquote>You know the most about a function the moment you write its signature. Wait a week, the details fade; wait a month, you reconstruct them from the call sites.</blockquote>
+      <table class="compare">
+        <thead>
+          <tr><th></th><th>Mr.Docs</th><th>Other tools</th><th>Manual</th><th>None</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Reader-friendly output</td><td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="no">&#10007;</td></tr>
+          <tr><td>Stays in sync with source</td><td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="no">&#10007;</td><td class="no">&#10007;</td></tr>
+          <tr class="diff"><td>No source-code workarounds</td><td class="yes">&#10003;</td><td class="no">&#10007;</td><td class="yes">&#10003;</td><td class="no">&#10007;</td></tr>
+          <tr class="diff"><td>Single source of truth</td><td class="yes">&#10003;</td><td class="no">&#10007;</td><td class="no">&#10007;</td><td class="no">&#10007;</td></tr>
+        </tbody>
+      </table>
+      <p class="muted fragment" style="margin-top:0.6em;">The two banded rows are where Mr.Docs stands apart: no source workarounds, one source of truth.</p>
+      <aside class="notes">
+        The two banded rows are the differentiators &mdash; Mr.Docs is checked where the others aren't.
+        Advance once to bring in the takeaway line.
+      </aside>
+    </section>
+
+    <!-- ===================================================================
+         12. CLOSING  (cover) -- QR + links + Alliance
+         ================================================================ -->
+    <section class="centered" data-state="cover">
+      <img class="title-logo" style="height:150px;" src="assets/mrdocs-logo.svg" alt="Mr.Docs logo">
+      <h2 class="cover-title" style="margin-bottom:0.2em;">The documented C++ stays the compiled C++.</h2>
+      <div class="columns" style="align-items:center; justify-content:center; margin-top:0.6em;">
+        <div style="flex:0 0 auto;">
+          <div class="qr-wrap">
+            <div class="qr"><img src="assets/mrdocs-qr.svg" alt="QR code to mrdocs.com"></div>
+            <span class="muted">scan for mrdocs.com</span>
+          </div>
+        </div>
+        <div style="flex:0 0 auto; text-align:left;">
+          <p><a href="https://mrdocs.com">mrdocs.com</a></p>
+          <p><a href="https://github.com/cppalliance/mrdocs">github.com/cppalliance/mrdocs</a></p>
+          <p class="alliance" style="margin-top:0.8em;">
+            <img src="assets/cpp-alliance-logo.svg" alt="C++ Alliance">
+            <span>Built by the C++ Alliance</span>
+          </p>
+        </div>
+      </div>
+      <aside class="notes">Thanks. QR jumps to mrdocs.com; the docs site and GitHub are the two places to go next.</aside>
+    </section>
+
+  </div>
+
+  <!-- Persistent mascot badge (favicon face), hidden on cover slides via .cover state -->
+  <div class="brand-corner"><img src="assets/mrdocs-favicon.svg" alt=""></div>
+</div>
+
+<!-- reveal.js core + plugins -->
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/search/search.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'slide',
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    center: true,
+    // 16:9 exactly: CppCon's broadcast slot is 16:9, and a 16:10 deck
+    // would sit in it with bars down both sides.
+    width: 1600,
+    height: 900,
+    margin: 0.055,
+    autoAnimateEasing: 'ease',
+    autoAnimateDuration: 0.7,
+    plugins: [ RevealHighlight, RevealNotes, RevealZoom, RevealSearch ]
+  });
+
+  // Toggle the .cover class on the .reveal root so the corner mascot
+  // can hide itself on title/closing slides (data-state="cover").
+  const toggleCover = (slide) => {
+    document.querySelector('.reveal').classList.toggle('cover',
+      slide && slide.getAttribute('data-state') === 'cover');
+  };
+  Reveal.on('slidechanged', (e) => toggleCover(e.currentSlide));
+  Reveal.on('ready', (e) => toggleCover(e.currentSlide));
+</script>
+
+<!-- Native mermaid, driven manually so it renders AFTER web fonts load.
+     (Rendering before Lexend is ready sizes the node boxes for a fallback
+      font, then the real text overflows and clips. Waiting fixes it.) -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    securityLevel: 'loose',
+    fontFamily: 'Lexend, sans-serif',
+    flowchart: { htmlLabels: true, useMaxWidth: true, curve: 'basis', padding: 14 },
+    // Mermaid's quadrant defaults are sized for a web page, not a slide seen
+    // through a video stream. Everything here is bumped for legibility.
+    quadrantChart: {
+      titleFontSize: 26,
+      pointLabelFontSize: 18,
+      quadrantLabelFontSize: 18,
+      xAxisLabelFontSize: 18,
+      yAxisLabelFontSize: 18,
+      pointRadius: 7
+    },
+    themeVariables: {
+      fontFamily: 'Lexend, sans-serif',
+      primaryColor: '#2C3A61',
+      primaryTextColor: '#E8ECF6',
+      primaryBorderColor: '#FFBB33',
+      lineColor: '#FFBB33',
+      secondaryColor: '#1F2844',
+      tertiaryColor: '#1B2440',
+      quadrant1Fill: 'rgba(255,187,51,0.12)',
+      quadrant2Fill: 'rgba(255,187,51,0.05)',
+      quadrant3Fill: 'rgba(27,36,64,0.34)',
+      quadrant4Fill: 'rgba(27,36,64,0.20)',
+      quadrantPointFill: '#FF8933',
+      quadrantPointTextFill: '#F6F6F7',
+      quadrantTitleFill: '#FFBB33',
+      quadrantXAxisTextFill: '#AEBAD6',
+      quadrantYAxisTextFill: '#AEBAD6'
+    }
+  });
+
+  // Wait until the exact fonts mermaid will measure are actually loaded.
+  try {
+    await Promise.all([
+      document.fonts.load('400 1em "Lexend"'),
+      document.fonts.load('600 1em "Lexend"'),
+      document.fonts.load('400 1em "Bangers"')
+    ]);
+    await document.fonts.ready;
+  } catch (e) { /* fonts API unavailable: fall through and render anyway */ }
+
+  await mermaid.run({ querySelector: '.mermaid' });
+</script>
+</body>
+</html>

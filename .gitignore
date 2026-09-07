@@ -46,3 +46,5 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+# generated talk deck, pdf and contact sheet (plan/tools/pipeline.py build)
+/docs/presentations/cppcon-2026/plan/build/

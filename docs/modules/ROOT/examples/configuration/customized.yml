@@ -1,5 +1,5 @@
 source-root: ..
 compilation-database: ../CMakeLists.txt
-generator: xml
+generator: html
 include-symbols:
   - 'mylib::**'

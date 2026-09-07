@@ -1,0 +1,192 @@
+<div class="symbol">
+<div class="header">
+<h2 id="app-Circle">app::Circle</h2>
+<div class="brief">
+<p>A circle in the plane.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">struct Circle;</code></pre>
+</div><!-- /synopsis -->
+<div class="description">
+<h3>Description</h3>
+<p>A <code>Circle</code> is defined entirely by its radius; its center is supplied by the surrounding coordinate system rather than stored here. This keeps the type small enough to pass by value.</p>
+<p>The radius is assumed non-negative. Passing a negative radius is a precondition violation, not a runtime error, so the geometry helpers do not check for it.</p>
+</div><!-- /description -->
+<h3>Member Functions</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#app-Circle-area"><code>area</code></a> </td><td>The enclosed area.</td></tr>
+</tbody>
+</table>
+
+<h3>Data Members</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#app-Circle-radius"><code>radius</code></a> </td><td>The radius.</td></tr>
+</tbody>
+</table>
+
+</div><!-- /symbol -->
+<div class="symbol">
+<div class="header">
+<h2 id="app-Circle-area">app::<a href="#app-Circle">Circle</a>::area</h2>
+<div class="brief">
+<p>The enclosed area.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">double
+area() const;</code></pre>
+</div><!-- /synopsis -->
+<div class="return-value">
+<h3>Return Value</h3>
+<p>The area enclosed by the circle.</p>
+</div><!-- /return-value -->
+</div><!-- /symbol -->
+<div class="symbol">
+<div class="header">
+<h2 id="app-Circle-radius">app::<a href="#app-Circle">Circle</a>::radius</h2>
+<div class="brief">
+<p>The radius.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">double radius;</code></pre>
+</div><!-- /synopsis -->
+</div><!-- /symbol -->
+<div class="symbol">
+<div class="header">
+<h2 id="app-Vec2">app::Vec2</h2>
+<div class="brief">
+<p>A point or displacement in the plane.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">struct Vec2;</code></pre>
+</div><!-- /synopsis -->
+<div class="description">
+<h3>Description</h3>
+<p>A <code>Vec2</code> stores a pair of Cartesian coordinates and doubles as both a point and a displacement. Arithmetic on it follows the usual rules for a 2-D vector space, so adding two vectors adds their components and scaling multiplies them.</p>
+<p>Prefer <code>Vec2</code> over a bare <code>std::pair&lt;double, double&gt;</code> when the values are geometric: the named <code>x</code> and <code>y</code> members and the geometry helpers make intent obvious at the call site, and keep unrelated pairs from being mixed in by mistake.</p>
+</div><!-- /description -->
+<h3>Member Functions</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#app-Vec2-length"><code>length</code></a> </td><td>The Euclidean length.</td></tr>
+</tbody>
+</table>
+
+<h3>Data Members</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#app-Vec2-x"><code>x</code></a> </td><td>The x component.</td></tr>
+<tr><td><a href="#app-Vec2-y"><code>y</code></a> </td><td>The y component.</td></tr>
+</tbody>
+</table>
+
+<div class="non-member-functions">
+<h3>Non-Member Functions</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="#app-distance"><code>distance</code></a></td><td>The distance between two points.</td></tr>
+</tbody>
+</table>
+</div><!-- /non-member-functions -->
+</div><!-- /symbol -->
+<div class="symbol">
+<div class="header">
+<h2 id="app-Vec2-length">app::<a href="#app-Vec2">Vec2</a>::length</h2>
+<div class="brief">
+<p>The Euclidean length.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">double
+length() const;</code></pre>
+</div><!-- /synopsis -->
+<div class="return-value">
+<h3>Return Value</h3>
+<p>The straight-line length of the vector.</p>
+</div><!-- /return-value -->
+</div><!-- /symbol -->
+<div class="symbol">
+<div class="header">
+<h2 id="app-Vec2-x">app::<a href="#app-Vec2">Vec2</a>::x</h2>
+<div class="brief">
+<p>The x component.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">double x;</code></pre>
+</div><!-- /synopsis -->
+</div><!-- /symbol -->
+<div class="symbol">
+<div class="header">
+<h2 id="app-Vec2-y">app::<a href="#app-Vec2">Vec2</a>::y</h2>
+<div class="brief">
+<p>The y component.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">double y;</code></pre>
+</div><!-- /synopsis -->
+</div><!-- /symbol -->
+<div class="symbol">
+<div class="header">
+<h2 id="app-distance">app::distance</h2>
+<div class="brief">
+<p>The distance between two points.</p></div><!-- /brief -->
+</div><!-- /header -->
+<div class="synopsis">
+<h3>Synopsis</h3>
+<p>Declared in <code>&lt;simple.cpp&gt;</code></p>
+<pre><code class="source-code cpp">double
+distance(
+    <a href="#app-Vec2">Vec2</a> const& a,
+    <a href="#app-Vec2">Vec2</a> const& b);</code></pre>
+</div><!-- /synopsis -->
+<div class="description">
+<h3>Description</h3>
+<p><code>distance</code> returns the Euclidean distance between two points: the length of the straight segment joining them, or equivalently the square root of the summed squared differences of their <code>x</code> and <code>y</code> components.</p>
+<p>The value is symmetric in its arguments and is zero exactly when the two points coincide, so it works well as the basis for an equality-with-tolerance check.</p>
+</div><!-- /description -->
+<div class="return-value">
+<h3>Return Value</h3>
+<p>The straight-line distance between <code>a</code> and <code>b</code>.</p>
+</div><!-- /return-value -->
+<div class="parameters">
+<h3>Parameters</h3>
+<table style="table-layout: fixed; width: 100%;">
+<thead>
+<tr><th>Name</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>a</strong></td><td>The first point.</td></tr>
+<tr><td><strong>b</strong></td><td>The second point.</td></tr>
+</tbody>
+</table>
+</div><!-- /parameters -->
+</div><!-- /symbol -->

@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../schemas/1-meta.schema.yml
+# Level 1: meta. What we intend to do, before any structure exists. Schema: ../schemas/1-meta.schema.yml
+#
+# Every field is one of three kinds, and the comment says which and where the value came from:
+#   fact       a value about the world; the tool cannot verify it, only carry it; the source is named
+#   decision   a choice we made; other levels are checked against it
+#   constraint a value fixed by the schema; the build and the HTML checks enforce it downstream
+talk_title: "MrDocs: Reliable Reference Documentation for C++ Using the Clang AST"   # fact: Talk/Title and abstract - final (revised).md; Sched still shows the old title (Tim asked to fix it, Aug 11)
+session_url: "https://cppcon2026.sched.com/event/2RT70"                          # fact: Sched, verified 2026-09-10
+event:
+  # From Sched
+  name: CppCon 2026
+  date: "2026-09-17"
+  slot_start: "14:00"
+  duration_min: 60
+  # decision: how much of the hour we hold for questions (research: leave Q&A to the end; P25 needs a real closing)
+  qa_min: 10
+  # decision: no buffer beyond the question minutes; if the talk runs long the questions absorb it, and if it
+  # runs short there is more time for them. Worst case they are asked in the hallway.
+  buffer_min: 0
+  recorded: true
+  aspect: "16:9"
+  # decision. The research gives no best rate; its only direction on pace is slower
+  # ("do not speak too fast", 24% of advice articles, Blome2017). 120 is the slower
+  # of the two published figures (Garner2009's assumed 120; Garner2013's scripted 141),
+  # so estimates from the notes err long and a slide flagged as over-full really is.
+  # Measured 2026-09-11 on two slides read aloud (266 words in ~135 s, ~130 words in ~60 s): 118 and 130 wpm.
+  # Measured 2026-09-12 on config-minimal read slowly (48 words in ~22 s): 131 wpm. The three agree on about 130.
+  # Re-measure from a full recorded rehearsal (`pipeline.py pace`).
+  speaking_wpm: 130
+# decision, from research C1-05: slides suit exposing ideas; a board suits teaching them
+mode: expose
+# fact/judgment: CONTENT-NOTES.md, from the CppCon program and the YouTube search intent
+audience:
+  who: >-
+    C++ library authors, tooling people, and Boost contributors in the room; on YouTube afterward,
+    anyone who searched for a Doxygen alternative or a C++ documentation generator.
+  # Alan's read of the audience, 2026-09-10
+  share: >-  
+    Everyone has heard of Doxygen. Most looked at it once, found the output ugly, and gave up on
+    reference docs unless forced; the Boost people and a few others are so invested that they take
+    Doxygen's XML output and build a second workflow on top of it. Almost nobody is happy with what
+    they have.
+  know: >-
+    Modern C++ (templates, concepts, SFINAE, deduced return types); what a compilation database is;
+    nothing about MrDocs. Only the Boost contingent knows the macro workarounds first-hand, so the
+    story has to show them, not assume them.
+  # judgment; drives C3-1-07 (do not narrate what an expert can see)
+  expert: true
+# fact (Conway2014 C1-04: talk about what you have used); wording from Professional/Resume/Strategy/bio/master-bio.md
+speaker_ownership:
+  - >-
+    Designed the architecture of MrDocs at the C++ Alliance, built directly on the Clang and LLVM
+    front end, and sets its technical direction, keeping its contributors converging on it and up to
+    speed on the Clang internals.
+  - >-
+    Co-authored Boost.URL, took it through Boost's peer review and maintains it in every release
+    since 1.81; documented it with Doxygen before MrDocs existed and lived with the BOOST_URL_DOCS
+    macros, one of twenty Boost libraries contributed to.
+  - >-
+    Sits on the ISO C++ committee (WG21), so the C++ the tool has to understand is the C++ being
+    written.
+# The idea and what the audience gets from it. One thing, said in several registers so the talk can
+# return to it without repeating one sentence: the statement is the words on the last slide, the
+# promise is how it is said at the start, the take-home is how a listener retells it a week later,
+# the call to action is what they do about it.
+idea:
+  # decision: the throughline (M1); S16 requires the last slide to show it, S20 at least three slides to restate it
+  statement: "Native C++. No workarounds."
+  # decision (Duarte2011); P2 checks the story alternates across the gap between these two
+  status_quo: >-
+    Reference documentation stays true only when it is generated from the headers, but the tools that
+    generate it read C++ as text, so libraries keep a second, fake declaration behind a macro for them,
+    the two drift apart, and the output is shaped by a second toolchain built on the tool's XML.
+  what_could_be: >-
+    Just use the compiler: one declaration, read by Clang, rendered from the real AST, with nothing
+    to drift.
+  # decision (Winston2018); S23 requires it verbatim in the first ten minutes of notes
+  promise: >-
+    by the end of this talk you will be able to run Mr.Docs on your own library, and you will know how
+    this workflow gives you reference documentation you can trust.
+  # decision (Anderson2016 C1-07): who gains other than the speaker, in their words first
+  benefit: >-
+    Less work, and documentation that's verifiably correct: library authors stop maintaining two
+    versions of every constrained declaration, and their published reference stops lying about what
+    compiles.
+  # decision (Bourne2007): the three things a listener can say a week later. Not the idea itself:
+  # the problem it solves, the proof it works, the action to take. M3 checks each is distinct from
+  # the statement and is said somewhere in the notes.
+  take_home:
+    problem: Because Doxygen sees the code as text, we start lying to it.
+    proof: It's the reference documentation for Boost.URL from the Boost website.
+    action: One download, one YAML file, one command, and it runs on your own library tonight.
+  # decision: one action; S17 requires the cta slide to carry this url and a QR that exists
+  call_to_action:
+    text: "Download it, point it at your library tonight, and tell me what broke."
+    url: "https://mrdocs.com"
+handout:                               # decision (Alley2005 C1-08, Conway2014): the slides are not the handout
+  kind: docs-site
+  what: >-
+    The talk follows docs/modules/ROOT/nav.adoc; the docs site is the handout, and the speaker notes
+    are the script. We can have a QR code in the very last slide. This will take them to mrdocs.com, 
+    where they can download it and point it at their own library tonight.
+# decisions on the points where the research disagrees with itself (M12)
+policies:
+  # decisions on the open. The way in (a story) is the opening act's opener_type in story.yml; these are the two
+  # points left: Winston2018 over Freitas2026 on the joke, and Conway2014 on introducing yourself (academic
+  # settings only; at CppCon the session chair and the title card do it). S23 fails on a self-introduction in
+  # the first two slides when self_introduction is false.
+  opening:
+    joke: false
+    # decision (Freitas2026 over Conway2014): one sentence of who and where, because it sets up the story (the Alliance
+    # supports Boost; Boost's reference is generated); the chair still does the formal introduction
+    self_introduction: true
+  closing_words: one-idea              # Winston2018: last words are the idea, not "thank you"
+  background: venue-palette            # DESIGN-NOTES.md: the CppCon navy, because the recording is the audience
+  # decision (Conway2014): the audience never sees a countdown. Practice with `pipeline.py build --rehearsal`, which
+  # writes a separate rehearsal.html with faint numbers and visible arrows; M12 warns if this is ever set to true.
+  slide_numbers_visible: false
+  # decision (Winston2018, Conway2014 argue against a laser because it turns the speaker to the screen). Highlights
+  # on the slide do the pointing either way (S12); a digital pointer draws on the slide from the lectern, so it
+  # keeps the speaker facing the room. laser is the choice the research argues against, left available.
+  pointer: digital
+  # decision (Freitas2026 over Conway2014): questions wait for the ten reserved minutes (event.qa_min), and the
+  # policy is not announced. Conway says to state it before any content; at CppCon nobody interrupts a talk and
+  # nobody announces that, so announcing it would read as odd. S23 requires the wording in the opening notes
+  # only when announced is true.
+  questions:
+    when: end
+    announced: false
+    if_interrupted: >-
+      Answer it briefly and take the time out of the end; the reserved question minutes cover it.

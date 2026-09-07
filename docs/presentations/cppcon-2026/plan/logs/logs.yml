@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../schemas/4-logs.schema.yml
+# Level 4: preparation logs and review sign-offs. Schema: ../schemas/4-logs.schema.yml
+# Rehearsals are appended as they happen. The checks count them; strict mode fails until the counts are met.
+rehearsals: []
+checklist:
+  room: null                       # Sched shows the placeholder "_5" as of 2026-09-10; fill in when published
+  equipment_tested: null
+  pdf_backup: null
+  still_backups: []
+  clicker_contingency: >-
+    If the clicker dies: keyboard on the laptop; if the laptop dies: the PDF on the phone via the
+    venue's machine; while switching, tell the Boost.URL drift story.
+  room_visited: null
+  lights_request: null
+  pre_talk_ritual:
+    - "Say the opening two minutes once, alone."
+    - "Say 'I am excited' out loud, right before walking on."
+  qa_conduct_acknowledged: false
+  feedback_plan: >-
+    Ask three people in the room afterwards what the one idea was; read the session Discord channel;
+    watch the recording once with the delivery review fields.
+  logistics:
+    directions: Gaylord Rockies, 6700 N Gaylord Rockies Blvd, Aurora, CO 80019; room per Sched on the day
+    contact: "Tim van Deurzen (speaker liaison), tim@cppcon.org"
+    dressed: "TBD"
+    hydration: "Water bottle on the lectern"
+    return: "Flight CM477 Sat Sep 19, 22:43"
+reviews: []

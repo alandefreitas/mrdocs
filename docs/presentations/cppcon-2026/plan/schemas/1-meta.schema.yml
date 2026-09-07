@@ -1,0 +1,587 @@
+# JSON Schema (draft 2020-12) for levels/1-meta.yml, written as YAML.
+# The tool loads this file directly; `pipeline.py schemas` writes a JSON copy to build/schemas/ for editors that need one.
+title: 'Level 1: meta. What the talk is for, decided before any structure exists.'
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+required:
+- talk_title
+- session_url
+- event
+- mode
+- audience
+- speaker_ownership
+- idea
+- handout
+- policies
+additionalProperties: false
+properties:
+  talk_title:
+    description: >-
+      The title the audience will see in the programme and on the title card: the final published wording, not a
+      working title. Why: The deck, the programme and the recording's title must agree, and the source is the abstract
+      as submitted, not memory. Bookkeeping: carried, not checked. No research criterion behind it.
+    type: string
+    minLength: 10
+  session_url:
+    description: >-
+      The page on the conference schedule for this session, kept here so the facts about the slot (date, time, room)
+      can be re-checked at their source. Why: Every slot fact in event comes from this page, so it is kept next
+      to them to be re-checked. Bookkeeping: carried, not checked. No research criterion behind it.
+    type: string
+    format: uri
+  event:
+    description: >-
+      The facts of the slot as the conference scheduled it. The pipeline reads them to size the talk but cannot
+      verify them, so each should come from the schedule. Why: Everything downstream is sized from the slot: the
+      beats must sum to the talk time, the slide count and pace are judged against it, and the canvas shape is fixed
+      by it. Evidence, strongest first (observational): C3-3-07 (observational; Kosslyn2012); C3-5-03 (observational;
+      Blome2017, Kosslyn2012); C1-05 (expert opinion; Winston2018); C3-2-06 (expert opinion; Alley2005, Alley2006);
+      C3-3-01 (expert opinion; Conway2014, Kosslyn2012, Naegle2021, Phillips2014); and 3 more in levels/0-criteria.yml
+      under the checks below. Checks: M8 (schema: The slot is recorded: length, questions, buffer, time, whether
+      it is filmed, the 16:9), P18 (script: beat target minutes fit the meta file's talk minutes), S4 (script: slide
+      durations sum to the talk minutes within ten percent), S27 (script: speaking time implied by the notes at
+      the meta speaking rate matches each slide's), H3 (script: Reveal canvas is 16:9).
+    type: object
+    required:
+    - name
+    - date
+    - slot_start
+    - duration_min
+    - qa_min
+    - recorded
+    - aspect
+    - buffer_min
+    - speaking_wpm
+    additionalProperties: false
+    properties:
+      name:
+        description: >-
+          The conference and year, as it names itself. Why: Names the event the other facts belong to. Bookkeeping.
+          No research criterion behind it.
+        type: string
+      date:
+        description: >-
+          The day of the talk, as YYYY-MM-DD. Why: Fixes which day the rehearsal and preparation logs count down
+          to. Bookkeeping. No research criterion behind it.
+        type: string
+        format: date
+      slot_start:
+        description: >-
+          The hour the session starts, as HH:MM in the venue's local time. Why: Recorded so the time of day is known
+          when planning energy and the pre-talk ritual. Bookkeeping. No research criterion behind it.
+        type: string
+        pattern: ^\d{2}:\d{2}$
+      duration_min:
+        description: >-
+          The length of the whole session in minutes, questions included. The talk itself is sized to this minus
+          the question and buffer minutes. Why: The talk time is this minus the question and buffer minutes; beats,
+          slide durations and the notes' speaking time are all checked against that number, and rehearsals are timed
+          against it. Evidence, strongest first (observational): C3-3-07 (observational; Kosslyn2012); C3-2-06 (expert
+          opinion; Alley2005, Alley2006); C3-3-01 (expert opinion; Conway2014, Kosslyn2012, Naegle2021, Phillips2014);
+          C3-3-04 (expert opinion; Blome2017, Winston2018); C3-3-06 (expert opinion; Alley2005, Blome2017, Bourne2007,
+          Conway2014, Naegle2021); and 5 more in levels/0-criteria.yml under the checks below. Checks: P18 (script:
+          beat target minutes fit the meta file's talk minutes), S4 (script: slide durations sum to the talk minutes
+          within ten percent), S27 (script: speaking time implied by the notes at the meta speaking rate matches
+          each slide's), D1 (logged: at least three live, timed rehearsals within the slot, at least one to people
+          who do not).
+        type: integer
+        minimum: 5
+      qa_min:
+        description: >-
+          How many of those minutes are set aside for questions at the end, where the research says questions belong
+          so they do not break the flow. Why: Questions are kept to the end so they do not break the flow, and the
+          minutes for them have to come out of the slot before the talk is sized. Evidence, strongest first (expert
+          opinion): C2-2-11 (expert opinion; Conway2014); C5-03 (expert opinion; Conway2014, Freitas2026); C6-2-01
+          (own experience; Blome2017, Freitas2026, Kosslyn2012). Checks: M7 (schema: The questions policy is decided:
+          when the floor is open, whether the room is told, and), P18 (script: beat target minutes fit the meta
+          file's talk minutes).
+        type: integer
+        minimum: 0
+      recorded:
+        description: >-
+          Whether the session is filmed and published. When it is, the recording is the larger audience and the
+          deck is designed for it first. Why: When the session is published, the recording is the larger audience:
+          the palette follows the broadcast frame, type is sized for a video player, and the delivery review is
+          done on a recording. Read by the design decisions in DESIGN-NOTES.md; the checks that depend on it are
+          the theme checks (H4, H10). Evidence, strongest first (expert opinion): C4-01 (expert opinion; Conway2014);
+          C4-02 (expert opinion; Blome2017, Freitas2026); C4-03 (expert opinion; Blome2017, Moulton2017, Winston2018);
+          C4-04 (expert opinion; Blome2017, Freitas2026, Naegle2021); C4-07 (expert opinion; Bourne2007, Lortie2017);
+          and 3 more in levels/0-criteria.yml under the checks below. Checks: D2 (logged: at least one rehearsal
+          recorded and reviewed, with captions check).
+        type: boolean
+      aspect:
+        description: >-
+          The shape of the screen the slides will occupy in the recording. Fixed at 16:9 because that is the broadcast
+          slide box; the canvas and the title card are checked against it. Why: The broadcast frame is 16:9; the
+          canvas and the title card are checked against it so nothing is letterboxed in the recording. Evidence,
+          strongest first (observational): C3-5-03 (observational; Blome2017, Kosslyn2012). Checks: H3 (script:
+          Reveal canvas is 16:9), S18 (script: title card asset exists and is 16:9).
+        const: '16:9'
+      buffer_min:
+        description: >-
+          Minutes deliberately left unplanned to absorb live demos, laughter and the unexpected, so the talk is
+          not designed to fill the slot to the second. Why: Two live demos and a room can add minutes; planning
+          to fill the slot to the second makes every overrun a cut at the end. The number is a decision, not from
+          the research. Evidence, strongest first (own experience): C6-2-01 (own experience; Blome2017, Freitas2026,
+          Kosslyn2012). Checks: P18 (script: beat target minutes fit the meta file's talk minutes).
+        type: integer
+        minimum: 0
+      speaking_wpm:
+        description: >-
+          The speaker's pace in words per minute. Why: Turns the notes into an estimate of how long each slide takes
+          to say, so under-written and over-full slides are caught before rehearsal. The research gives no best
+          rate; its only direction is slower, so the value is chosen to make estimates err long, and is replaced
+          by the measured rate once a rehearsal is recorded. Evidence, strongest first (expert opinion): C3-3-06
+          (expert opinion; Alley2005, Blome2017, Bourne2007, Conway2014, Naegle2021); C6-2-01 (own experience; Blome2017,
+          Freitas2026, Kosslyn2012). Checks: S27 (script: speaking time implied by the notes at the meta speaking
+          rate matches each slide's).
+        type: integer
+        minimum: 100
+        maximum: 200
+  mode:
+    description: >-
+      What the talk is trying to do. 'expose' means the audience should leave knowing the thing exists, what it
+      is and why it matters, which is what a conference talk does; 'teach' means they should leave able to do it,
+      which wants a board and a slower pace. Why: A talk that exposes an idea and a lecture that teaches a skill
+      want different pacing and different media; the pipeline is built for expose and says so here so nobody reads
+      the thresholds as advice for teaching. Evidence, strongest first (expert opinion): C1-05 (expert opinion;
+      Winston2018). Checks: M8 (schema: The slot is recorded: length, questions, buffer, time, whether it is filmed,
+      the 16:9).
+    enum:
+    - expose
+    - teach
+  audience:
+    description: >-
+      Who is listening, described well enough that every later choice can be made for them: what they share, what
+      they already know, why they would care, and what they get from listening. Why: Every later choice (what to
+      explain, what to assume, what to put on screen) is made for a specific audience, and the research's most repeated
+      advice is to know who they are before writing anything. Evidence, strongest first (expert opinion): C1-06
+      (expert opinion; Blome2017); C1-09 (own experience; Blome2017, Freitas2026). Checks: M2 (schema: The audience
+      is described: who they are, what they share, what they know, whether they).
+    type: object
+    required:
+    - who
+    - share
+    - know
+    - expert
+    additionalProperties: false
+    properties:
+      who:
+        description: >-
+          The people in the room and the people who will watch the recording, named as groups. Why: Names the groups
+          the talk is for, in the room and on the recording, so 'the audience' is never abstract. Evidence, strongest
+          first (expert opinion): C1-06 (expert opinion; Blome2017); C1-09 (own experience; Blome2017, Freitas2026).
+          Checks: M2 (schema: The audience is described: who they are, what they share, what they know, whether
+          they).
+        type: string
+        minLength: 20
+      share:
+        description: >-
+          What everyone in the audience has in common with respect to the topic: the experience, tool or frustration
+          the talk can assume. Why: The idea has to be built from what the room already has; the shared experience
+          named here is that ground, and the story is checked to open on it. Evidence, strongest first (expert opinion):
+          C1-06 (expert opinion; Blome2017); C1-10 (expert opinion; Anderson2016, Garner2009, Kosslyn2012); C2-3-11
+          (expert opinion; Anderson2016, Duarte2011); C1-09 (own experience; Blome2017, Freitas2026). Checks: M2
+          (schema: The audience is described: who they are, what they share, what they know, whether they), P13
+          (script: at least one metaphor drawn from something the audience already knows).
+        type: string
+        minLength: 10
+      know:
+        description: >-
+          What can be taken for granted and what cannot: the concepts they already have, and the ones the talk must
+          introduce before using. Why: Separates what can be assumed from what must be introduced, so the talk neither
+          explains the obvious nor uses a concept the room lacks. Evidence, strongest first (expert opinion): C1-06
+          (expert opinion; Blome2017); C1-09 (own experience; Blome2017, Freitas2026). Checks: M2 (schema: The audience
+          is described: who they are, what they share, what they know, whether they).
+        type: string
+        minLength: 10
+      expert:
+        description: >-
+          True when the audience can read a technical picture without being told what it shows. For an expert audience
+          the notes add what the picture does not say instead of describing it. Why: An expert audience reads a
+          technical picture unaided, so the notes should add what the picture does not say rather than describe
+          it; a redundant narration is what the redundancy research warns against. Reviewed, not measured. Evidence,
+          strongest first (experiment): C3-1-07 (experiment; Trypke2023); C3-3-14 (experiment; Conway2014, Moulton2017);
+          C2-3-10 (expert opinion; Duarte2011); C2-3-12 (expert opinion; Naegle2021); C3-3-11 (expert opinion; Naegle2021,
+          Phillips2014); and 3 more in levels/0-criteria.yml under the checks below. Checks: R4 (review: each slide
+          gives its point to a lapsed listener).
+        type: boolean
+  speaker_ownership:
+    description: >-
+      Evidence that the speaker has actually used or built the thing being presented: the roles, work or experience
+      that make the speaker credible and remove the fear of being caught out. Why: Confidence comes from competence;
+      the research asks that the speaker have used or built the thing, and writing the evidence down settles the
+      fear of being caught out before the talk is written. Evidence, strongest first (observational): C3-1-09 (observational;
+      Blome2017, Garner2009, Kosslyn2012, Winston2018); C4-09 (observational; Blome2017, Garner2009, Kosslyn2012,
+      Winston2018); C1-04 (expert opinion; Conway2014); C2-2-10 (expert opinion; Blome2017, Winston2018); C4-01
+      (expert opinion; Conway2014); and 9 more in levels/0-criteria.yml under the checks below. Checks: M9 (schema:
+      The speaker has used or built the thing: at least one piece of evidence of ownership,), R5 (review: delivery
+      review of the recording: energy, eye contact, pace, hands, pauses, not reading).
+    type: array
+    minItems: 1
+    items:
+      type: string
+      minLength: 15
+  idea:
+    description: >-
+      The idea and what the audience gets from it, kept together because they are one thing said in several registers.
+      Why: One idea, in several registers on purpose, so the talk can return to it without repeating one sentence:
+      the statement is shown last, the promise is said first, the take-home is how it is retold, the call to action
+      is what is done about it. Evidence, strongest first (expert opinion): C1-01 (expert opinion; Anderson2016,
+      Stephens2010); C1-02 (expert opinion; Duarte2011); C1-06 (expert opinion; Blome2017); C1-07 (expert opinion;
+      Anderson2016); C2-1-04 (expert opinion; Duarte2011); and 5 more in levels/0-criteria.yml under the checks
+      below. Checks: M1 (schema: The idea statement is at most fifteen words, short enough to be repeated by someone
+      who), M3 (script: The take-home is a problem, a proof and an action, none of them a restatement of the one),
+      M4 (schema: There is a promise: what the listener will be able to do afterwards that they could not), M5 (schema:
+      What is and what could be are both written down, so the story can open on the gap between), M6 (schema: There
+      is exactly one call to action, so the audience leaves with one thing to do rather), M10 (schema: Someone other
+      than the speaker gains from the idea. An idea that serves only the speaker).
+    type: object
+    required:
+    - statement
+    - status_quo
+    - what_could_be
+    - promise
+    - benefit
+    - take_home
+    - call_to_action
+    additionalProperties: false
+    properties:
+      statement:
+        description: >-
+          The single thing the audience should be able to repeat a week later, as one short plain sentence. Everything
+          in the talk exists to make this sentence believed; it is said several times and is the last thing left
+          on screen. Why: A talk builds one idea; a short statement is what can be repeated by someone who heard
+          it once. It is the last thing on screen, it is restated across the talk, and the take-home and the story's
+          insight are checked to be other words than these. Evidence, strongest first (observational): C2-1-05 (observational;
+          Huang2020); C1-01 (expert opinion; Anderson2016, Stephens2010); C2-3-04 (expert opinion; Duarte2011, Lortie2017,
+          Winston2018); C2-4-06 (expert opinion; Alley2005, Bourne2007, Kosslyn2012, Lortie2017, Winston2018); C5-09
+          (expert opinion; Alley2005, Winston2018); and 3 more in levels/0-criteria.yml under the checks below.
+          Checks: M1 (schema: The idea statement is at most fifteen words, short enough to be repeated by someone
+          who), P5 (script: the insight answers the dramatic question outright, in words other than the idea), S16
+          (script: conclusions slide on-screen text is the one idea), S20 (script: at least three slides flagged
+          restates_idea).
+        type: string
+        pattern: ^.+[.!?]$
+        minLength: 10
+        maxLength: 120
+      status_quo:
+        description: >-
+          The present state of affairs the talk sets out to change, described plainly. The story opens here and
+          comes back to it. Why: Persuasion moves between what is and what could be; the story is checked to open
+          on the gap between them and to alternate across it. Evidence, strongest first (expert opinion): C1-02
+          (expert opinion; Duarte2011); C2-1-04 (expert opinion; Duarte2011); C2-2-03 (expert opinion; Anderson2016,
+          Duarte2011); C2-3-02 (expert opinion; Duarte2011). Checks: M5 (schema: What is and what could be are both
+          written down, so the story can open on the gap between), P2 (script: opening act has both sides of the
+          gap).
+        type: string
+        minLength: 30
+      what_could_be:
+        description: >-
+          The state of affairs once the idea is adopted, described as vividly as the present. The distance between
+          this and status_quo is the argument of the talk. Why: The other side of the gap; without it the talk has
+          a complaint but no destination. Evidence, strongest first (expert opinion): C1-02 (expert opinion; Duarte2011);
+          C2-1-04 (expert opinion; Duarte2011); C2-2-03 (expert opinion; Anderson2016, Duarte2011); C2-3-02 (expert
+          opinion; Duarte2011). Checks: M5 (schema: What is and what could be are both written down, so the story
+          can open on the gap between), P2 (script: opening act has both sides of the gap).
+        type: string
+        minLength: 30
+      promise:
+        description: >-
+          What a listener will know or be able to do at the end that they could not at the start, said to them near
+          the beginning as the reason to stay. Why: The reason to stay, said near the start: what the listener will
+          be able to do afterwards. The opening notes must contain it verbatim. Evidence, strongest first (expert
+          opinion): C1-02 (expert opinion; Duarte2011); C2-2-04 (expert opinion; Winston2018); C2-2-11 (expert opinion;
+          Conway2014); C5-03 (expert opinion; Conway2014, Freitas2026); C2-2-13 (own experience; Freitas2026). Checks:
+          M4 (schema: There is a promise: what the listener will be able to do afterwards that they could not),
+          S23 (script: opening slide notes contain the promise, the questions policy when it is announced, and).
+        type: string
+        minLength: 30
+      benefit:
+        description: >-
+          Who gains from the idea other than the speaker, and how, in the audience's own terms. Why: An idea is
+          worth a talk only if someone other than the speaker gains from it; writing down who and how is the test.
+          Evidence, strongest first (expert opinion): C1-02 (expert opinion; Duarte2011); C1-07 (expert opinion;
+          Anderson2016). Checks: M10 (schema: Someone other than the speaker gains from the idea. An idea that serves
+          only the speaker).
+        type: string
+        minLength: 30
+      take_home:
+        description: >-
+          The three supporting points a listener can name a week later: the problem the idea solves, the proof that
+          it does, and the action to take. Why: Three points is what a listener can carry away; framing them as
+          problem, proof and action keeps them from being the statement said three times, and each must be said
+          aloud somewhere or it cannot be taken home. Evidence, strongest first (expert opinion): C1-06 (expert
+          opinion; Blome2017); C2-1-06 (expert opinion; Bourne2007, Lortie2017); C2-1-07 (expert opinion; Bourne2007).
+          Checks: M3 (script: The take-home is a problem, a proof and an action, none of them a restatement of the
+          one).
+        type: object
+        required:
+        - problem
+        - proof
+        - action
+        additionalProperties: false
+        properties:
+          problem:
+            description: >-
+              The situation the audience recognises as their own, which the idea exists to end. Why: The listener
+              has to recognise the problem as their own before caring about the proof. Evidence, strongest first
+              (expert opinion): C1-06 (expert opinion; Blome2017); C2-1-06 (expert opinion; Bourne2007, Lortie2017);
+              C2-1-07 (expert opinion; Bourne2007). Checks: M3 (script: The take-home is a problem, a proof and
+              an action, none of them a restatement of the one).
+            type: string
+            minLength: 15
+          proof:
+            description: >-
+              One concrete, checkable instance that shows the idea already works. Why: One checkable instance beats
+              a list of features; it is what gets repeated to a colleague. Evidence, strongest first (expert opinion):
+              C1-06 (expert opinion; Blome2017); C2-1-06 (expert opinion; Bourne2007, Lortie2017); C2-1-07 (expert
+              opinion; Bourne2007). Checks: M3 (script: The take-home is a problem, a proof and an action, none
+              of them a restatement of the one).
+            type: string
+            minLength: 15
+          action:
+            description: >-
+              What a listener does tonight, small enough to actually happen. Why: A take-home that includes something
+              to do tonight turns the talk into behaviour. Evidence, strongest first (expert opinion): C1-06 (expert
+              opinion; Blome2017); C2-1-06 (expert opinion; Bourne2007, Lortie2017); C2-1-07 (expert opinion; Bourne2007).
+              Checks: M3 (script: The take-home is a problem, a proof and an action, none of them a restatement
+              of the one).
+            type: string
+            minLength: 15
+      call_to_action:
+        description: >-
+          The one thing the audience is asked to do after the talk. Why: One ask, not a list; the audience leaves
+          with one thing to do, and the call-to-action slide is checked to carry it. Evidence, strongest first (own
+          experience): C2-4-02 (own experience; Duarte2011, Freitas2026). Checks: M6 (schema: There is exactly one
+          call to action, so the audience leaves with one thing to do rather), S17 (script: call-to-action slide
+          carries a URL and a QR asset that exists).
+        type: object
+        required:
+        - text
+        - url
+        additionalProperties: false
+        properties:
+          text:
+            description: >-
+              The ask, worded as it will be said. Why: Worded as it will be said so the slide and the speech agree.
+              Evidence, strongest first (own experience): C2-4-02 (own experience; Duarte2011, Freitas2026). Checks:
+              M6 (schema: There is exactly one call to action, so the audience leaves with one thing to do rather).
+            type: string
+            minLength: 10
+          url:
+            description: >-
+              Where the ask sends them; shown on the call-to-action slide with a QR code. Why: The one address the
+              ask sends people to; the slide must show this url and a QR code that exists. Evidence, strongest first
+              (own experience): C2-4-02 (own experience; Duarte2011, Freitas2026). Checks: S17 (script: call-to-action
+              slide carries a URL and a QR asset that exists).
+            type: string
+            format: uri
+  handout:
+    description: >-
+      What the audience takes away to study later. It must not be the slides themselves, because slides that work
+      as a handout do not work as slides. Why: Slides that work as a handout do not work as slides; deciding the
+      handout separately frees the slides to be for the room. Evidence, strongest first (expert opinion): C1-08
+      (expert opinion; Alley2005, Berk2012, Conway2014, Naegle2021); C5-01 (expert opinion; Blome2017, Naegle2021).
+      Checks: M11 (schema: The handout is something other than the slides, because slides that work as a handout
+      do), S14 (script: backup slides only after the conclusions slide).
+    type: object
+    required:
+    - kind
+    - what
+    additionalProperties: false
+    properties:
+      kind:
+        description: >-
+          The form the handout takes: the speaker's notes, a PDF of them, the documentation site, or nothing. Why:
+          Names which of the workable forms the handout takes, so nobody later tries to make the slides do it. Evidence,
+          strongest first (expert opinion): C1-08 (expert opinion; Alley2005, Berk2012, Conway2014, Naegle2021).
+          Checks: M11 (schema: The handout is something other than the slides, because slides that work as a handout
+          do).
+        enum:
+        - notes
+        - pdf-of-notes
+        - docs-site
+        - none
+      what:
+        description: >-
+          What the handout is and where they will find it. Why: Where the audience will find the handout, so the
+          call to action can point at it. Evidence, strongest first (expert opinion): C1-08 (expert opinion; Alley2005,
+          Berk2012, Conway2014, Naegle2021). Checks: M11 (schema: The handout is something other than the slides,
+          because slides that work as a handout do).
+        type: string
+        minLength: 10
+  policies:
+    description: >-
+      Decisions on the points where the research disagrees with itself, leaves the choice to the speaker, or is
+      overridden for a stated reason. Why: Where the sources disagree, leave the choice open, or are overridden
+      for a stated reason, the choice is written once here so the deck, the notes and the checks follow one policy
+      instead of drifting. Evidence, strongest first (observational): C3-5-04 (observational; Blome2017, Freitas2026,
+      Phillips2014); C2-2-08 (own experience; Freitas2026, Winston2018); C2-2-13 (own experience; Freitas2026);
+      C2-4-07 (own experience; Freitas2026, Winston2018); C3-4-08 (no evidence mark; no source tag). Checks: M12
+      (schema: The contested points are decided and written down).
+    type: object
+    required:
+    - opening
+    - closing_words
+    - background
+    - slide_numbers_visible
+    - pointer
+    - questions
+    additionalProperties: false
+    properties:
+      opening:
+        description: >-
+          The decisions left about the first minute once the way in is chosen in the story. Why: The way in is chosen
+          in the story; the two points left about the first minute are the joke, where the sources disagree, and
+          self-introduction, which is advised only in academic settings. Evidence, strongest first (observational):
+          C2-2-15 (observational; Freitas2026, Kosslyn2012); C3-5-04 (observational; Blome2017, Freitas2026, Phillips2014);
+          C2-2-04 (expert opinion; Winston2018); C2-2-11 (expert opinion; Conway2014); C5-03 (expert opinion; Conway2014,
+          Freitas2026); and 4 more in levels/0-criteria.yml under the checks below. Checks: M12 (schema: The contested
+          points are decided and written down), R2 (review: humour is inside a safe story, relevant, not at the
+          open), S23 (script: opening slide notes contain the promise, the questions policy when it is announced,
+          and).
+        type: object
+        required:
+        - joke
+        - self_introduction
+        additionalProperties: false
+        properties:
+          joke:
+            description: >-
+              Whether the talk may open with a joke; false means none in the first two beats. Why: Winston advises
+              against opening with a joke, the speaker's own notes allow it; a decision is recorded and the humour
+              review checks the notes follow it. Evidence, strongest first (observational): C2-2-15 (observational;
+              Freitas2026, Kosslyn2012); C2-2-08 (own experience; Freitas2026, Winston2018). Checks: R2 (review:
+              humour is inside a safe story, relevant, not at the open).
+            type: boolean
+          self_introduction:
+            description: >-
+              Whether the speaker says who they are in the opening; false means the notes must not. Why: Introducing
+              yourself is advised only where the chair does not; when false the opening notes are checked for a
+              self-introduction. Evidence, strongest first (expert opinion): C2-2-04 (expert opinion; Winston2018);
+              C2-2-11 (expert opinion; Conway2014); C5-03 (expert opinion; Conway2014, Freitas2026); C2-2-13 (own
+              experience; Freitas2026). Checks: S23 (script: opening slide notes contain the promise, the questions
+              policy when it is announced, and).
+            type: boolean
+      closing_words:
+        description: >-
+          What the last words of the talk are: the idea itself, a salute to the audience, a joke, a benediction,
+          or thank you. The research advises against ending on thank you. Why: The last words are the most remembered;
+          the research advises against ending on thank you and the conclusions slide is checked to show the statement.
+          Evidence, strongest first (observational): C3-5-04 (observational; Blome2017, Freitas2026, Phillips2014);
+          C1-01 (expert opinion; Anderson2016, Stephens2010); C2-4-06 (expert opinion; Alley2005, Bourne2007, Kosslyn2012,
+          Lortie2017, Winston2018); C5-09 (expert opinion; Alley2005, Winston2018); C2-1-01 (own experience; Anderson2016,
+          Freitas2026, Winston2018); and 6 more in levels/0-criteria.yml under the checks below. Checks: M12 (schema:
+          The contested points are decided and written down), S16 (script: conclusions slide on-screen text is the
+          one idea).
+        enum:
+        - salute
+        - thank-you
+        - joke
+        - benediction
+        - one-idea
+      background:
+        description: >-
+          The slide background policy: light, dark, or the palette of the venue's broadcast frame. Light versus
+          dark is the one thing the advice literature contradicts itself on. Why: Light versus dark is the one point
+          the advice literature contradicts itself on; the decision is recorded so the theme and the contrast checks
+          work from one answer. Evidence, strongest first (observational): C3-5-02 (observational; Alley2005, Berk2012,
+          Blome2017, Kosslyn2012, Naegle2021); C3-5-04 (observational; Blome2017, Freitas2026, Phillips2014); C2-2-08
+          (own experience; Freitas2026, Winston2018); C2-2-13 (own experience; Freitas2026); C2-4-07 (own experience;
+          Freitas2026, Winston2018); C3-4-08 (no evidence mark; no source tag). Checks: M12 (schema: The contested
+          points are decided and written down), H10 (script: contrast of text colours on the canvas ≥ 4.5:1, computed
+          from CSS variables).
+        enum:
+        - light
+        - dark
+        - venue-palette
+      slide_numbers_visible:
+        description: >-
+          Whether the audience sees slide numbers. They tell the audience nothing and read as a countdown. Why:
+          Conway warns that slide numbers read as a countdown, so the audience never sees them and this stays false.
+          The speaker practises with `pipeline.py build --rehearsal`, a separate file with faint numbers and visible
+          arrows, so the aid can never ship by accident; M12 warns if this is flipped. Evidence, strongest first
+          (observational): C3-5-04 (observational; Blome2017, Freitas2026, Phillips2014); C2-2-08 (own experience;
+          Freitas2026, Winston2018); C2-2-13 (own experience; Freitas2026); C2-4-07 (own experience; Freitas2026,
+          Winston2018); C3-4-08 (no evidence mark; no source tag). Checks: M12 (schema: The contested points are
+          decided and written down).
+        type: boolean
+      pointer:
+        description: >-
+          How the speaker points at the slide beyond the highlights built into it: not at all, a digital pointer
+          that draws on the slide from the lectern, or a laser. Why: The research argues against a laser because
+          it turns the speaker to the screen; a digital pointer does not, and highlights on the slide do the pointing
+          regardless. The choice is recorded rather than fixed because not every speaker has the same equipment.
+          Evidence, strongest first (observational): C3-5-04 (observational; Blome2017, Freitas2026, Phillips2014);
+          C3-4-03 (expert opinion; Conway2014); C2-2-08 (own experience; Freitas2026, Winston2018); C2-2-13 (own
+          experience; Freitas2026); C2-4-07 (own experience; Freitas2026, Winston2018); C3-4-08 (no evidence mark;
+          no source tag). Checks: M12 (schema: The contested points are decided and written down), S12 (script:
+          a code slide with several highlight steps gives every step after the first its own notes).
+        enum:
+        - none
+        - digital
+        - laser
+      questions:
+        description: >-
+          When questions are taken, whether the speaker tells the room so, and what happens if someone asks anyway.
+          Why: The research says to announce a questions policy before any content; a venue where nobody interrupts
+          and nobody announces that is a reason not to, and the reason belongs in the comment beside the value.
+          Either way the decision is made before the talk, not on stage. Evidence, strongest first (expert opinion):
+          C2-2-04 (expert opinion; Winston2018); C2-2-11 (expert opinion; Conway2014); C5-03 (expert opinion; Conway2014,
+          Freitas2026); C2-2-13 (own experience; Freitas2026). Checks: M7 (schema: The questions policy is decided:
+          when the floor is open, whether the room is told, and), S23 (script: opening slide notes contain the promise,
+          the questions policy when it is announced, and).
+        type: object
+        required:
+        - when
+        - announced
+        - if_interrupted
+        additionalProperties: false
+        properties:
+          when:
+            description: >-
+              When the floor is open: only in the reserved minutes at the end, at the end of each chapter, or at
+              any time. Why: Whether the floor is open only at the end, at chapter ends, or any time decides how
+              the beats are paced and what the notes may promise. Evidence, strongest first (expert opinion): C2-2-11
+              (expert opinion; Conway2014); C5-03 (expert opinion; Conway2014, Freitas2026). Checks: M7 (schema:
+              The questions policy is decided: when the floor is open, whether the room is told, and).
+            enum:
+            - end
+            - chapter-ends
+            - anytime
+          announced:
+            description: >-
+              Whether the policy is said to the room near the start. Why: When true the wording is required and
+              the opening notes must contain it verbatim; when false nothing is said and the venue's convention
+              carries it. Evidence, strongest first (expert opinion): C2-2-04 (expert opinion; Winston2018); C2-2-11
+              (expert opinion; Conway2014); C5-03 (expert opinion; Conway2014, Freitas2026); C2-2-13 (own experience;
+              Freitas2026). Checks: S23 (script: opening slide notes contain the promise, the questions policy when
+              it is announced, and).
+            type: boolean
+          wording:
+            description: >-
+              The policy as it will be said to the room, so people know when it is all right to ask. Why: Said near
+              the start so people know when it is all right to ask; checked verbatim in the opening notes when announced.
+              Evidence, strongest first (expert opinion): C2-2-04 (expert opinion; Winston2018); C2-2-11 (expert
+              opinion; Conway2014); C5-03 (expert opinion; Conway2014, Freitas2026); C2-2-13 (own experience; Freitas2026).
+              Checks: S23 (script: opening slide notes contain the promise, the questions policy when it is announced,
+              and).
+            type: string
+            minLength: 20
+          if_interrupted:
+            description: >-
+              What the speaker does when a question arrives outside the open floor: answer and absorb the time,
+              or defer to the end. Why: Answering or deferring an unscheduled question is decided in advance so
+              it is not decided on stage. Evidence, strongest first (expert opinion): C2-2-11 (expert opinion; Conway2014);
+              C5-03 (expert opinion; Conway2014, Freitas2026). Checks: M7 (schema: The questions policy is decided:
+              when the floor is open, whether the room is told, and).
+            type: string
+            minLength: 15
+        if:
+          properties:
+            announced:
+              const: true
+        then:
+          required:
+          - wording

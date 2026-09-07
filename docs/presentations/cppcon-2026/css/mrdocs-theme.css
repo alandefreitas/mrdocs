@@ -1,0 +1,623 @@
+/*
+ * CppCon 2026 broadcast theme for reveal.js
+ *
+ * The deck is designed for the YouTube recording first: CppCon frames the
+ * slide inside their own navy chrome (logo panel, presenter cam, lower
+ * third), and that recording is what most people see. So the canvas uses
+ * CppCon's palette, sampled from the official 2026 speaker title card and
+ * from a 2025 broadcast frame, instead of the Mr.Docs brand colors. The
+ * slide then reads as part of the frame rather than a rectangle pasted into
+ * it. See ../DESIGN-NOTES.md for the sampled values and the reasoning.
+ *
+ * The Mr.Docs brand still owns the two cover slides (Bangers display type,
+ * the mascot, the banner art). Everything in between is CppCon navy + gold.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Bangers&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* CppCon navy, sampled from the 2026 title card and the 2025 broadcast.
+     The card is a wide radial gradient: -lift at the centre falling off to
+     -deep at the edges, and -deep is also the colour of the chrome around
+     the slide, so the slide edges melt into the frame. */
+  --cc-navy-deep: #1F2844;
+  --cc-navy: #273457;
+  --cc-navy-lift: #344472;
+  --cc-navy-panel: #2C3A61;
+  --cc-navy-sink: #1B2440;   /* below the canvas: code windows, wells */
+  --cc-border: rgba(174, 190, 226, 0.22);
+
+  /* Accents. Gold is the constant across CppCon years (2024, 2025, 2026 all
+     set talk titles in it) and is the safe primary. Orange is the 2026 year
+     mark; treat it as a spot colour, since the year accent changes annually
+     (green in 2024, purple in 2025). */
+  --cc-gold: #FFBB33;
+  --cc-gold-soft: #FDD37A;
+  --cc-orange: #FF8933;
+  --cc-grey: #AAACB5;
+
+  /* Text */
+  --cc-white: #F6F6F7;
+  --cc-text: rgba(238, 242, 251, 0.94);
+  --cc-text-70: rgba(214, 224, 244, 0.80);
+  --cc-muted: #B8C3DE;               /* 5.2:1 on the canvas centre */
+
+  /* Code token colours. Built from the CppCon year accents (2026 orange,
+     2025 purple, 2024 green) so even the syntax highlighting stays inside
+     the conference's own world. Every one of them clears 4.5:1 on the code
+     window background. */
+  --cc-code-text: #E8ECF6;
+  --cc-code-comment: #98A6C8;
+  --cc-code-keyword: #FF9E5E;
+  --cc-code-type: #FFBB33;
+  --cc-code-string: #8FD9A8;
+  --cc-code-number: #FDD37A;
+  --cc-code-func: #9FC7FF;
+  --cc-code-meta: #C9A7F0;
+
+  --r-background-color: var(--cc-navy-deep);
+  --r-main-font: 'Lexend', 'Helvetica Neue', Arial, sans-serif;
+  /* Sized for a 1600x900 canvas. Large on purpose: on YouTube the slide is
+     roughly 70% of the frame width, and plenty of people watch on a phone. */
+  --r-main-font-size: 42px;
+  --r-main-color: var(--cc-text);
+  --r-heading-font: 'Lexend', 'Helvetica Neue', Arial, sans-serif;
+  --r-heading-color: var(--cc-gold);
+  --r-heading-font-weight: 600;
+  --r-heading-text-shadow: none;
+  --r-heading-text-transform: none;
+  --r-code-font: 'JetBrains Mono', 'Menlo', ui-monospace, monospace;
+}
+/* no programming ligatures in code: `~}}` and `->` must show the characters that are typed */
+.reveal code, .reveal pre, .reveal .docpanel code { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0, "dlig" 0; }
+:root {
+  --r-link-color: var(--cc-gold);
+  --r-link-color-hover: var(--cc-gold-soft);
+  --r-link-color-dark: var(--cc-gold-soft);
+  --r-selection-background-color: var(--cc-gold);
+  --r-selection-color: var(--cc-navy-deep);
+
+  /* Mr.Docs brand, kept for the cover slides only */
+  --mr-display-font: 'Bangers', 'Lexend', cursive;
+}
+
+/* The canvas is CppCon's own gradient, not an imitation of it.
+   `assets/cppcon-backdrop.png` was reconstructed from the 2026 title card:
+   every logo, mark and line of text masked out, the holes filled from the
+   card's own mirror image (the gradient is symmetric about both axes), then
+   blurred. It matches the card to a mean of 1.6/255 across the areas of the
+   card that are bare gradient. A CSS radial-gradient cannot do this; the
+   card's falloff is not elliptical (a best-fit ellipse is off by an rms of
+   nearly 16).
+
+   Stretched to the viewport, so on a 16:9 screen it lands exactly where the
+   card's gradient lands. Slide 1 is the card and slide 2 is this: the
+   background does not move, only the content on top of it changes. Nothing
+   else in the deck may set its own background, or that effect breaks. */
+.reveal-viewport {
+  background-color: var(--cc-navy-deep);
+  background-image: url(../assets/cppcon-backdrop.png);
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.reveal {
+  font-family: var(--r-main-font);
+  font-size: var(--r-main-font-size);
+  font-weight: 400;
+  color: var(--r-main-color);
+  letter-spacing: 0;
+}
+
+.reveal .slides { text-align: left; }
+
+.reveal .slides section.centered,
+.reveal .slides > section.centered { text-align: center; }
+
+/* Headings ---------------------------------------------------------------- */
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4 {
+  font-family: var(--r-heading-font);
+  color: var(--r-heading-color);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 0.5em 0;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  text-shadow: none;
+  word-wrap: break-word;
+}
+
+.reveal h1 { font-size: 1.9em; font-weight: 700; }
+.reveal h2 { font-size: 1.45em; }
+.reveal h3 { font-size: 1.12em; color: var(--cc-white); }
+.reveal h4 { font-size: 0.92em; color: var(--cc-gold); }
+
+.reveal p { line-height: 1.45; }
+
+.reveal strong, .reveal b { color: var(--cc-white); font-weight: 600; }
+.reveal em { color: var(--cc-gold); font-style: normal; font-weight: 500; }
+
+.reveal a {
+  color: var(--r-link-color);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.reveal a:hover { color: var(--r-link-color-hover); text-decoration: underline; }
+
+/* Lists ------------------------------------------------------------------- */
+.reveal ul, .reveal ol { display: block; margin-left: 1em; }
+.reveal li { line-height: 1.45; margin-bottom: 0.4em; }
+.reveal ul li::marker,
+.reveal ol li::marker { color: var(--cc-gold); }
+
+/* Inline + block code ----------------------------------------------------- */
+.reveal code {
+  font-family: var(--r-code-font);
+  background: rgba(27, 36, 64, 0.72);
+  color: var(--cc-gold-soft);
+  padding: 0.08em 0.3em;
+  border-radius: 4px;
+  font-size: 0.82em;
+  letter-spacing: 0;
+}
+
+/* Code blocks sink below the canvas rather than floating above it, which
+   keeps them readable when the stream crushes the mid tones. All the window
+   chrome lives on the <pre> (the element auto-animate matches and morphs as
+   one box), so the inner <code> carries no border or radius. */
+.reveal pre {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  font-size: 0.82em;
+  line-height: 1.5;
+  background: var(--cc-navy-sink);
+  border: 1px solid var(--cc-border);
+  border-top: 3px solid var(--cc-gold);
+  border-radius: 10px;
+  box-shadow: 0 14px 38px rgba(9, 14, 30, 0.55);
+  margin: 0.6em auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+
+
+.reveal pre code,
+.reveal pre code table,
+.reveal pre code td { text-align: left; }
+.reveal pre code {
+  display: block;
+  background: var(--cc-navy-sink);
+  color: var(--cc-code-text);
+  padding: 1em 1.3em;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 0;
+  max-height: 760px;
+  overflow: hidden;  /* the block scrolls to each highlight step; nothing spills past the frame */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+/* code-led slides (auto-animate magic move) can afford a larger font still */
+.reveal section[data-auto-animate] pre { font-size: 0.9em; }
+/* code soft-wraps: a line wider than the frame folds at a space, or inside a long token only when it must; the gutter never folds */
+.reveal pre code .hljs-ln-code { white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; }
+.reveal pre code .hljs-ln-numbers { white-space: nowrap; }
+.reveal .qr-corner { position: absolute; right: 0; bottom: 0; width: 130px; height: 130px; padding: 8px; }
+.reveal section.conclusions .qr-corner { width: 200px; height: 200px; right: 24px; bottom: auto; top: 24px; }  /* the questions slide: scannable from the room */
+
+/* a code frame with the file it comes from as a tab above it; two frames on one slide stack */
+.reveal .codebox { width: fit-content; max-width: 100%; margin: 0.6em auto; }
+.reveal .codebox pre { margin: 0; }
+.reveal .code-title {
+  font-family: var(--r-code-font);
+  font-size: 0.42em; color: var(--cc-text-70); text-align: left; padding: 0 0.6em 0.35em 0.4em;
+}
+.reveal .blocks { display: flex; flex-direction: column; align-items: center; gap: 0.2em; }
+.reveal .blocks .codebox { margin: 0.2em auto; }
+.reveal .blocks pre { font-size: 0.72em; }
+
+/* Syntax highlighting (highlight.js tokens). */
+.reveal .hljs { background: var(--cc-navy-sink); color: var(--cc-code-text); }
+.reveal .hljs-comment,
+.reveal .hljs-quote { color: var(--cc-code-comment); font-style: italic; }
+.reveal .hljs-keyword,
+.reveal .hljs-selector-tag,
+.reveal .hljs-literal { color: var(--cc-code-keyword); }
+.reveal .hljs-built_in,
+.reveal .hljs-type { color: var(--cc-code-type); }
+.reveal .hljs-title,
+.reveal .hljs-title.function_,
+.reveal .hljs-section,
+.reveal .hljs-name { color: var(--cc-code-func); }
+.reveal .hljs-string,
+.reveal .hljs-symbol,
+.reveal .hljs-addition { color: var(--cc-code-string); }
+/* keys: the template's orange in YAML only, so a configuration file reads as keys and values; other languages
+   keep the string colour for the same token, and list bullets are muted everywhere */
+.reveal .hljs-attr { color: var(--cc-code-string); }
+.reveal code.language-yaml .hljs-attr, .reveal code.language-json .hljs-attr { color: var(--cc-orange); }  /* keys in data files */
+.reveal .hljs-bullet { color: var(--cc-text-70); }
+.reveal .hljs-number,
+.reveal .hljs-meta .hljs-number { color: var(--cc-code-number); }
+.reveal .hljs-meta,
+.reveal .hljs-meta-keyword { color: var(--cc-code-meta); }
+.reveal .hljs-attribute { color: var(--cc-code-number); }
+.reveal .hljs-variable,
+.reveal .hljs-params,
+.reveal .hljs-template-variable { color: var(--cc-code-text); }
+.reveal .hljs-deletion { color: var(--cc-orange); }
+.reveal .hljs-link { color: var(--cc-code-func); }
+.reveal .hljs-emphasis { font-style: italic; }
+.reveal .hljs-strong { font-weight: 700; }
+
+/* highlight.js line stepping: dim the rest hard enough to survive
+   compression, and mark the live lines with a gold gutter. */
+.reveal .hljs.has-highlights tr:not(.highlight-line) { opacity: 0.42; }
+.reveal .hljs .highlight-line {
+  background: rgba(255, 187, 51, 0.10);
+  box-shadow: inset 3px 0 0 var(--cc-gold);
+}
+
+/* Tables ------------------------------------------------------------------ */
+.reveal table {
+  margin: 0.5em auto;
+  border-collapse: collapse;
+  font-size: 0.74em;
+  width: 100%;
+}
+.reveal table th {
+  background: rgba(27, 36, 64, 0.55);
+  color: var(--cc-gold);
+  font-family: var(--r-heading-font);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 2px solid var(--cc-gold);
+  padding: 0.4em 0.7em;
+  text-align: center;
+}
+.reveal table th:first-child { text-align: left; }
+.reveal table td {
+  border-bottom: 1px solid var(--cc-border);
+  padding: 0.4em 0.7em;
+  color: var(--cc-text-70);
+  text-align: center;
+}
+.reveal table td:first-child { text-align: left; }
+/* yes / no / maybe cells are glyphs, not words: the column pattern is seen, not read */
+.reveal table .cell-yes { color: #8FD9A8; font-weight: 700; font-size: 1.25em; line-height: 1; }
+.reveal table .cell-no { color: var(--cc-text-70); opacity: 0.55; font-weight: 600; font-size: 1.1em; line-height: 1; }
+.reveal table .cell-maybe { color: var(--cc-gold); font-weight: 700; font-size: 1.25em; line-height: 1; }
+.reveal .table-caption { margin-bottom: 0.2em; }
+.reveal table tr:nth-child(even) td { background: rgba(27, 36, 64, 0.28); }
+.reveal table .yes { color: #8FD9A8; font-weight: 500; }
+.reveal table .no  { color: var(--cc-orange); }
+
+/* Comparison table: emphasize the two ROWS that set Mr.Docs apart. */
+.reveal table.compare { border-collapse: separate; border-spacing: 0; }
+.reveal table.compare.has-diff tbody tr:not(.diff) td:not(.col-diff) { opacity: 0.55; }
+.reveal table.compare th.col-diff { color: var(--cc-white); background: rgba(255, 187, 51, 0.18); }
+.reveal table.compare td.col-diff { background: rgba(255, 187, 51, 0.13); opacity: 1; }
+.reveal table.compare td.col-diff:not(:first-child) { border-left: 4px solid var(--cc-gold); border-right: 4px solid var(--cc-gold); }
+.reveal table.compare tr.diff td {
+  background: rgba(255, 187, 51, 0.13);
+  border-top: 2px solid var(--cc-gold);
+  border-bottom: 2px solid var(--cc-gold);
+}
+.reveal table.compare tr.diff td:first-child {
+  color: var(--cc-white);
+  font-weight: 600;
+  border-left: 4px solid var(--cc-gold);
+}
+.reveal table.compare tr.diff td:last-child {
+  border-right: 4px solid var(--cc-orange);
+}
+.reveal table.compare tr.diff + tr.diff td { border-top: none; }
+
+/* highlight-current-blue fragments read as gold rows here */
+.reveal table tr.highlight-current-blue.current-fragment td,
+.reveal table tr.highlight-blue.visible td {
+  background: rgba(255, 187, 51, 0.16);
+  color: var(--cc-white);
+}
+
+/* Blockquotes ------------------------------------------------------------- */
+.reveal blockquote {
+  width: 85%;
+  background: rgba(27, 36, 64, 0.45);
+  border-left: 4px solid var(--cc-gold);
+  border-radius: 0 8px 8px 0;
+  padding: 0.7em 1.2em;
+  font-style: normal;
+  box-shadow: none;
+  color: var(--cc-text);
+}
+
+/* Cards ------------------------------------------------------------------- */
+.reveal .cards {
+  display: flex;
+  gap: 1em;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 0.8em;
+}
+.reveal .card {
+  flex: 1 1 0;
+  min-width: 220px;
+  background: var(--cc-navy-panel);
+  border: 1px solid var(--cc-border);
+  border-top: 3px solid var(--cc-gold);
+  border-radius: 12px;
+  padding: 0.9em 1.1em;
+  text-align: left;
+  box-shadow: 0 10px 26px rgba(9, 14, 30, 0.35);
+}
+.reveal .card h4 { color: var(--cc-gold); margin-bottom: 0.3em; }
+.reveal .card p { font-size: 0.78em; margin: 0; color: var(--cc-text-70); }
+
+/* Two-column layout ------------------------------------------------------- */
+.reveal .columns { display: flex; gap: 1.4em; align-items: flex-start; }
+.reveal .columns > * { flex: 1; min-width: 0; }
+
+/* Text helpers ------------------------------------------------------------ */
+.reveal .muted { color: var(--cc-muted); font-size: 0.7em; }
+.reveal .lead { font-size: 1.1em; color: var(--cc-white); font-weight: 400; }
+.reveal .tag {
+  display: inline-block;
+  font-family: var(--r-heading-font);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  background: rgba(255, 187, 51, 0.12);
+  border: 1px solid rgba(255, 187, 51, 0.55);
+  color: var(--cc-gold);
+  border-radius: 999px;
+  padding: 0.1em 0.8em;
+  font-size: 0.68em;
+  margin: 0.2em 0.2em 0 0;
+}
+
+/* ---------- CppCon title card (slide 1) ---------- */
+/* Their card is a full-bleed 16:9 image and must be the first slide. It sets
+   the palette the rest of the deck continues. */
+.reveal .slides section.title-card { padding: 0; }
+
+/* ---------- Title / cover slides ---------- */
+/* The two covers are where the Mr.Docs brand speaks: Bangers display type
+   over the same CppCon navy. */
+/* Bangers is condensed, so it needs more size than Lexend to land with the
+   same weight on screen. */
+.reveal .cover-title {
+  font-family: var(--mr-display-font);
+  font-size: 1.8em;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--cc-gold);
+  text-shadow: 3px 3px 0 rgba(15, 21, 40, 0.5);
+}
+.reveal .title-logo {
+  height: 200px;
+  filter: drop-shadow(0 8px 24px rgba(9, 14, 30, 0.5));
+  margin-bottom: 0.1em;
+}
+.reveal .title-banner {
+  max-width: 54%;
+  height: auto;
+  filter: drop-shadow(0 14px 38px rgba(9, 14, 30, 0.62));
+}
+.reveal .subtitle {
+  color: var(--cc-white);
+  font-size: 0.92em;
+  font-weight: 400;
+  margin-top: 0.5em;
+}
+
+/* ---------- Persistent brand badges ---------- */
+.reveal .brand-corner {
+  position: fixed;
+  left: 22px;
+  bottom: 18px;
+  width: 54px;
+  height: 54px;
+  z-index: 40;
+  opacity: 0.85;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.reveal .brand-corner img { width: 100%; height: 100%; display: block; }
+.reveal.cover .brand-corner { opacity: 0; }
+
+/* C++ Alliance lockup */
+.reveal .alliance {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--cc-muted);
+  font-size: 0.62em;
+}
+.reveal .alliance img {
+  height: 92px;
+  background: var(--cc-white);
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+
+/* ---------- QR code ---------- */
+.reveal .qr {
+  background: var(--cc-white);
+  padding: 14px;
+  border-radius: 12px;
+  width: 210px;
+  height: 210px;
+  box-shadow: 0 8px 28px rgba(9, 14, 30, 0.5);
+}
+.reveal .qr img { width: 100%; height: 100%; display: block; }
+.reveal .qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.4em; }
+
+/* ---------- Demo / iframe slides ---------- */
+.reveal .demo-card {
+  background: rgba(44, 58, 97, 0.92);
+  border: 1px solid var(--cc-border);
+  border-top: 3px solid var(--cc-gold);
+  border-radius: 12px;
+  padding: 1em 1.3em;
+  backdrop-filter: blur(3px);
+}
+.reveal .slides section.scrim::before {
+  content: '';
+  position: absolute;
+  inset: -200px;
+  background: linear-gradient(180deg, rgba(27, 36, 64, 0.66), rgba(27, 36, 64, 0.88));
+  pointer-events: none;
+  z-index: -1;
+}
+.reveal .url-chip {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  font-family: var(--r-heading-font);
+  font-weight: 500;
+  letter-spacing: 0;
+  background: rgba(27, 36, 64, 0.94);
+  border: 1px solid var(--cc-gold);
+  color: var(--cc-white);
+  border-radius: 999px;
+  padding: 0.28em 1.1em;
+  font-size: 0.6em;
+}
+
+/* ---------- Mermaid ---------- */
+/* mermaid uses <pre class="mermaid">, so strip the code-window chrome
+   (background, border, dots, padding, shadow) that the base pre rules add. */
+.reveal pre.mermaid {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+.reveal pre.mermaid::before { content: none; }
+
+.reveal .mermaid {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.reveal .mermaid svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: 620px;
+}
+.reveal .mermaid * {
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+}
+.reveal .mermaid foreignObject { overflow: visible !important; }
+.reveal .mermaid foreignObject div,
+.reveal .mermaid .nodeLabel,
+.reveal .mermaid .edgeLabel,
+.reveal .mermaid span {
+  overflow: visible !important;
+  white-space: nowrap;
+}
+
+/* Progress, controls, slide number -----------------------------------------
+   None of these three tell the audience anything. The arrows only exist as a
+   fallback for a dead clicker, and on the recording they are just clutter, so
+   in the talk build they are invisible until the pointer is actually near
+   them. The rehearsal build (`pipeline.py build --rehearsal`, body.rehearsal)
+   keeps them faintly visible and shows the slide number, for practice only.
+   On cover slides everything disappears. */
+.reveal .controls {
+  color: var(--cc-navy-panel);
+  opacity: 0;
+  transition: opacity 0.25s ease, color 0.25s ease;
+}
+body.rehearsal .reveal .controls { opacity: 0.45; }
+.reveal .controls:hover { opacity: 1; color: var(--cc-gold); }
+.reveal.cover .controls { opacity: 0; }
+.reveal.cover .controls:hover { opacity: 1; }
+
+.reveal .progress {
+  color: var(--cc-navy-panel);
+  background: rgba(27, 36, 64, 0.35);
+  height: 3px;
+}
+.reveal.cover .progress { opacity: 0; }
+
+/* reveal sets `display: block` inline on the slide number, the progress bar
+   and the controls, so hiding them has to go through opacity: an inline
+   style would beat any `display` rule here. */
+.reveal .slide-number {
+  background: transparent;
+  /* faint on purpose: a rehearsal aid for the speaker, not information for the room */
+  color: rgba(174, 186, 214, 0.16);
+  font-size: 0.38em;
+  transition: opacity 0.25s ease;
+}
+.reveal.cover .slide-number { opacity: 0; }
+
+/* Images: no default reveal frame */
+.reveal section img { background: transparent; border: none; box-shadow: none; }
+
+/* ---------- Snippet slides: the source and what Mr.Docs made of it, side by side ---------- */
+.reveal .snippet { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1em; align-items: start; width: 100%; }
+.reveal .snippet pre { margin: 0; width: 100%; font-size: 0.5em; }
+.reveal .docpanel {
+  text-align: left; font-size: 0.36em; line-height: 1.35; color: var(--cc-text);
+  background: var(--cc-navy-sink); border: 1px solid var(--cc-border); border-top: 3px solid var(--cc-orange);
+  border-radius: 10px; padding: 0.9em 1.2em; box-shadow: 0 14px 38px rgba(9, 14, 30, 0.55); max-height: 84vh; overflow: hidden;
+}
+.reveal .docpanel h2 { font-size: 1.6em; margin: 0 0 0.2em; color: var(--cc-gold); text-transform: none; letter-spacing: 0; }
+.reveal .docpanel h3 { font-size: 1.05em; margin: 0.9em 0 0.3em; color: var(--cc-gold); text-transform: none; letter-spacing: 0; }
+.reveal .docpanel h4 { font-size: 0.85em; margin: 0.4em 0 0.1em; color: var(--cc-orange); letter-spacing: 0.04em; }
+.reveal .docpanel p { margin: 0.25em 0; }
+.reveal .docpanel pre { margin: 0.3em 0; padding: 0.6em 0.9em; font-size: 0.95em; width: 100%; box-shadow: none; border-top: 1px solid var(--cc-border); }
+.reveal .docpanel code { font-size: 0.95em; }
+.reveal .docpanel .admonition { --adm: var(--cc-gold); border-left: 3px solid var(--adm); padding: 0.3em 0.9em; margin: 0.5em 0; border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--adm) 12%, transparent); }
+.reveal .docpanel .admonition h4 { color: var(--adm); margin: 0 0 0.15em; }
+.reveal .docpanel .admonition.note { --adm: #9FC7FF; }
+.reveal .docpanel .admonition.tip { --adm: #8DDB8C; }
+.reveal .docpanel .admonition.important { --adm: var(--cc-gold); }
+.reveal .docpanel .admonition.warning { --adm: var(--cc-orange); }
+.reveal .docpanel .admonition.caution { --adm: #FF6B6B; }
+.reveal .docpanel table { font-size: 0.95em; margin: 0.2em 0; }
+.reveal .docpanel table th, .reveal .docpanel table td { padding: 0.25em 0.6em; }
+.reveal .docpanel table th { text-align: left; } .reveal .docpanel table td { text-align: left; }
+.reveal .docpanel a { color: var(--cc-gold); text-decoration: none; border-bottom: 1px dotted var(--cc-gold); }
+.reveal .docpanel .brief p { color: var(--cc-white); }
+/* the generated page on its own slide: the frame is the slide */
+.reveal .docpanel.rendered { width: 92%; margin: 0 auto; font-size: 0.5em; padding: 1em 1.6em; max-height: 800px; }
+.reveal .docpanel.rendered h2 { font-size: 1.5em; }
+
+/* the copy-button wrapper from the code-block override example: the button is a chip in the block's corner */
+.reveal .docpanel .code-block-wrapper { position: relative; }
+.reveal .docpanel .code-block-wrapper .copy-button {
+  position: absolute; top: 0.7em; right: 0.7em; z-index: 1;
+  font: 600 0.8em/1 var(--cc-font-body, inherit); letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--cc-gold); background: var(--cc-navy-lift); border: 1px solid var(--cc-orange); border-radius: 999px;
+  padding: 0.35em 0.9em; cursor: pointer;
+}
+
+/* a page capture fills the slide; its caption sits in the corner, not over the text */
+.reveal .slides section.bleed { height: 100% !important; top: 0 !important; }
+.reveal section.bleed .url-chip { position: absolute; top: auto; bottom: 28px; left: 28px; transform: none; }
+
+/* Doc-block comments, as on the documentation site: prose in a muted green, the @tags bold and upright in a
+   lighter green, the names and code spans in the same lighter green. */
+.reveal .hljs-doc-comment { color: rgb(94, 135, 79); font-style: italic; }
+.reveal .hljs-doc-comment .hljs-doctag { color: rgb(164, 181, 67); font-style: normal; font-weight: 700; }
+.reveal .hljs-doc-comment .hljs-name, .reveal .hljs-doc-comment .hljs-string { color: rgb(164, 181, 67); font-style: italic; }
