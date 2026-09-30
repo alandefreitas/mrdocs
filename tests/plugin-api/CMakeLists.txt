@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+# Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 #
 # Official repository: https://github.com/cppalliance/mrdocs
 #
@@ -49,45 +50,62 @@ mrdocs_add_refused_plugin(foreign-tag ForeignTag.cpp
 mrdocs_add_refused_plugin(missing-main MissingMain.cpp
     "does not export mrdocs_plugin_main")
 
-# A plugin with a shared library of its own, kept in the subdirectory of the
-# plugins directory named after the plugin, which the search for plugins
-# skips. The plugin finds it through its run path on Linux and macOS, and
-# on Windows because MrDocs searches that subdirectory while it loads the
-# plugin. The entry point fails on purpose, with the value the library
-# returned, which stops the run before it needs any input, and shows both
-# that the library was found and that the error names the plugin.
-set(dependent_addons "${CMAKE_CURRENT_BINARY_DIR}/with-dependency")
-set(dependency_dir "${dependent_addons}/plugins/with-dependency")
-add_library(mrdocs-plugin-dependency SHARED Dependency.cpp)
-set_target_properties(mrdocs-plugin-dependency PROPERTIES
-    WINDOWS_EXPORT_ALL_SYMBOLS ON
-    RUNTIME_OUTPUT_DIRECTORY "$<1:${dependency_dir}>"
-    LIBRARY_OUTPUT_DIRECTORY "$<1:${dependency_dir}>")
+# The refusal to load a library that refers to a symbol nothing provides.
+# The loader resolves symbols when it opens a library, so the failure has to
+# name the symbol at load time instead of crashing at the first call. A
+# Windows link cannot leave a symbol undefined, so the library cannot be
+# built there.
+if (NOT WIN32)
+    mrdocs_add_refused_plugin(undefined-symbol UndefinedSymbol.cpp
+        "could not be loaded:.*mrdocs_test_symbol_nothing_provides")
+    if (APPLE)
+        target_link_options(mrdocs-plugin-undefined-symbol PRIVATE
+            -undefined dynamic_lookup)
+    endif ()
+endif ()
 
-set_ternary(dependency_rpath APPLE
-    "@loader_path/with-dependency" "$ORIGIN/with-dependency")
-mrdocs_add_plugin_module(mrdocs-plugin-with-dependency WithDependency.cpp
-    ADDONS "${dependent_addons}")
-target_link_libraries(mrdocs-plugin-with-dependency
-    PRIVATE mrdocs-plugin-dependency)
-set_target_properties(mrdocs-plugin-with-dependency PROPERTIES
-    PREFIX ""
-    OUTPUT_NAME with-dependency
-    INSTALL_RPATH "${dependency_rpath}"
-    BUILD_WITH_INSTALL_RPATH ON)
-mrdocs_add_plugin_failure_test(mrdocs-plugin-with-dependency-fails
-    "${dependent_addons}"
-    "with-dependency\\.[a-z]+. failed: the dependency answered 42")
+# The Windows search order for the libraries a plugin depends on. The helper
+# lives in a directory that is not the plugins directory, not the
+# subdirectory named after the plugin and not the one holding the executable,
+# and that directory is put in PATH. Plain LoadLibrary would find the helper
+# there and load the plugin; the loader's search flags leave PATH out, so the
+# plugin has to be refused at load time. The test matches the "could not be
+# loaded" message and not the localized system text. This also runs the
+# loader's error reporting on Windows.
+if (WIN32)
+    set(dependent_addons "${CMAKE_CURRENT_BINARY_DIR}/dependent-addons")
+    set(dependency_helper_dir "${CMAKE_CURRENT_BINARY_DIR}/dependency-helper")
 
-# The same plugin and library, loaded from an addon root whose path is not
-# ASCII: on Windows, a path read in the ANSI code page names another
-# directory, and the plugin then fails to load instead of failing on purpose.
-add_test(NAME mrdocs-plugin-non-ascii-path-fails
-    COMMAND ${CMAKE_COMMAND}
-        "-DMRDOCS=$<TARGET_FILE:mrdocs>"
-        "-DFROM=${dependent_addons}"
-        "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/non-ascii-path"
-        "-DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
-        "-DBUILTIN_ARGS=${MRDOCS_PLUGIN_TEST_DIR_ARGS}"
-        "-DEXPECTED=with-dependency\\.[a-z]+. failed: the dependency answered 42"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/NonAsciiPath.cmake")
+    add_library(mrdocs-plugin-dependency-helper SHARED DependencyHelper.cpp)
+    set_target_properties(mrdocs-plugin-dependency-helper PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "$<1:${dependency_helper_dir}>")
+
+    mrdocs_add_plugin_module(mrdocs-plugin-dependent DependentPlugin.cpp
+        ADDONS "${dependent_addons}")
+    target_link_libraries(mrdocs-plugin-dependent
+        PRIVATE mrdocs-plugin-dependency-helper)
+
+    set(dependent_expected
+        "the plugin \".*mrdocs-plugin-dependent.*\" could not be loaded:")
+    mrdocs_add_plugin_failure_test(mrdocs-plugin-dependency-not-on-path
+        "${dependent_addons}" "${dependent_expected}")
+    set(path_with_helper "$ENV{PATH}")
+    string(REPLACE ";" "\\;" path_with_helper
+        "${dependency_helper_dir};${path_with_helper}")
+    set_tests_properties(mrdocs-plugin-dependency-not-on-path PROPERTIES
+        ENVIRONMENT "PATH=${path_with_helper}")
+
+    # The same plugin, loaded from an addon root whose path is not ASCII: on
+    # Windows, a path read in the ANSI code page names another directory.
+    add_test(NAME mrdocs-plugin-non-ascii-path-fails
+        COMMAND ${CMAKE_COMMAND}
+            "-DMRDOCS=$<TARGET_FILE:mrdocs>"
+            "-DFROM=${dependent_addons}"
+            "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/non-ascii-path"
+            "-DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+            "-DBUILTIN_ARGS=${MRDOCS_PLUGIN_TEST_DIR_ARGS}"
+            "-DEXPECTED=${dependent_expected}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/NonAsciiPath.cmake")
+    set_tests_properties(mrdocs-plugin-non-ascii-path-fails PROPERTIES
+        ENVIRONMENT "PATH=${path_with_helper}")
+endif ()
