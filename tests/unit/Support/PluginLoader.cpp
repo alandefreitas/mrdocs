@@ -173,6 +173,41 @@ struct PluginLoaderTest
         BOOST_TEST(found.size() == 1);
     }
 
+    // The addon roots are UTF-8 text. A root with characters outside the
+    // ANSI code page of Windows is found, and the plugins in it come back
+    // under the same UTF-8 spelling.
+    void
+    testNonAsciiRoot()
+    {
+        ScopedTempDirectory td("mrdocs-plugins");
+        BOOST_TEST(td);
+        std::string const parent(td.path());
+        std::string const root = files::appendPath(
+            parent, "addons-Jos\xC3\xA9-\xE6\x97\xA5\xE6\x9C\xAC");
+        std::string const stem = "plug-\xC3\xA9\xE6\x97\xA5";
+        std::string const library =
+            files::appendPath(files::appendPath(root, "plugins"),
+                stem + std::string(libraryExtension));
+        auto const toPath = [](std::string const& utf8)
+        {
+            return std::filesystem::path(std::u8string(
+                reinterpret_cast<char8_t const*>(utf8.data()), utf8.size()));
+        };
+        std::error_code ec;
+        std::filesystem::create_directories(
+            toPath(files::appendPath(root, "plugins")), ec);
+        BOOST_TEST(!ec);
+        {
+            std::ofstream os(toPath(library), std::ios::binary | std::ios::trunc);
+        }
+        std::vector<std::string> const found = discoverPlugins({ root });
+        BOOST_TEST(found.size() == 1);
+        if (!found.empty())
+        {
+            BOOST_TEST(found.front() == library);
+        }
+    }
+
     // CMake gives a module library the .so extension on macOS, so both
     // spellings have to be found there.
     void
@@ -199,6 +234,7 @@ struct PluginLoaderTest
         testNameOrderWithinRoot();
         testRootOrder();
         testRepeatedRoot();
+        testNonAsciiRoot();
         testAppleExtensions();
     }
 };

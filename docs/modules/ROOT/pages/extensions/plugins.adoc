@@ -93,6 +93,8 @@ Every library in such a directory is loaded, in name order within a root, and ro
 
 A library that cannot be loaded, does not export the entry points, or reports an error of its own stops the run.
 
+A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol; on Windows it only says that a module or procedure could not be found. A plugin built against another version of Mr.Docs, or with another toolchain, often refers to symbols this Mr.Docs does not have, and is refused the same way, so check that the plugin was built against the Mr.Docs that loads it. On Windows, the libraries a plugin depends on are looked for in its own directory, then in the directory of the `mrdocs` executable, then in the system directories, and not in the current directory or `PATH`. Because every library in a plugin directory is loaded as a plugin, a dependency cannot sit there yet: on Windows, put it next to the `mrdocs` executable, or link it into the plugin statically. On Linux and macOS a dependency is found the usual way for the plugin: through its RPATH or RUNPATH pointing outside `plugins/`, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
+
 Once the library is there, the generator it installs is selectable like any other, through the xref:configuration/reference.adoc#generator_option[`generator`] option:
 
 [source,yaml]

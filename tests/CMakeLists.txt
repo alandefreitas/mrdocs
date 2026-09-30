@@ -13,7 +13,10 @@
 #   golden/     - reference-output harness (mrdocs-golden-tests)
 #   plugin-api/ - a module library that calls the API a plugin may call,
 #                 where building it is the test (mrdocs-plugin-api-link-test),
-#                 and one MrDocs has to refuse to load
+#                 and libraries MrDocs has to refuse to load: one built for a
+#                 foreign plugin API version, one with an undefined symbol
+#                 (Linux and macOS only), and one whose dependency is
+#                 reachable only through PATH (Windows only)
 add_subdirectory(unit)
 add_subdirectory(golden)
 # Benchmarks are custom targets, not CTest tests; see benchmarks/README.md.

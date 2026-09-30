@@ -101,6 +101,8 @@ target_link_libraries(mrdocs-core PUBLIC mrdocs::polyfill mrdocs::dom mrdocs::ha
 
 # Private dependencies
 set(MRDOCS_PRIVATE_DEPENDENCIES mrdocs-llvm jerryscript::jerry-core jerryscript::jerry-port Lua::lua)
+# Library that provides dlopen and dlsym for the plugin loader (empty on macOS and Windows).
+list(APPEND MRDOCS_PRIVATE_DEPENDENCIES ${CMAKE_DL_LIBS})
 if (NOT MRDOCS_DO_REEXPORT_DEPENDENCIES)
     # Link at build time only. It’ll be bundled when installed.
     target_link_libraries(mrdocs-core PRIVATE $<BUILD_INTERFACE:${MRDOCS_PRIVATE_DEPENDENCIES}>)
