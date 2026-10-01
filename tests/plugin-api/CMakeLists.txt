@@ -36,6 +36,30 @@ target_compile_options(mrdocs-plugin-api-link-test PRIVATE
 # which splits them again: a ; would split the -D definition carrying them.
 string(REPLACE ";" "|" MRDOCS_PLUGIN_TEST_DIR_ARGS "${MRDOCS_BUILTIN_DIR_ARGS}")
 
+# The executable exports the functions of the plugin C API and nothing else:
+# the functions the header declares are there, and no C++, LLVM or Clang
+# symbol is. It runs on Linux and macOS, where readelf or nm exists; a Windows
+# executable exports what is marked for export. A shared or sanitized build
+# keeps the default export table, so there is nothing narrowed to check.
+get_target_property(MRDOCS_NARROW_EXPORTS mrdocs MRDOCS_NARROW_EXPORTS)
+if (UNIX AND MRDOCS_NARROW_EXPORTS)
+    if (APPLE)
+        find_program(MRDOCS_NM NAMES nm llvm-nm)
+    else ()
+        find_program(MRDOCS_NM NAMES readelf llvm-readelf)
+    endif ()
+    if (MRDOCS_NM)
+        add_test(NAME mrdocs-plugin-exports
+            COMMAND ${CMAKE_COMMAND}
+                "-DNM=${MRDOCS_NM}"
+                "-DEXE=$<TARGET_FILE:mrdocs>"
+                "-DHEADER=${PROJECT_SOURCE_DIR}/include/mrdocs/plugin.h"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckExports.cmake")
+    else ()
+        message(STATUS "No symbol lister (nm or readelf) found: mrdocs-plugin-exports is not registered")
+    endif ()
+endif ()
+
 # Register a test that runs MrDocs with the addon root `addons` and passes
 # only if the run fails with output matching `expected`.
 function(mrdocs_add_plugin_failure_test name addons expected)

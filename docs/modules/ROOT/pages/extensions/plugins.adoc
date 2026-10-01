@@ -19,6 +19,7 @@ A plugin is a CMake module library that links the `mrdocs` tool:
 find_package(mrdocs REQUIRED CONFIG)
 add_library(stats MODULE plugin.cpp)
 target_link_libraries(stats PRIVATE mrdocs::mrdocs)
+target_compile_features(stats PRIVATE cxx_std_17)
 set_target_properties(stats PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN ON)
@@ -26,7 +27,9 @@ set_target_properties(stats PROPERTIES
 
 Linking the tool resolves the Mr.Docs functions the plugin calls, and it is the whole build dependency: no LLVM, no Clang, no separate library to ship alongside. The plugin includes `mrdocs/plugin.h` and nothing else from Mr.Docs.
 
-Hidden visibility keeps the plugin's own symbols to itself. On Linux, the tool exports its symbols to the plugins it loads, and a call from a plugin to one of its own functions can otherwise bind to a function of the same name in the tool, which happens to a plugin that bundles a library Mr.Docs also contains, such as Lua. The entry points stay visible, since `MRDOCS_PLUGIN_INIT` marks them with `MRDOCS_PLUGIN_EXPORT`.
+In the default build (static, not sanitized, which is what the release packages are), the `mrdocs` executable exports the functions of that header, the ones named `mrdocs_*`, and nothing else. None of the {cpp} of Mr.Docs, and none of LLVM, Clang or the other libraries it is built from, can be reached from a plugin, so there is no other symbol to bind to, and a plugin cannot pick up a copy of a library from Mr.Docs by accident. The exported names are the ABI. Two kinds of build keep the full export table instead: a shared build (`MRDOCS_BUILD_SHARED`), which defines the C API in the library, and a sanitized build, where plugins bind to the sanitizer runtime through the executable. The `MRDOCS_NARROW_EXPORTS` CMake option switches the narrowing, and is on by default only for the default build. The narrowed table is also why the fallback backtrace of a crash on Linux and macOS shows addresses instead of function names for Mr.Docs, LLVM and Clang frames: rebuild with `MRDOCS_NARROW_EXPORTS=OFF` to get the names back, or symbolize the printed addresses with `llvm-symbolizer` or `addr2line`. On Linux and macOS, the plugin tests (`MRDOCS_BUILD_PLUGIN_MODULES` with tests on) include a check that a default build exports exactly the functions the header declares.
+
+Hidden visibility keeps the plugin's own symbols to itself. In the builds that keep the full export table, the tool exports its symbols to the plugins it loads on Linux, and a call from a plugin to one of its own functions can otherwise bind to a function of the same name in the tool, which happens to a plugin that bundles a library Mr.Docs also contains, such as Lua. The entry points stay visible, since `MRDOCS_PLUGIN_INIT` marks them with `MRDOCS_PLUGIN_EXPORT`.
 
 == The entry point
 

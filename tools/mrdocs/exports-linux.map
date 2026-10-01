@@ -1,0 +1,19 @@
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
+#
+# Official repository: https://github.com/cppalliance/mrdocs
+#
+
+# The only symbols the mrdocs executable exports: the functions of
+# <mrdocs/plugin.h>. Everything else, including what the static libraries
+# define with default visibility, stays local to the executable.
+{
+    global:
+        mrdocs_*;
+    local:
+        *;
+};

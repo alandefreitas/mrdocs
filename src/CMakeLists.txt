@@ -45,9 +45,7 @@ file(
 # Public header requirements
 #-------------------------------------------------
 # What every target that compiles the public headers needs. mrdocs-core
-# links this PUBLIC, and the tool, which links mrdocs-core privately so that
-# a plugin does not link the core itself, links it INTERFACE, so that it
-# reaches a plugin too. /Zc:__cplusplus is for Platform.hpp and
+# links this PUBLIC. /Zc:__cplusplus is for Platform.hpp and
 # /Zc:preprocessor for the variadic macros (Describe.hpp, `MRDOCS_TRY`).
 # /EHs is the exception model every MrDocs target uses. C4251 and C4275 are
 # about the standard library members and bases of the types `MRDOCS_DECL`
@@ -55,8 +53,7 @@ file(
 # global flags in setup-llvm.cmake. If someone links LLVM built as
 # RelWithDebInfo with MrDocs built as Debug, which you typically should not
 # be doing, this also selects the release runtime and the iterator debug
-# level LLVM was built with, so that the core, the tool and any plugin agree
-# with it.
+# level LLVM was built with, so that the core and the tool agree with it.
 add_library(mrdocs-public-headers INTERFACE)
 target_include_directories(mrdocs-public-headers INTERFACE
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/>"
@@ -225,9 +222,13 @@ if (MRDOCS_DO_BUNDLE_DEPENDENCIES AND MRDOCS_INSTALL)
         # mrdocs-core is force-loaded whole (it holds the roots). GNU ld resolves
         # archives in a single pass, so wrap the rest in --start-group/--end-group
         # to resolve the cross-archive references in Clang's vtables regardless of
-        # order; Apple ld64 is multi-pass and rejects that flag.
+        # order; Apple ld64 is multi-pass and rejects that flag. ld64 -r turns
+        # hidden (private extern) symbols into local ones unless it is told to
+        # keep them, and the hidden C++ of mrdocs-core must stay global in the
+        # installed archive for consumers of the C++ API to link.
         if (APPLE)
             set(_bundle_inputs
+                    -Wl,-keep_private_externs
                     -Wl,-force_load,$<TARGET_FILE:mrdocs-core>
                     ${_mrdocs_bundle_deps})
         else()

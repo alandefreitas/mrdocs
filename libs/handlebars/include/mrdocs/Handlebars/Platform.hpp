@@ -12,25 +12,24 @@
 #ifndef MRDOCS_API_HANDLEBARS_PLATFORM_HPP
 #define MRDOCS_API_HANDLEBARS_PLATFORM_HPP
 
-// Export/visibility macro for the handlebars library. Self-contained on
-// purpose: handlebars depends neither on mrdocs-core's <mrdocs/Platform.hpp>
-// nor on the defines mrdocs-core and the tool are built with. The expansion is
-// driven by `MRDOCS_HANDLEBARS_BUILDING`, which only the handlebars target
-// defines, and by the `MRDOCS_STATIC_LINK` define the build passes to every
-// target.
-//
-// `MRDOCS_HANDLEBARS_BUILDING` comes first: a static build exports the API too.
+// Export/visibility macro for the handlebars library. Self-contained on purpose:
+// handlebars does not depend on mrdocs-core's <mrdocs/Platform.hpp>. The
+// expansion is driven by the same MRDOCS_STATIC_LINK / MRDOCS_SHARED_LINK define
+// the build passes to every target; with the default static build it is empty.
+// In a shared MSVC build it exports when MRDOCS_TOOL or
+// MRDOCS_HANDLEBARS_BUILDING (the handlebars library's own build define) is
+// defined, and imports otherwise.
 
-#if defined(_MSC_VER)
-# if defined(MRDOCS_HANDLEBARS_BUILDING) // building the library
+#if defined(MRDOCS_STATIC_LINK)
+# define MRDOCS_HANDLEBARS_DECL
+#elif defined(_MSC_VER)
+# if defined(MRDOCS_TOOL) || defined(MRDOCS_HANDLEBARS_BUILDING)
 #  define MRDOCS_HANDLEBARS_DECL __declspec(dllexport)
-# elif defined(MRDOCS_STATIC_LINK)
-#  define MRDOCS_HANDLEBARS_DECL
 # else
 #  define MRDOCS_HANDLEBARS_DECL __declspec(dllimport)
 # endif
 #elif defined(__GNUC__)
-# if defined(MRDOCS_HANDLEBARS_BUILDING) || defined(MRDOCS_STATIC_LINK)
+# if defined(MRDOCS_TOOL)
 #  define MRDOCS_HANDLEBARS_DECL
 # else
 #  define MRDOCS_HANDLEBARS_DECL __attribute__((__visibility__("default")))
