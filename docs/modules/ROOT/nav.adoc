@@ -42,4 +42,5 @@
 ** xref:contribute/testing.adoc[]
 ** xref:contribute/options.adoc[]
 ** xref:contribute/codebase-tour.adoc[]
+** xref:contribute/binary-compatibility.adoc[]
 ** xref:contribute/docs.adoc[]

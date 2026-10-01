@@ -7,7 +7,7 @@ A Mr.Docs *extension* is a Lua or JavaScript script that runs as part of a build
 
 A script declares a transform with `mrdocs.register_transform(id, fn)` and a generator with `mrdocs.register_generator(id, fn)`. Either way the registered function receives a single context object, `ctx`.
 
-A xref:extensions/plugins.adoc[plugin] can install corpus transforms written in {cpp} as well. They go into the same pipeline as the transforms the scripts register, in the order they were loaded and registered (see <<transform-order,Transform order>>), and keep to the same rules.
+Compiled code can do the same. A xref:extensions/plugins.adoc[plugin] registers transforms and generators through a C interface over the same values `ctx` exposes. Its transforms go into the same pipeline as the scripts', in the order they were loaded and registered (see <<transform-order,Transform order>>), and keep to the same rules.
 
 == Languages and locations
 
@@ -197,7 +197,7 @@ include::example$examples/extensions/project-conventions/warnings.txt[]
 [[modifying-the-corpus]]
 == Modifying the corpus
 
-Scripts modify the corpus by assigning to fields on a symbol proxy. Each assignment lands directly in the underlying Mr.Docs symbol. The runtime validates each assignment and raises an exception on an invalid value. An uncaught error in an extension aborts the build and includes the script's path and the error message.
+Scripts modify the corpus by assigning to fields on a symbol proxy. Each assignment lands directly in the underlying Mr.Docs symbol. The runtime validates each assignment and raises an exception on an invalid value. The `kind`, `id`, `parent` and `inheritedFrom` fields of a symbol cannot be assigned at all: writing one raises an error whatever the value, and the symbol stays as it was. A list of symbol ids, such as the `members` of a namespace or a record, can be reordered or shortened but not extended: assigning an id the list didn't hold raises an error, because the generators follow those lists and a symbol listed under itself would never end. An uncaught error in an extension aborts the build and includes the script's path and the error message.
 
 include::partial$transform-invariants.adoc[]
 
