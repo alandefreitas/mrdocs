@@ -9,8 +9,9 @@
 # Official repository: https://github.com/cppalliance/mrdocs
 #
 
-# In the MrDocs build the plugin links the tool that was just built; out of
-# tree, a plugin author links the installed one, as the Plugins page shows.
+# In the MrDocs build the plugin links the same mrdocs::plugin target that an
+# installed package exports, through mrdocs_add_plugin_module; out of tree, a
+# plugin author links it from the installed package, as the Plugins page shows.
 if (MRDOCS_BUILD_PLUGIN_MODULES)
     # MrDocs looks for plugins in the plugins subdirectory of an addon root,
     # so the library is built into one.

@@ -24,31 +24,23 @@ target_include_directories(mrdocs
 )
 
 target_compile_definitions(mrdocs PRIVATE -DMRDOCS_TOOL)
-# The core is linked privately so that a plugin, which links the tool, does not
-# link the core as well: a second copy of a static core would give the plugin
-# its own generator and transform registries. A plugin may be written in C or
-# C++ and only needs <mrdocs/plugin.h>: it gets the include directories of the
-# public headers and nothing else, no C++ options and no language standard.
+# The tool states no usage requirements: a plugin links mrdocs::plugin, below,
+# and a program that uses MrDocs as a library links mrdocs::mrdocs-core.
 target_link_libraries(mrdocs PRIVATE mrdocs-core)
-target_include_directories(mrdocs INTERFACE
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/>"
-    "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/>"
-    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # A plugin resolves the MrDocs symbols it calls against the tool, so a tool
 # that can load plugins exports its symbols.
-if (MRDOCS_BUILD_PLUGIN_MODULES)
+if (MRDOCS_PLUGIN_MODULES_SUPPORTED)
     set_target_properties(mrdocs PROPERTIES ENABLE_EXPORTS ON)
 endif ()
 
 # The executable exports the functions of <mrdocs/plugin.h> and nothing else:
 # not the C++ of MrDocs, not LLVM, not the libraries MrDocs links.
 # ENABLE_EXPORTS exports every symbol on Linux and macOS, so an explicit list
-# narrows it. On
-# Linux a version script does it; --exclude-libs=ALL would hide the C API too,
-# since it is defined in the static mrdocs-core. On macOS it is an exported
-# symbols list. Windows exports what carries MRDOCS_PLUGIN_API. A shared build
-# defines the C API in the library and keeps the default. A sanitized build
+# narrows it. On Linux a version script does it; --exclude-libs=ALL would hide
+# the C API too, since it is defined in the static mrdocs-core. On macOS it is
+# an exported symbols list. Windows exports what carries MRDOCS_PLUGIN_API. A
+# shared build defines the C API in the library and keeps the default. A sanitized build
 # keeps the default too: clang links the sanitizer runtime statically into the
 # executable, and a plugin built with the same flags binds to the runtime's
 # entry points (__asan_*, __ubsan_*, the interceptors) through the executable,
@@ -69,7 +61,7 @@ foreach (MRDOCS_FLAGS_VAR IN ITEMS
         set(MRDOCS_SANITIZED ON)
     endif ()
 endforeach ()
-if (MRDOCS_BUILD_PLUGIN_MODULES AND NOT MRDOCS_BUILD_SHARED AND NOT MRDOCS_SANITIZED)
+if (MRDOCS_PLUGIN_MODULES_SUPPORTED AND NOT MRDOCS_SANITIZED)
     set(MRDOCS_NARROW_EXPORTS_DEFAULT ON)
 else ()
     set(MRDOCS_NARROW_EXPORTS_DEFAULT OFF)
@@ -98,6 +90,30 @@ endif ()
 # Tells tests/plugin-api whether the export table is narrowed, so that it
 # checks the table only when it is.
 set_property(TARGET mrdocs PROPERTY MRDOCS_NARROW_EXPORTS ${MRDOCS_EXPORTS_NARROWED})
+
+# What a plugin links. A plugin compiles <mrdocs/plugin.h> or <mrdocs/plugin.hpp>
+# and binds to the mrdocs_* functions of the running tool, so the include
+# directory is all it needs to compile: no C++ standard beyond what the plugin
+# chooses (a plugin written in C needs none), no compiler option, no library of
+# MrDocs. Linux and the other ELF platforms let a module leave symbols undefined,
+# and the tool provides them when it loads the module. macOS needs the linker
+# told so. Windows resolves them against the import library of the executable,
+# which ENABLE_EXPORTS makes the linker write and the installation ships. The
+# import library names the module "mrdocs.exe", so on Windows only the tool under
+# that name can load a plugin: a renamed tool or an embedding program cannot.
+add_library(mrdocs-plugin INTERFACE)
+add_library(mrdocs::plugin ALIAS mrdocs-plugin)
+set_target_properties(mrdocs-plugin PROPERTIES EXPORT_NAME plugin)
+target_include_directories(mrdocs-plugin INTERFACE
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+if (WIN32)
+    target_link_libraries(mrdocs-plugin INTERFACE mrdocs)
+elseif (APPLE)
+    target_link_options(mrdocs-plugin INTERFACE
+        "LINKER:-undefined,dynamic_lookup")
+endif ()
+
 # The command-line frontend uses a few LLVM utilities directly (pretty stack
 # traces, host triple), so the tool links LLVM rather than reaching it only
 # through mrdocs-core.
@@ -113,7 +129,7 @@ endif ()
 
 # Install the tool into the shared export set (finalized by mrdocs_install()).
 if (MRDOCS_INSTALL)
-    install(TARGETS mrdocs
+    install(TARGETS mrdocs mrdocs-plugin
             EXPORT mrdocs-targets
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

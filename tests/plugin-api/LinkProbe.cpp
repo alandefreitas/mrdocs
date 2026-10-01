@@ -17,11 +17,10 @@
 //
 // Nothing runs, and there is no ctest entry: the object is linked whole, so
 // every function it names has to resolve. On Windows that resolution is
-// against the tool's export table, and on macOS against the tool the library
-// is linked with as its bundle loader. On Linux a module library may leave
-// symbols to the loader, so what this checks there is that the header
-// compiles as C++ and that such a library links against the executable at
-// all.
+// against the import library of the tool's export table. On Linux and macOS a
+// module library may leave symbols to the loader, so what this checks there is
+// that the header compiles as C++ and that a library that links
+// mrdocs::plugin builds.
 
 #include <mrdocs/plugin.h>
 

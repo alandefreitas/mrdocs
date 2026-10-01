@@ -94,14 +94,11 @@ mrdocs_add_refused_plugin(missing-init MissingInit.c
 # that this MrDocs lacks. The loader resolves symbols when it opens a library,
 # so the failure has to name the symbol at load time instead of crashing at
 # the first call, and has to point at a newer MrDocs. A Windows link cannot
-# leave a symbol undefined, so the library cannot be built there.
+# leave a symbol undefined, so the library cannot be built there. On macOS
+# mrdocs::plugin tells the linker to leave it undefined.
 if (NOT WIN32)
     mrdocs_add_refused_plugin(undefined-symbol UndefinedSymbol.cpp
         "could not be loaded:.*mrdocs_function_of_a_later_abi.*may need a newer MrDocs")
-    if (APPLE)
-        target_link_options(mrdocs-plugin-undefined-symbol PRIVATE
-            -undefined dynamic_lookup)
-    endif ()
 endif ()
 
 # The Windows search order for the libraries a plugin depends on. The helper

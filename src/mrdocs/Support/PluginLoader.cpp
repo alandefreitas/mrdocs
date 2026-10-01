@@ -43,10 +43,10 @@ namespace mrdocs {
 
 namespace {
 
-// Whether this MrDocs can load a plugin at all. One built without
-// `MRDOCS_BUILD_PLUGIN_MODULES` (linked with -static, or built as shared
-// libraries) reports a plugin it finds rather than handing it to the dynamic
-// loader.
+// Whether this MrDocs can load a plugin at all. One that cannot
+// (`MRDOCS_PLUGIN_MODULES_SUPPORTED` is off: linked with -static, or built as
+// shared libraries) reports a plugin it finds rather than handing it to the
+// dynamic loader.
 #ifdef MRDOCS_WITHOUT_PLUGINS
 constexpr bool canLoadPlugins = false;
 #else
