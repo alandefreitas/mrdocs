@@ -11,7 +11,9 @@
 # Each test suite is a separate executable and owns its own CMakeLists:
 #   unit/       - public-API unit tests (mrdocs-unit-tests)
 #   golden/     - reference-output harness (mrdocs-golden-tests)
-#   plugin-api/ - the C header of the plugin API compiled as C, a module
+#   plugin-api/ - the C header of the plugin API compiled as C, a check that
+#                 the executable exports the functions of the C API and
+#                 nothing else (mrdocs-plugin-exports), a module
 #                 library that calls every function of it, where building
 #                 them is the test (mrdocs-plugin-api-c-header,
 #                 mrdocs-plugin-api-link-test), and libraries MrDocs has to

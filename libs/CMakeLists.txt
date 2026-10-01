@@ -39,10 +39,11 @@ elseif (MSVC)
     # condition, C4456/C4457/C4458/C4459 shadowing, C4701/C4702/C4703 flow.
     add_compile_options(/wd4100 /wd4127 /wd4244 /wd4245 /wd4267
         /wd4456 /wd4457 /wd4458 /wd4459 /wd4701 /wd4702 /wd4703)
-    # C4251 and C4275: these libraries export their API so that a plugin can
-    # call it, and their exported types have standard library members and bases.
-    # mrdocs-core names the same two, for the same reason; see src/CMakeLists.txt.
-    add_compile_options(/wd4251 /wd4275)
+    # C4251 and C4275: a shared build exports types with standard library
+    # members and bases, which carry no export marker of their own.
+    if (MRDOCS_BUILD_SHARED)
+        add_compile_options(/wd4251 /wd4275)
+    endif ()
     # On develop this code lived in mrdocs-core and inherited these Windows
     # defines from the global add_definitions(${LLVM_DEFINITIONS}); as decoupled
     # libraries that never link LLVM, they must set them directly.

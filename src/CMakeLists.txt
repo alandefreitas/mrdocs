@@ -71,15 +71,16 @@ target_compile_options(
     PUBLIC
     $<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>  # Platform.hpp
     $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor> # Describe.hpp uses __VA_OPT__
+    # C4251 and C4275: a shared build exports types with standard library
+    # members and bases, which carry no export marker of their own. Every
+    # translation unit that includes those classes sees the warning, so the
+    # suppression reaches the tool and the tests through this target.
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<BOOL:${MRDOCS_BUILD_SHARED}>>:/wd4251>
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<BOOL:${MRDOCS_BUILD_SHARED}>>:/wd4275>
     $<$<BOOL:${MRDOCS_CLANG}>:-Wno-unused-private-field>
     $<$<BOOL:${MRDOCS_CLANG}>:-Wno-unused-value>
     PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/permissive- /W4 /MP>
-    # C4251 and C4275: MRDOCS_DECL now marks the exported types, whose standard
-    # library members and bases carry no export marker of their own. LLVM's own
-    # copies of these suppressions are stripped from the global flags in
-    # setup-llvm.cmake, so name them where the exporting happens.
-    $<$<CXX_COMPILER_ID:MSVC>:/wd4251 /wd4275>
     $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<STREQUAL:${CMAKE_GENERATOR_PLATFORM},Win64>>:/arch:AMD64>
     $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Debug>>:/Oy->  # Disable frame pointer omission
     $<$<BOOL:${MRDOCS_CLANG}>:-Wno-covered-switch-default>
@@ -202,9 +203,13 @@ if (MRDOCS_DO_BUNDLE_DEPENDENCIES AND MRDOCS_INSTALL)
         # mrdocs-core is force-loaded whole (it holds the roots). GNU ld resolves
         # archives in a single pass, so wrap the rest in --start-group/--end-group
         # to resolve the cross-archive references in Clang's vtables regardless of
-        # order; Apple ld64 is multi-pass and rejects that flag.
+        # order; Apple ld64 is multi-pass and rejects that flag. ld64 -r turns
+        # hidden (private extern) symbols into local ones unless it is told to
+        # keep them, and the hidden C++ of mrdocs-core must stay global in the
+        # installed archive for consumers of the C++ API to link.
         if (APPLE)
             set(_bundle_inputs
+                    -Wl,-keep_private_externs
                     -Wl,-force_load,$<TARGET_FILE:mrdocs-core>
                     ${_mrdocs_bundle_deps})
         else()

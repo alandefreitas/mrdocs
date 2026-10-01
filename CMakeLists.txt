@@ -73,6 +73,17 @@ endif ()
 option(MRDOCS_BUILD_PLUGIN_MODULES "Build the plugin example and its link test"
        ${MRDOCS_PLUGIN_MODULES_DEFAULT})
 
+# Nothing of MrDocs's C++ is part of an interface a plugin can call: the tool
+# exports the functions of <mrdocs/plugin.h> and nothing else. Every target
+# therefore hides its symbols by default, and the functions that carry
+# MRDOCS_PLUGIN_API are the only ones that opt back in. A shared build keeps
+# the compiler default: on GCC and Clang its C++ API is exported by default
+# visibility, and on MSVC by the MRDOCS_DECL family of macros.
+if (NOT MRDOCS_BUILD_SHARED)
+    set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+    set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+endif ()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # MSVC flags shared by every mrdocs target below (not installed consumers):
