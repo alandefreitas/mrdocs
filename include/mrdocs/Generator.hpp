@@ -178,10 +178,19 @@ findGenerator(std::string_view id) noexcept;
     MrDocs has to export the `mrdocs_*` functions from its executable, or
     the plugin is refused for a symbol that nothing provides.
 
-    A library that cannot be loaded, does not export the entry points,
-    targets a newer ABI than this MrDocs provides, or reports an error
-    of its own fails the call: a plugin is there because the user put
-    it there, so one that does nothing is not silently accepted. A
+    Every library directly in a `plugins` directory is a plugin. One
+    that cannot be loaded, lacks `mrdocs_plugin_abi_version`
+    or `mrdocs_plugin_init`, targets a newer ABI than this MrDocs
+    provides, or reports an error of its own fails the call: a plugin is
+    there because the user put it there, so a library that cannot act as a
+    plugin is not silently skipped. A plugin whose entry point succeeds and
+    registers nothing is accepted. The libraries a plugin depends on belong in a
+    subdirectory `plugins/lib`, which is never searched for
+    plugins; on Windows its libraries are found by the plugins, and on
+    the other platforms the plugin finds them through its own rpath (on
+    macOS only for a library whose install name starts with `@rpath/`, and
+    on Linux a library there that needs another one there needs an
+    `$ORIGIN` rpath of its own). A
     plugin whose entry point failed may have registered part of what it
     meant to, and MrDocs does not undo that, so the only sensible action
     after such a failure is to exit.

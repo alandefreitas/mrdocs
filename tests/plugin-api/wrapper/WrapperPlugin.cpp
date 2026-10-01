@@ -196,8 +196,7 @@ public:
         reportRegistration(os);
         reportHost(env, os);
 
-        std::filesystem::path const dir = env.outputDir();
-        std::filesystem::create_directories(dir);
+        std::filesystem::path const dir = env.outputPath();
         // Binary mode keeps the line endings the same on every platform.
         std::ofstream file(dir / "values.txt", std::ios::binary);
         file << os.str();
@@ -385,11 +384,13 @@ private:
         Value corpus = env.corpus();
         Array symbols(corpus["symbols"]);
         std::vector<std::string> names;
+        std::string functionId;
         symbols.each([&](Value symbol)
         {
             if (symbol["kind"].str() == "function")
             {
                 names.push_back(symbol["name"].str());
+                functionId = symbol["id"].str();
             }
         });
         std::sort(names.begin(), names.end());
@@ -407,6 +408,17 @@ private:
             "the symbol found is the one asked for");
         expect(
             !env.find("not an id").has_value(), "an unknown id finds nothing");
+        // A symbol found by its name, from the global namespace or from the
+        // scope of another symbol, is the symbol with that id.
+        std::optional<Value> named =
+            env.lookup((*env.find(functionId))["name"].str(), functionId);
+        expect(named.has_value(), "a symbol is found by its name");
+        expect(
+            (*named)["id"].str() == functionId,
+            "the symbol found by name is the one asked for");
+        expect(
+            !env.lookup("not a name").has_value(),
+            "an unknown name finds nothing");
         os << "  find ok\n";
     }
 

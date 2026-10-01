@@ -163,11 +163,38 @@ my-addons/
 ----
 <1> `.dll` on Windows, `.so` on Linux, `.dylib` or `.so` on macOS.
 
-Every library in such a directory is loaded, in name order within a root, and roots are visited in the order the configuration lists them. One library reachable through several roots is loaded once. Anything that is not a library is ignored, so a directory can hold a README, an import library, or debug information without confusing the search.
+Every library directly in such a directory is a plugin: Mr.Docs opens it, in name order within a root, and roots are visited in the order the configuration lists them, and it has to export both entry points and initialize, or the run fails with the message of the section on xref:#_when_a_plugin_is_refused[refusals]. One library reachable through several roots is loaded once. Anything that is not a library is ignored, so a directory can hold a README, an import library, or debug information without confusing the search. A file named `plugins` where the directory should be makes Mr.Docs warn that the directory could not be read, and the root contributes no plugins.
 
-A library that cannot be loaded, does not export the entry points, needs a newer Mr.Docs than the one running, or reports an error of its own stops the run.
+The libraries a plugin depends on go in the `plugins/lib` subdirectory. It has to be called `lib`: the name works on every platform, and it is the only one Mr.Docs adds to the Windows search path (on Linux and macOS the plugin's rpath names the directory, so any name works there). Mr.Docs never looks inside a subdirectory for plugins, so a dependency there is not mistaken for one:
 
-A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol, and adds that the plugin may need a newer Mr.Docs when the symbol is a function of the plugin API, which is what a plugin that uses something added after the ABI of the Mr.Docs that loads it looks like. On Windows the message only says that a module or procedure could not be found. On Windows, the libraries a plugin depends on are looked for in its own directory, then in the directory of the `mrdocs` executable, then in the system directories, and not in the current directory or `PATH`. Because every library in a plugin directory is loaded as a plugin, a dependency cannot sit there yet: on Windows, put it next to the `mrdocs` executable, or link it into the plugin statically. On Linux and macOS a dependency is found the usual way for the plugin: through its RPATH or RUNPATH pointing outside `plugins/`, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
+[source]
+----
+my-addons/
+└── plugins/
+    ├── stats.dll        <1>
+    └── lib/
+        └── helper.dll   <2>
+----
+<1> The plugin.
+<2> A library the plugin links to.
+
+A plugin that can't be loaded, lacks `mrdocs_plugin_abi_version` or `mrdocs_plugin_init`, needs a newer Mr.Docs than the one running, or reports an error of its own stops the run. So does a generator whose id is taken, when the entry point returns the status that `mrdocs_register_generator` failed with, as the C++ wrapper and the example plugins do. The section on xref:#_when_a_plugin_is_refused[refusals] lists what Mr.Docs says in each case.
+
+A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol, and adds that the plugin may need a newer Mr.Docs when the symbol is a function of the plugin API, which is what a plugin that uses something added after the ABI of the Mr.Docs that loads it looks like. On Windows the message only says that a module or procedure could not be found. On Windows, the libraries a plugin depends on are looked for in its own directory, then in the directory of the `mrdocs` executable, then in the `plugins/lib` directory of every addon root that has one (in no defined order among the roots), and then in the system directories, and not in the current directory or `PATH`. On Linux and macOS the plugin finds them through its own rpath, which `mrdocs::plugin` leaves empty, so the plugin sets it to the `lib` directory next to it; in CMake:
+
+[source,cmake]
+----
+if (APPLE)
+    set_target_properties(stats PROPERTIES INSTALL_RPATH "@loader_path/lib")
+elseif (UNIX)
+    set_target_properties(stats PROPERTIES INSTALL_RPATH "$ORIGIN/lib")
+endif ()
+set_target_properties(stats PROPERTIES BUILD_WITH_INSTALL_RPATH ON)
+----
+
+On macOS the rpath only applies to a dependency whose install name starts with `@rpath/`, which is what CMake gives its own `SHARED` targets; a prebuilt library with an absolute install name is looked up at that path and the copy in `plugins/lib` is ignored, so give it an `@rpath` name first (`install_name_tool -id @rpath/libfoo.dylib libfoo.dylib`). On Linux, a library in `plugins/lib` that depends on another one there needs an `$ORIGIN` rpath of its own, because a `RUNPATH` applies only to the library that carries it. On macOS the plugin's rpath also covers the `@rpath/` dependencies of its dependencies, so no further rpath is needed.
+
+A dependency is also found through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS) or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
 
 Once the library is there, the generator it installs is selectable like any other, through the xref:configuration/reference.adoc#generator_option[`generator`] option:
 
@@ -183,6 +210,56 @@ For the sample project that comes with the example, whose input describes a hand
 ----
 include::example$examples/plugins/stats/sample-project/stats.txt[]
 ----
+
+== When a plugin is refused
+
+A plugin is there because the user put it there, so Mr.Docs doesn't ignore one that does nothing. For each of the messages in the first table, it stops the run before it extracts anything, exits with a failure status, and says which library and why. `<path>` below is the path of the library, and the text after the colon in the first message comes from the system loader.
+
+[cols="2,3"]
+|===
+|Message |Cause
+
+|`the plugin "<path>" could not be loaded: <system text>`
+|The loader refused the library: a file that isn't a library, a missing dependency, or a symbol that nothing provides. On Linux and macOS, `; the plugin may need a newer MrDocs` follows when the missing symbol is a function of the plugin API.
+
+|`plugin "<path>" needs a newer MrDocs (ABI 2, this MrDocs provides 1)`
+|The plugin targets a later ABI version than this Mr.Docs provides.
+
+|`plugin "<path>" reports ABI 0, which no MrDocs provides`
+|`mrdocs_plugin_abi_version` returned zero.
+
+|`the plugin "<path>" does not export mrdocs_plugin_abi_version`
+|The library has no ABI function. A plugin written by hand without `extern "C"`, or built with hidden visibility and no export macro on that function, looks like this, and so does a dependency that was put in `plugins` instead of `plugins/lib`.
+
+|`the plugin "<path>" does not export mrdocs_plugin_init`
+|The library reports an ABI and has no entry point.
+
+|`the plugin "<path>" failed: <message>`
+|The entry point called `mrdocs_set_error`, whatever status it returned, or the plugin is a wrapper plugin whose entry point threw.
+
+|`the plugin "<path>" failed with status <status>`
+|The entry point returned a status other than ok (`plugin_error`, `invalid_arg`, `host_error`, and so on) and gave no message. When the last call to Mr.Docs failed, `; the last call to MrDocs failed: <reason>` follows.
+
+|`the plugin "<path>" failed with status host_error; the last call to MrDocs failed: generator id="xml" already exists`
+|The plugin registered a generator under an id that a built-in generator or an earlier plugin took. Plugins load in name order within a root, so the second one is refused.
+
+|===
+
+Two more messages are not refusals at load time. A callback that fails does so while the run is going, so it names a generator or a transform, and not a library, and the run stops with a failure status once that happens. A `plugins` entry that isn't a directory is only a warning, and the run goes on and exits as usual.
+
+[cols="2,3"]
+|===
+|Message |Cause
+
+|`the generator "<id>" failed: <message>` +
+`the transform "<id>" failed: <message>`
+|A callback reported an error after the corpus was built. The message is the plugin's, and a callback that gave none is reported by its status as above.
+
+|`The plugin directory "<directory>" could not be read: <system text>`
+|A warning, not a failure: `plugins` exists but isn't a directory Mr.Docs can list.
+|===
+
+The info log level shows `Loaded plugin "<path>"` for each plugin that was loaded.
 
 == Versioning
 

@@ -146,6 +146,27 @@ jobs:
           package-artifact: false
           ctest-timeout: 9000
 
+      # A plugin shares no C++ with the MrDocs that loads it, so it can be built
+      # by a compiler of another family. On Linux the consumer test builds its
+      # plugin a second time with the other family (clang for a gcc build, g++
+      # for a clang build) and loads it into the MrDocs built above; see
+      # tests/cmake/README.md. The compiler comes from the distribution
+      # packages, since only the plugin uses it. Builds with a sanitizer or
+      # coverage are left out, as for the rest of the consumer test, and so is
+      # the main gcc build, which is linked with -static and can't load plugins.
+      - name: Install The Other Compiler Family (Linux)
+        if: ${{ runner.os == 'Linux' && !matrix.coverage && !matrix.bootstrap-sanitizer && ((matrix.compiler == 'gcc' && !matrix.is-main) || matrix.compiler == 'clang') }}
+        run: |
+          if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+          $SUDO apt-get update
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            $SUDO apt-get install -y --no-install-recommends clang
+            echo "MRDOCS_FOREIGN_CXX=$(command -v clang++)" >> "$GITHUB_ENV"
+          else
+            $SUDO apt-get install -y --no-install-recommends g++
+            echo "MRDOCS_FOREIGN_CXX=$(command -v g++)" >> "$GITHUB_ENV"
+          fi
+
       # Consume the freshly installed mrdocs through its exported CMake package,
       # from an out-of-tree project (tests/cmake): find_package(mrdocs), link
       # mrdocs::mrdocs-core, and run the installed binary via MRDOCS_EXECUTABLE.
@@ -176,7 +197,7 @@ jobs:
           ldflags: ${{ env.BOOTSTRAP_LDFLAGS }}
           generator: Ninja
           build-type: ${{ matrix.build-type }}
-          extra-args: -D mrdocs_ROOT=${{ env.MRDOCS_PREFIX }}
+          extra-args: -D mrdocs_ROOT=${{ env.MRDOCS_PREFIX }} -D MRDOCS_CONSUMER_FOREIGN_CXX=${{ env.MRDOCS_FOREIGN_CXX }}
           run-tests: true
           install: false
 

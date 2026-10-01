@@ -16,6 +16,7 @@
 #include <mrdocs/Support/Filesystem/Path.hpp>
 #include <mrdocs/Support/Filesystem/Temp.hpp>
 #include <test_suite/test_suite.hpp>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -108,6 +109,19 @@ struct PluginLoaderTest
         writeFile(files::appendPath(dir, "README.adoc"));
         writeFile(files::appendPath(dir, "stats.lib"));
         makeDirectory(libraryPath(dir, "nested"));
+        // The suffix has to match exactly, in lower case, and be the last
+        // part of the name: a version after it, text after it, or a version
+        // number before it on Linux does not make a library a plugin. The
+        // stem of the upper-case name differs from the others, because the
+        // file systems of Windows and macOS ignore case.
+        writeFile(libraryPath(dir, "libversioned") + ".1");
+        writeFile(libraryPath(dir, "debug") + ".debug");
+        std::string upper(libraryExtension);
+        for (char& c : upper)
+        {
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        }
+        writeFile(files::appendPath(dir, "LOUD" + upper));
 
         std::vector<std::string> const found = discoverPlugins({ root });
         BOOST_TEST(found.size() == 1);
@@ -226,6 +240,11 @@ struct PluginLoaderTest
         writeFile(files::appendPath(dir, "library.dylib"));
 
         BOOST_TEST(discoverPlugins({ root }).size() == 2);
+
+        // The version of a library comes before the suffix on macOS, so a
+        // versioned name is a plugin there.
+        writeFile(files::appendPath(dir, "libdep.1.dylib"));
+        BOOST_TEST(discoverPlugins({ root }).size() == 3);
 #endif
     }
 

@@ -180,6 +180,22 @@ describe("scopesTouched", () => {
         expect(scopesTouched([])).toEqual(new Set());
     });
 
+    // The plugin tests, the consumer project and the list that registers
+    // them are tests, so a change to only them still builds and runs them.
+    it("classifies the plugin tests and the consumer project as the tests scope", () => {
+        const paths = [
+            "tests/plugin-api/CheckExports.cmake",
+            "tests/plugin-api/c/CPlugin.c",
+            "tests/plugin-api/refusals/CMakeLists.txt",
+            "tests/cmake/CMakeLists.txt",
+            "tests/CMakeLists.txt",
+        ];
+        for (const path of paths) {
+            expect(scopesTouched([path])).toEqual(new Set(["tests"]));
+        }
+        expect(isCodeChange(scopesTouched(paths))).toBe(true);
+    });
+
     // examples/** is its own scope; it does not get rolled into source.
     it("classifies paths under examples/ as the examples scope", () => {
         const scopes = scopesTouched([

@@ -8,15 +8,23 @@
 // Official repository: https://github.com/cppalliance/mrdocs
 //
 
-// A plugin that links a shared library which is only reachable through
-// PATH. The Windows loader looks for a plugin's dependencies in the
-// plugin's directory, the application directory and the system
-// directories, so loading has to fail. The ctest entry checks that the
-// plugin is refused at load time.
+// A plugin that links a shared library, built twice by the CMake files that
+// use it. In one build the library is only reachable through PATH: the Windows
+// loader looks for a plugin's dependencies in the plugin's own directory, the
+// directory of the mrdocs executable, plugins/lib and the system directories,
+// so loading has to fail, and the ctest entry checks that the plugin is refused at load time. In
+// the other the library sits in plugins/lib, and the plugin has to load. Where
+// the library sits is decided by the CMake target.
 
 #include <mrdocs/plugin.h>
 
-extern "C" __declspec(dllimport) int mrdocs_test_dependency_helper();
+#ifdef _WIN32
+#    define MRDOCS_TEST_IMPORT __declspec(dllimport)
+#else
+#    define MRDOCS_TEST_IMPORT
+#endif
+
+extern "C" MRDOCS_TEST_IMPORT int mrdocs_test_dependency_helper();
 
 MRDOCS_PLUGIN_INIT(env)
 {

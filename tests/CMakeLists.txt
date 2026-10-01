@@ -20,10 +20,22 @@
 #                 refuse to load: one built for an ABI newer than MrDocs
 #                 provides, one with an undefined symbol (Linux and macOS
 #                 only), and one whose dependency is reachable only through
-#                 PATH (Windows only); wrapper/ holds plugins written with the
-#                 C++ wrapper (mrdocs/plugin.hpp), run to check values,
-#                 iteration, references and the errors the wrapper turns
-#                 exceptions into
+#                 PATH (Windows only); c/ holds a plugin written in C11 that
+#                 reads the corpus and writes a file, a plugin whose shared
+#                 library sits in plugins/lib, a plugins directory that
+#                 is a file (a warning, not a refusal), and, on Linux only,
+#                 two plugins that export a function of the same name, which
+#                 each have to call their own; refusals/ holds the
+#                 plugins MrDocs has to refuse by message: a library with
+#                 neither entry point, one without mrdocs_plugin_init, one
+#                 without mrdocs_plugin_abi_version, one that reports ABI 0,
+#                 an entry point that fails with and without a message, a
+#                 generator id that another plugin or a built-in generator
+#                 took, and (not on Windows) a symbolic link with a library
+#                 name whose target is missing; wrapper/ holds plugins written with the C++ wrapper
+#                 (mrdocs/plugin.hpp), run to check values, iteration,
+#                 references, the errors the wrapper turns exceptions
+#                 into, and a message logged at the error level
 add_subdirectory(unit)
 add_subdirectory(golden)
 # Benchmarks are custom targets, not CTest tests; see benchmarks/README.md.

@@ -1,0 +1,6 @@
+function 'answer'
+namespace ''
+record 'Widget'
+variable 'size'
+transform tag: made by the C transform
+transform symbols: 4
