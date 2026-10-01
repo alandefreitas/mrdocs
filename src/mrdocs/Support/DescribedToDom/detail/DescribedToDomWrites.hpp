@@ -13,6 +13,8 @@
 
 #include <mrdocs/Support/DescribedToDom/DescribedToDomForward.hpp>
 #include <mrdocs/Support/DescribedToDom/detail/DescribedToDomDetail.hpp>
+#include <algorithm>
+#include <vector>
 
 namespace mrdocs {
 
@@ -103,6 +105,65 @@ isKindKebabName(std::string_view name)
 {
     static std::string const cached = computeKindKebabName<Derived>();
     return !cached.empty() && cached == name;
+}
+
+// =====================================================================
+// Nesting limit
+// =====================================================================
+
+/** The most containers a written value may nest.
+
+    A value is read from a script or a plugin, which can build one that
+    contains itself, and the write follows its structure one container at a
+    time. The limit ends such a write with an error before the stack runs
+    out. Every level of a document (an array of inlines whose elements hold
+    arrays of inlines) counts twice, so the limit allows about sixty levels,
+    far more than any documentation holds.
+*/
+inline constexpr int maxWriteDepth = 128;
+
+/** Counts the containers a write is inside of, on this thread.
+
+    Create one on entering a container, and test @ref tooDeep afterwards.
+*/
+class WriteDepth
+{
+    static int&
+    current() noexcept
+    {
+        thread_local int depth = 0;
+        return depth;
+    }
+
+public:
+    WriteDepth() noexcept
+    {
+        ++current();
+    }
+
+    WriteDepth(WriteDepth const&) = delete;
+    WriteDepth& operator=(WriteDepth const&) = delete;
+
+    ~WriteDepth()
+    {
+        --current();
+    }
+
+    bool
+    tooDeep() const noexcept
+    {
+        return current() > maxWriteDepth;
+    }
+};
+
+/** The error of a write that nests too deep. */
+inline
+Expected<void>
+nestingError(std::string_view fieldName)
+{
+    return Unexpected(formatError(
+        "field '{}': the value nests more than {} levels deep, or contains "
+        "itself", fieldName, maxWriteDepth));
 }
 
 // =====================================================================
@@ -325,6 +386,11 @@ assignFromDom(T& dest, std::string_view fieldName, dom::Value const& src)
         return Unexpected(formatError(
             "field '{}' expects an array", fieldName));
     }
+    WriteDepth const depth;
+    if (depth.tooDeep())
+    {
+        return nestingError(fieldName);
+    }
     dom::Array const arr = src.getArray();
     std::size_t const n = arr.size();
     T fresh;
@@ -354,6 +420,29 @@ assignFromDom(T& dest, std::string_view fieldName, dom::Value const& src)
         return Unexpected(formatError(
             "field '{}' contains a type the generic setter cannot construct",
             fieldName));
+    }
+    if constexpr (std::is_same_v<Element, SymbolID>)
+    {
+        // A list of symbol ids is how a symbol holds its members, its
+        // specializations and its derived classes, and the generators
+        // follow them. A transform may reorder or shorten such a list,
+        // but an id it did not already hold could make a symbol a member
+        // of itself or of a symbol that has not got it as a child, and a
+        // generator that follows the list would never end. So each id of
+        // the new list has to be in the old one, as many times as it was.
+        std::vector<SymbolID> remaining = dest;
+        for (SymbolID const& id : fresh)
+        {
+            auto const it = std::ranges::find(remaining, id);
+            if (it == remaining.end())
+            {
+                return Unexpected(formatError(
+                    "field '{}' can be reordered or shortened, but not "
+                    "extended: '{}' is not one of its symbols",
+                    fieldName, toBase58Str(id)));
+            }
+            remaining.erase(it);
+        }
     }
     dest = std::move(fresh);
     return {};
@@ -394,6 +483,11 @@ assignFromDom(T& dest, std::string_view fieldName, dom::Value const& src)
     {
         return Unexpected(formatError(
             "field '{}' expects an object", fieldName));
+    }
+    WriteDepth const depth;
+    if (depth.tooDeep())
+    {
+        return nestingError(fieldName);
     }
     dom::Object const obj = src.getObject();
     Expected<void> outerResult;
@@ -572,6 +666,11 @@ buildPolymorphic(
         return Unexpected(formatError(
             "field '{}' expects an object describing a polymorphic value",
             fieldName));
+    }
+    WriteDepth const depth;
+    if (depth.tooDeep())
+    {
+        return nestingError(fieldName);
     }
     dom::Object const obj = src.getObject();
     dom::Value kindV = obj.get("kind");

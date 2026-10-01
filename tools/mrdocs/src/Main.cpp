@@ -16,10 +16,10 @@
 #include <mrdocs/Corpus.hpp>
 #include <mrdocs/Extensions/ExtensionRegistry.hpp>
 #include <mrdocs/Generator.hpp>
-#include <mrdocs/Plugin.hpp>
 #include <mrdocs/Support/Chrono.hpp>
 #include <mrdocs/Support/Filesystem/Path.hpp>
 #include <mrdocs/Support/Report.hpp>
+#include <mrdocs/Transform.hpp>
 #include <mrdocs/Version.hpp>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/PrettyStackTrace.h>
@@ -236,9 +236,8 @@ DoGenerateAction(
     // --------------------------------------------------------------
     // Plugins come first: one that cannot install what it provides
     // fails the run, while an addon generator directory whose id is
-    // already taken is skipped. The registry holds the transforms they
-    // installed, which apply once the corpus is built.
-    MRDOCS_TRY(PluginRegistry plugins, loadPlugins(config));
+    // already taken is skipped.
+    MRDOCS_TRY(loadPlugins(config));
 
     // --------------------------------------------------------------
     //
@@ -286,7 +285,7 @@ DoGenerateAction(
     // Plugin transforms run first, which is what this call site ahead of
     // the extension one decides: what MrDocs was set up with applies
     // before what a user script asks for.
-    MRDOCS_TRY(plugins.applyTransforms(corpus, config));
+    MRDOCS_TRY(applyTransforms(corpus, config));
 
     // --------------------------------------------------------------
     //
@@ -389,6 +388,13 @@ getConfigPath(ReferenceDirectories const& dirs, CommandLine const& cl)
 int
 mrdocs_main(int argc, char const** argv)
 {
+    // Plugins get their `release` call here, while their static objects
+    // are alive, instead of from the static destruction of the registries.
+    struct ReleasePlugins
+    {
+        ~ReleasePlugins() { releasePlugins(); }
+    } const releasePluginsAtExit;
+
     // Enable stack traces
     llvm::EnablePrettyStackTrace();
     llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);

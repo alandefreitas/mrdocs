@@ -18,6 +18,7 @@
 #include <mrdocs/Corpus.hpp>
 #include <mrdocs/Support/Error/Error.hpp>
 #include <mrdocs/Support/Error/Expected.hpp>
+#include <memory>
 #include <string_view>
 
 namespace mrdocs {
@@ -35,8 +36,8 @@ namespace mrdocs {
     again. The Plugins page of the documentation lists these rules in
     full.
 
-    A plugin installs a transform through
-    @ref PluginContext::installTransform.
+    A plugin registers a transform through the C API in
+    `mrdocs/plugin.h`.
 */
 class MRDOCS_VISIBLE
     Transform
@@ -75,6 +76,51 @@ public:
     Expected<void>
     apply(Corpus& corpus, Config const& config) const = 0;
 };
+
+/** Install a corpus transform.
+
+    This function registers a transform with the global transform
+    registry, so that it runs on the corpus of the current build.
+
+    A plugin registers its transforms through the C API in
+    `mrdocs/plugin.h`, which calls this function.
+
+    @par Thread Safety
+    This function is thread-safe and may be called concurrently from
+    multiple threads.
+
+    @return An error if the transform is null.
+
+    @param T The transform to install. Ownership is transferred to the
+    registry.
+*/
+MRDOCS_DECL
+Expected<void>
+installTransform(std::unique_ptr<Transform> T);
+
+/** Apply the installed transforms to a corpus.
+
+    Invokes each installed transform once, in the order the transforms
+    were installed, and stops at the first one that fails.
+
+    Call this after the corpus is finalized and before a generator runs.
+    It is one of the pieces the command-line tool composes to run its
+    generate step; the order of that step lives in the tool.
+
+    @par Thread Safety
+    Safe against a concurrent @ref installTransform, which the registry
+    synchronizes; a transform installed while this runs simply does not
+    run this time.
+
+    @return The error, if any occurred, naming the transform it came
+    from.
+
+    @param corpus The corpus to transform.
+    @param config The configuration that drove the build.
+*/
+MRDOCS_DECL
+Expected<void>
+applyTransforms(Corpus& corpus, Config const& config);
 
 } // mrdocs
 

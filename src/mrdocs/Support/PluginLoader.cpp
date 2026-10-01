@@ -11,16 +11,16 @@
 
 #include "PluginLoader.hpp"
 #include "AddonRoots.hpp"
+#include <mrdocs/Plugin/CApi.hpp>
 #include <mrdocs/Generator.hpp>
-#include <mrdocs/Plugin.hpp>
+#include <mrdocs/plugin.h>
 #include <mrdocs/Support/Error/Expected.hpp>
 #include <mrdocs/Support/Filesystem/Path.hpp>
 #include <mrdocs/Support/Report.hpp>
-#include <mrdocs/Transform.hpp>
 #include <llvm/ADT/StringRef.h>
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -153,45 +153,6 @@ appendNewLibraries(
     }
 }
 
-// The context handed to a plugin: it reads the configuration MrDocs
-// loaded, forwards a generator to the global registry, and collects the
-// transforms for the `PluginRegistry` that `loadPlugins` returns.
-class PluginContextImpl final
-    : public PluginContext
-{
-    Config const& config_;
-    std::vector<std::unique_ptr<Transform>>& transforms_;
-
-public:
-    PluginContextImpl(
-        Config const& config,
-        std::vector<std::unique_ptr<Transform>>& transforms) noexcept
-        : config_(config)
-        , transforms_(transforms)
-    {
-    }
-
-    Config const&
-    config() const noexcept override
-    {
-        return config_;
-    }
-
-    Expected<void>
-    installGenerator(std::unique_ptr<Generator> G) override
-    {
-        return mrdocs::installGenerator(std::move(G));
-    }
-
-    Expected<void>
-    installTransform(std::unique_ptr<Transform> T) override
-    {
-        MRDOCS_CHECK(T, "cannot install null transform");
-        transforms_.push_back(std::move(T));
-        return {};
-    }
-};
-
 #ifdef _WIN32
 
 // Convert the system's message for `code` to UTF-8.
@@ -249,7 +210,7 @@ using LibraryHandle = void*;
 // instead of failing at its first call. The POSIX loader's message names the
 // missing symbol; the Windows one only says a module or procedure was not
 // found. Its symbols stay local to it, so two plugins cannot interpose each
-// other's C++ symbols.
+// other's symbols.
 Expected<LibraryHandle>
 openLibrary(std::string const& path)
 {
@@ -300,9 +261,10 @@ openLibrary(std::string const& path)
     if (!handle)
     {
         char const* const text = ::dlerror();
+        std::string_view const reason = text ? text : "unknown error";
         return Unexpected(formatError(
-            "the plugin \"{}\" could not be loaded: {}",
-            path, text ? text : "unknown error"));
+            "the plugin \"{}\" could not be loaded: {}{}",
+            path, reason, missingApiHint(reason)));
     }
     return handle;
 #endif
@@ -334,65 +296,30 @@ findEntryPoint(
     return reinterpret_cast<Fn>(address);
 }
 
-// Compare the interface the plugin was built against with ours. A
-// mismatch means the plugin's view of the context, or of the entry
-// points themselves, is not the one it is about to be called with.
+// The type of the function a plugin exports to report the ABI it targets.
+using PluginAbiVersionFn = std::uint32_t (MRDOCS_PLUGIN_CALL *)();
+
+// Compare the ABI the plugin targets with the one this MrDocs provides. The
+// ABI only grows, the way Node-API's NAPI_VERSION does, so a plugin is
+// accepted when it targets this version or an earlier one. It is refused
+// when it reports ABI 0 or targets a newer version, whether or not it uses
+// anything from that version. A plugin that calls a function this MrDocs
+// lacks never gets here: the system loader refuses it while it resolves the
+// plugin's symbols (see openLibrary).
 Expected<void>
-checkApiVersion(
+checkAbiVersion(
     LibraryHandle library,
     std::string_view path)
 {
-    MRDOCS_TRY(PluginApiVersionFn const apiVersion,
-        findEntryPoint<PluginApiVersionFn>(
-            library, "mrdocs_plugin_api_version", path));
-    int const version = apiVersion();
-    MRDOCS_CHECK(version == MRDOCS_PLUGIN_API_VERSION, formatError(
-        "the plugin \"{}\" was built against version {} of the plugin "
-        "interface, and this MrDocs provides version {}",
-        path, version, MRDOCS_PLUGIN_API_VERSION));
-    return {};
-}
-
-// Call the entry point and report what the plugin left behind, if it says
-// it failed, naming the library.
-Expected<void>
-runEntryPoint(
-    PluginMainFn entryPoint,
-    std::string_view path,
-    Config const& config,
-    std::vector<std::unique_ptr<Transform>>& transforms)
-{
-    PluginContextImpl context(config, transforms);
-    Error error;
-    bool const installed = entryPoint(context, &error);
-    MRDOCS_CHECK(installed, error.failed()
-        ? formatError("the plugin \"{}\" failed: {}", path, error.reason())
-        : formatError("the plugin \"{}\" reported a failure", path));
-    return {};
-}
-
-// Compare the toolchain the plugin was built with against ours. The two
-// pass C++ objects between them, so a difference in the compiler, the
-// standard library, or how it lays its types out is not something either
-// side can survive; refusing here is what keeps it from surfacing as a
-// crash somewhere unrelated.
-Expected<void>
-checkBuildTag(
-    LibraryHandle library,
-    std::string_view path)
-{
-    MRDOCS_TRY(PluginBuildTagFn const buildTag,
-        findEntryPoint<PluginBuildTagFn>(
-            library, "mrdocs_plugin_build_tag", path));
-    char const* const tag = buildTag();
-    MRDOCS_CHECK(tag, formatError(
-        "the plugin \"{}\" reports no toolchain", path));
-    MRDOCS_CHECK(std::string_view(tag) == MRDOCS_PLUGIN_BUILD_TAG,
-        formatError(
-            "the plugin \"{}\" was built with \"{}\", and this MrDocs "
-            "with \"{}\"; a plugin has to be built with the toolchain "
-            "MrDocs was built with",
-            path, tag, MRDOCS_PLUGIN_BUILD_TAG));
+    MRDOCS_TRY(PluginAbiVersionFn const abiVersion,
+        findEntryPoint<PluginAbiVersionFn>(
+            library, "mrdocs_plugin_abi_version", path));
+    std::uint32_t const version = abiVersion();
+    MRDOCS_CHECK(version != 0, formatError(
+        "plugin \"{}\" reports ABI 0, which no MrDocs provides", path));
+    MRDOCS_CHECK(version <= MRDOCS_PLUGIN_ABI_VERSION, formatError(
+        "plugin \"{}\" needs a newer MrDocs (ABI {}, this MrDocs provides {})",
+        path, version, MRDOCS_PLUGIN_ABI_VERSION));
     return {};
 }
 
@@ -400,20 +327,52 @@ checkBuildTag(
 Expected<void>
 loadPlugin(
     std::string const& path,
-    Config const& config,
-    std::vector<std::unique_ptr<Transform>>& transforms)
+    Config const& config)
 {
     MRDOCS_TRY(LibraryHandle const library, openLibrary(path));
-    MRDOCS_TRY(checkApiVersion(library, path));
-    MRDOCS_TRY(checkBuildTag(library, path));
-    MRDOCS_TRY(PluginMainFn const entryPoint,
-        findEntryPoint<PluginMainFn>(library, "mrdocs_plugin_main", path));
-    MRDOCS_TRY(runEntryPoint(entryPoint, path, config, transforms));
+    MRDOCS_TRY(checkAbiVersion(library, path));
+    MRDOCS_TRY(PluginInitFn const init,
+        findEntryPoint<PluginInitFn>(library, "mrdocs_plugin_init", path));
+    MRDOCS_TRY(initializePlugin(path, init, config));
     report::info("Loaded plugin \"{}\"", path);
     return {};
 }
 
+// Return the name of the symbol a POSIX loader message says is missing, or an
+// empty view if the message is about something else. glibc says "undefined
+// symbol: name", and macOS "symbol not found in flat namespace '_name'" or
+// "Symbol not found: _name".
+std::string_view
+missingSymbol(std::string_view const message)
+{
+    constexpr std::string_view prefixes[] = {
+        "undefined symbol: ",
+        "symbol not found in flat namespace '_",
+        "Symbol not found: _" };
+    for (std::string_view const prefix : prefixes)
+    {
+        std::size_t const at = message.find(prefix);
+        if (at != std::string_view::npos)
+        {
+            std::string_view const name =
+                message.substr(at + prefix.size());
+            return name.substr(0, name.find_first_of("' \n,)"));
+        }
+    }
+    return {};
+}
+
 } // (anon)
+
+std::string_view
+missingApiHint(std::string_view const message)
+{
+    if (missingSymbol(message).starts_with("mrdocs_"))
+    {
+        return "; the plugin may need a newer MrDocs";
+    }
+    return {};
+}
 
 std::vector<std::string>
 discoverPlugins(std::vector<std::string> const& roots)
@@ -430,35 +389,7 @@ discoverPlugins(std::vector<std::string> const& roots)
     return paths;
 }
 
-PluginRegistry::
-PluginRegistry(
-    std::vector<std::unique_ptr<Transform>> transforms) noexcept
-    : transforms_(std::move(transforms))
-{
-}
-
 Expected<void>
-PluginRegistry::
-applyTransforms(Corpus& corpus, Config const& config) const
-{
-    Expected<void> result;
-    for (std::unique_ptr<Transform> const& T : transforms_)
-    {
-        if (result)
-        {
-            result = T->apply(corpus, config);
-            if (!result)
-            {
-                result = Unexpected(formatError(
-                    "the transform \"{}\" failed: {}",
-                    T->id(), result.error().reason()));
-            }
-        }
-    }
-    return result;
-}
-
-Expected<PluginRegistry>
 loadPlugins(Config const& config)
 {
     std::vector<std::string> const paths =
@@ -467,12 +398,11 @@ loadPlugins(Config const& config)
         "the plugin \"{}\" cannot be loaded: this MrDocs was built without "
         "plugin support (linked with -static, or built as shared libraries)",
         paths.front()));
-    std::vector<std::unique_ptr<Transform>> transforms;
     for (std::string const& path : paths)
     {
-        MRDOCS_TRY(loadPlugin(path, config, transforms));
+        MRDOCS_TRY(loadPlugin(path, config));
     }
-    return PluginRegistry(std::move(transforms));
+    return {};
 }
 
 } // mrdocs

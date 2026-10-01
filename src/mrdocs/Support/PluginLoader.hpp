@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
@@ -11,10 +12,11 @@
 #ifndef MRDOCS_LIB_SUPPORT_PLUGINLOADER_HPP
 #define MRDOCS_LIB_SUPPORT_PLUGINLOADER_HPP
 
-// `loadPlugins` is part of the public plugin API; see mrdocs/Plugin.hpp.
+// `loadPlugins` is part of the public API; see mrdocs/Generator.hpp.
 // What lives here is the path logic behind it.
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mrdocs {
@@ -37,6 +39,23 @@ namespace mrdocs {
 */
 std::vector<std::string>
 discoverPlugins(std::vector<std::string> const& roots);
+
+/** Return the sentence to append to the message of a failed library load.
+
+    The platform loader resolves every symbol while it opens a library, which
+    is before the library can report the ABI it needs. A plugin that calls a
+    function of the plugin API that this MrDocs lacks is therefore refused for
+    an undefined symbol, and not by the version check. When the message names
+    such a function, this is the hint that the plugin may need a newer
+    MrDocs. POSIX loaders name the symbol; the Windows one does not, so no
+    hint comes out of its messages.
+
+    @return The sentence, starting with a separator, or an empty view.
+
+    @param message The message the loader reported.
+*/
+std::string_view
+missingApiHint(std::string_view message);
 
 } // mrdocs
 
