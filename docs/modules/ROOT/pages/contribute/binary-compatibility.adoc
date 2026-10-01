@@ -1,0 +1,106 @@
+= Binary compatibility
+
+Mr.Docs makes a few promises about binaries: a plugin built once keeps loading into later releases, a plugin can be built with any compiler, and the Linux release runs on the distributions people use. Each promise rests on a policy, and each policy was copied from a project that had already learned why it matters. This page states every policy, why it exists, and where it comes from, so that nobody mistakes one for neglect and "updates" it. A rule that looks old, such as the container the Linux release is built in, is usually old on purpose.
+
+The audience is people who change Mr.Docs. The users' side of the story is on the xref:extensions/plugins.adoc[Plugins] page, and the day-to-day rules for editing the interface are in the xref:contribute/workflow.adoc[workflow] page.
+
+[cols="2,3,2"]
+|===
+|Policy |Why |Origin
+
+|<<c-boundary,Plugins talk to Mr.Docs through a C interface>>
+|No {cpp} type crosses the boundary, so no compiler, standard library, or revision has to match.
+|Node-API
+
+|<<loading-model,Plugins are shared libraries loaded into the tool, which add to its registries>>
+|The tool needs no knowledge of a plugin until the user installs it.
+|Clang plugins, with the init function of Node-API
+
+|<<abi-version,A version number that only grows decides compatibility>>
+|A plugin built once keeps working, and a plugin that needs more than the tool offers is refused with a clear message.
+|Node-API
+
+|<<wrapper,The {cpp} wrapper is a header compiled into the plugin>>
+|Convenience for {cpp} authors without putting {cpp} on the boundary.
+|node-addon-api
+
+|<<exports,The tool exports the interface and nothing else>>
+|The exported names are the ABI, so the ABI cannot grow by accident.
+|Follows from the C boundary
+
+|<<linux-release,The Linux release depends on glibc 2.31 and nothing else>>
+|One binary runs on many distributions and can still load plugins.
+|manylinux and auditwheel
+
+|<<discovery,Plugins are discovered in the addon roots>>
+|Plugins install in the same directories as every other extension, and the roots decide the load order.
+|Mr.Docs addons
+|===
+
+[#c-boundary]
+== The boundary is C
+
+A {cpp} class has no stable binary form. Its layout, its virtual table, its name mangling, and the behavior of the standard library types in its members all depend on the compiler, its version, and its flags. Clang plugins deal with that by expecting the plugin to be built against the same revision of the tool, which Clang doesn't check. That works when the tool is rebuilt together with its plugins. It would not work here: Mr.Docs changes its metadata types in almost every release, depends on LLVM, which changes more often, and has users who install a release package and write a plugin afterwards.
+
+So the boundary is a C interface, declared in `include/mrdocs/plugin.h`. It has opaque handles, a status code for every function, a single environment per callback, and descriptor structures that begin with their size. The values a plugin reads and writes are the DOM that extension scripts already use, so the interface needs no {cpp} type of Mr.Docs. A new field of a symbol is a new key of its object, and a plugin that doesn't know it ignores it.
+
+This is the design of https://nodejs.org/api/n-api.html[Node-API^]: Node addons used to bind to V8 directly and broke on Node releases, and Node-API replaced that with a C interface over opaque handles that is stable across Node versions and across the engines under it. What it means in practice:
+
+* A callback that fails reports a status, and no exception crosses the boundary in either direction.
+* No memory is allocated on one side and freed on the other. Strings are copied into buffers the caller provides.
+* A handle belongs to one callback, and a plugin that wants to keep a value it made makes a reference. What it reads from Mr.Docs is a view, good for the callback only, so it copies the strings and numbers out.
+
+[#loading-model]
+== Plugins are loaded into the tool
+
+A plugin is a shared library that the tool loads when it starts. The library exports an entry point, and the tool calls it with an environment, through which the plugin registers what it provides. Clang plugins work the same way at the level of the process: a shared library loaded into the tool, which adds to the tool's registries. Clang finds the additions in the static initializers of the library, so it has no entry point; the entry point that receives an environment is the module initialization function of Node-API, `NAPI_MODULE_INIT()`, whose body receives `env` and `exports`.
+
+The loader opens every library with all symbols resolved at once and with its symbols local to the library, so that a plugin which refers to something nobody provides is refused while loading and two plugins can't replace each other's functions. It never unloads a plugin: the registries hold objects whose code lives in the plugin, and the tool exits shortly after the run.
+
+[#abi-version]
+== The ABI version only grows
+
+Clang expects a plugin to come from the same revision of the tool, and GCC gives plugins `plugin_default_version_check`, which compares every field of `plugin_gcc_version` (the version, the date stamp, the phase, the revision, and the arguments the compiler was configured with) against the plugin's and requires all five to be equal. GCC doesn't call it on the plugin's behalf: the plugin calls it from its own `plugin_init` to refuse itself. That is a reasonable answer when the interface is the whole of the tool's internals. A C interface is small, and it can promise more.
+
+The promise comes from Node-API's `NAPI_VERSION`. `MRDOCS_PLUGIN_ABI_VERSION` is the newest version the header describes, and `MRDOCS_PLUGIN_ABI_TARGET` is the version a plugin is built for: the newest by default, and a lower one when the plugin defines the macro before including the header. A plugin reports its target through `mrdocs_plugin_abi_version`. The loader accepts a plugin whose target is the version it provides or lower, and refuses a higher one with the message `plugin "<path>" needs a newer MrDocs (ABI n, this MrDocs provides m)`. A plugin built for a later version that calls a function added after the version this Mr.Docs provides never gets that far: it is refused while the system loader resolves its symbols, with the loader's text and, on Linux and macOS, `the plugin may need a newer MrDocs`. The ABI message is for a plugin that targets a later version and uses nothing from it. The number is the only compatibility check: Mr.Docs does not compare compilers, standard libraries, or builds of itself, because none of them is visible to the plugin.
+
+That check is only worth anything if the number is kept honest, which is the reason for the rule on the workflow page. The header changes by addition: a new function or a new descriptor field is declared under a new number, whether or not the previous number has been released, every function, type, and constant says in its comment which number it appeared in, and nothing already there is removed or altered. Changes that are invisible to the header, such as a new key in the DOM, don't touch the number, and renaming or removing a key does break plugins without the number saying so, so those get the care a breaking change to extension scripts gets.
+
+[#wrapper]
+== The wrapper is compiled into the plugin
+
+Writing against a C interface is verbose in {cpp}: every call returns a status, every string is a buffer, and every handle has a scope. `include/mrdocs/plugin.hpp` takes that away with `Value`, `Object`, `Array`, `Scope`, `Ref`, exceptions, and base classes for generators and transforms. node-addon-api does the same for Node-API, and for the same reason.
+
+Because the wrapper is a header, it is compiled inside the plugin, with the plugin's compiler and standard library. Its classes and virtual tables never reach Mr.Docs: only function pointers and a pointer to an object do. It uses nothing but `plugin.h`, so it is a view of the C interface and not a second interface to keep stable, and it follows `MRDOCS_PLUGIN_ABI_TARGET` so that it honors the same versions.
+
+[#exports]
+== The tool exports the interface and nothing else
+
+The names the tool exports are the part of the ABI the loader resolves, so the exported set has to be the interface and exactly the interface. In the default build the `mrdocs` executable exports the `mrdocs_*` functions of `plugin.h` and no other symbol: not the {cpp} of Mr.Docs, not LLVM or Clang, and not the libraries they use. The libraries are built with hidden visibility and the link of the tool narrows the table with a version script on Linux and an export list on macOS. On Linux and macOS builds with narrowed exports, a test lists the exports and compares them to the header; on Windows, where the import library decides what a plugin can bind to, a probe module that names every function of the header fails to link if the tool does not export one.
+
+This is not borrowed from another project; it is what follows from choosing a C boundary. If a plugin could bind to a symbol that is not in the header, the header would no longer be the whole contract, and a plugin that carried its own copy of LLVM or `fmt` would bind to the one inside the tool.
+
+[#linux-release]
+== The Linux release depends on glibc 2.31 and nothing else
+
+A binary that links the C library dynamically needs a C library at least as new as the one it was linked against, and a binary that is built on a recent distribution picks up recent symbols. Python's packaging team ran into this with compiled wheels, and the answer is the policy called https://peps.python.org/pep-0600/[manylinux^], with a checker called https://github.com/pypa/auditwheel[auditwheel^]. Mr.Docs applies it to its Linux release:
+
+* The binary may depend on glibc up to a stated version, the floor, and on nothing else from the system, a stricter rule than manylinux's, which also allows a short whitelist of system libraries up to capped symbol versions. The floor is glibc 2.31, which is Ubuntu 20.04, and covers Debian 11, Fedora 32, RHEL 9, and anything newer. glibc is backward compatible, so a binary built against an old glibc runs on a new one.
+* It is built inside an old distribution, with a current compiler. There is no flag that tells glibc to target an older version the way `-mmacosx-version-min` does for macOS, so the container's glibc is the floor. The compiler doesn't depend on the distribution: it comes from the same toolchain PPA that Mr.Docs already uses on newer Ubuntu releases.
+* It links `libstdc++` and `libgcc` statically, so the C++ runtime of the old distribution never matters. A binary that refers to `GLIBCXX_` or `CXXABI_` symbols from the system would need a runtime the user may not have. manylinux does not go this far: it whitelists `libstdc++` and `libgcc_s` among a few system libraries and caps their symbol versions. Mr.Docs allows none because it links both statically.
+* A check on the finished binary must fail the release if it refers to a glibc symbol newer than the floor, or to a `GLIBCXX_` or `CXXABI_` symbol at all. auditwheel makes the same kind of check on a wheel, against the whitelist and symbol caps of the manylinux policy; the check here is the stricter version of it.
+
+The release must not use `-static`. A binary linked against glibc statically cannot load a shared library dependably: `dlopen` in a static glibc needs the shared glibc of the same version at run time, and the linker warns about it. A static binary would defeat the portability it is meant to give, and it could not load plugins. Platforms where this question has an easier answer don't need the policy: macOS gets its floor from the deployment target the release is built with, which the build and the release workflows do not set today, so it is the macOS of the runner, and Windows has no floor to set beyond the OS and the Visual C++ redistributable, which supplies the dynamic `/MD` runtime the release is built with. musl is not an alternative for the same reason: a static musl has no `dlopen`, and a dynamic one needs plugins built for musl.
+
+The container is why the policy looks neglected. Nobody should move the Linux release to a newer Ubuntu because it is old: doing so raises the floor, and a binary that needs glibc 2.39 stops running on the systems the floor was set to reach. Raising the floor is a decision, taken for a reason that is written down here, and it is made together with the check, not by updating the image. The same goes for the check: if it fails, fix the binary, don't raise the limit to make it pass.
+
+NOTE: The release workflow does not follow this policy yet. Until the change that moves the Linux release to the container, the flags, and the check described above lands, the published Linux binary is still linked with `-static` and cannot load plugins. That change removes this note.
+
+A plugin on Linux uses whatever C++ runtime it likes, since nothing from it crosses the boundary. Only the C library is shared with the tool, so a plugin needs a glibc no older than the one it was built against, and the xref:extensions/plugins.adoc#platforms[Plugins] page says what that means for authors.
+
+[#discovery]
+== Plugins are discovered in the addon roots
+
+Where plugins live and in what order they load is not borrowed from anyone. It is what Mr.Docs already did for templates, scripts, and generators: the `plugins` subdirectory of each addon root, the `addons` directory first and then each `addons-supplemental` directory in order. A plugin can ship in a supplemental directory next to the configuration of the project it documents, and a user who already knows where to put a template knows where to put a plugin.
+
+The order of the roots decides the order in which plugins load, and so the order of their transforms. It does not decide who wins, as it does for a template that a supplemental root overrides: generator ids must be unique, and a plugin that registers a generator id that is already taken, by Mr.Docs or by another plugin, fails its registration, which stops the run when the entry point passes that status on, as the wrapper does. Transform ids key the transform's `transform-options` block and name it in diagnostics; they may repeat, and transforms that share an id share their parameters. Plugins are loaded before the data-driven generators of the addon roots are discovered, so a plugin generator takes its id first, and a data-driven generator whose name a plugin already registered is skipped without a diagnostic. A script generator is the exception: the tool looks a script-defined generator up before any other, so one that registers an id a plugin also registered runs instead of the plugin, from any addon root and without a diagnostic, as it does over a built-in generator.

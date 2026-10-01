@@ -7,6 +7,8 @@ A Mr.Docs *extension* is a Lua or JavaScript script that runs as part of a build
 
 A script declares a transform with `mrdocs.register_transform(id, fn)` and a generator with `mrdocs.register_generator(id, fn)`. Either way the registered function receives a single context object, `ctx`.
 
+Compiled code can do the same. A xref:extensions/plugins.adoc[plugin] registers transforms and generators through a C interface over the same values `ctx` exposes, and its transforms run in the same pipeline as the scripts', as <<transform-order,Transform order>> describes.
+
 == Languages and locations
 
 Extensions are scripts dropped under `extensions/` inside a Mr.Docs xref:configuration/output.adoc#addons[addon directory], the same roots that hold the xref:extensions/handlebars-extensions.adoc[Handlebars templates], with the `.js` or `.lua` extension. Mr.Docs aggregates scripts across every addon root and runs them in alphabetical order by full path, with the two languages interleaved.
@@ -195,7 +197,7 @@ include::example$examples/extensions/project-conventions/warnings.txt[]
 [[modifying-the-corpus]]
 == Modifying the corpus
 
-Scripts modify the corpus by assigning to fields on a symbol proxy. Each assignment lands directly in the underlying Mr.Docs symbol. The runtime validates each assignment and raises an exception on an invalid value. An uncaught error in an extension aborts the build and includes the script's path and the error message.
+Scripts modify the corpus by assigning to fields on a symbol proxy. Each assignment lands directly in the underlying Mr.Docs symbol. The runtime validates each assignment and raises an exception on an invalid value. The `kind`, `id`, `parent` and `inheritedFrom` fields of a symbol cannot be assigned at all: writing one raises an error whatever the value, and the symbol stays as it was. A list of symbol ids, such as the `members` of a namespace or a record, can be reordered or shortened but not extended: assigning an id the list didn't hold raises an error, because the generators follow those lists and a symbol listed under itself would never end. An uncaught error in an extension aborts the build and includes the script's path and the error message.
 
 Most extensions read some attribute of a symbol and write back a string, an enumerator, or a small structured value. For instance, a codebase that follows "any function whose name starts with `is_<name>` is a predicate returning `true` if its `<name>` holds" encodes information that the brief could repeat verbatim:
 
