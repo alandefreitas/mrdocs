@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
@@ -226,6 +227,32 @@ struct PluginLoaderTest
     }
 
     void
+    testMissingApiHint()
+    {
+        std::string_view const hint = "; the plugin may need a newer MrDocs";
+        // glibc names the symbol after "undefined symbol: ".
+        BOOST_TEST(missingApiHint(
+            "/p/plug.so: undefined symbol: mrdocs_get_thing") == hint);
+        // macOS says it in two ways, with the C name prefixed by an
+        // underscore, and the path of the plugin in the message.
+        BOOST_TEST(missingApiHint(
+            "dlopen(/p/mrdocs_plug.so, 0x0005): symbol not found in flat "
+            "namespace '_mrdocs_get_thing'") == hint);
+        BOOST_TEST(missingApiHint(
+            "dlopen(/p/plug.so, 0x0005): Symbol not found: _mrdocs_get_thing\n"
+            "  Referenced from: /p/plug.so") == hint);
+        // A symbol that is not part of the plugin API gets no hint, and
+        // neither does a message that only mentions mrdocs in a path.
+        BOOST_TEST(missingApiHint(
+            "/p/plug.so: undefined symbol: sqlite3_open").empty());
+        BOOST_TEST(missingApiHint(
+            "/p/mrdocs_plugins/plug.so: cannot open shared object file")
+            .empty());
+        BOOST_TEST(missingApiHint(
+            "The specified procedure could not be found.").empty());
+    }
+
+    void
     run()
     {
         testRootWithoutPluginDir();
@@ -236,6 +263,7 @@ struct PluginLoaderTest
         testRepeatedRoot();
         testNonAsciiRoot();
         testAppleExtensions();
+        testMissingApiHint();
     }
 };
 

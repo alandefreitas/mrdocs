@@ -1,9 +1,12 @@
 = Plugins
 :url-plugins: https://github.com/cppalliance/mrdocs/tree/{page-origin-refname}/examples/plugins
+:url-header: https://github.com/cppalliance/mrdocs/blob/{page-origin-refname}/include/mrdocs/plugin.h
 
-A plugin is a shared library that Mr.Docs loads as it starts up, handing it a context. Through that context, the plugin installs what it provides, so the rest of the run sees it as if it had shipped with the tool: generators, which turn the corpus into output, and transforms, which change the corpus before any generator sees it.
+A plugin is a shared library that Mr.Docs loads as it starts up, handing it an environment. Through that environment, the plugin registers what it provides, so the rest of the run sees it as if it had shipped with the tool: generators, which turn the corpus into output, and transforms, which change the corpus before any generator sees it.
 
-Reach for a plugin when you need {cpp}: a format whose rules are awkward to express in templates, work heavy enough to justify compiled code, or a generator that links to a C or C++ library on its own (e.g. SQLite to write the corpus into a database another tool queries, or a PDF library to typeset the reference). The lighter options remain xref:extensions/data-driven-generators.adoc[data-driven generators] (templates only) and xref:extensions/script-generators.adoc[script generators] (Lua or JavaScript). The difference from xref:extensions/as-library.adoc[Mr.Docs as a library] is that a plugin runs inside the ordinary `mrdocs` tool: you keep the command line, the configuration, and everything else Mr.Docs does, and you do not build Mr.Docs or LLVM.
+Reach for a plugin when you need compiled code: a format whose rules are awkward to express in templates, work heavy enough to justify native speed, or a generator that links to a C or C++ library on its own (e.g. SQLite to write the corpus into a database another tool queries, or a PDF library to typeset the reference). The lighter options remain xref:extensions/data-driven-generators.adoc[data-driven generators] (templates only) and xref:extensions/script-generators.adoc[script generators] (Lua or JavaScript). The difference from xref:extensions/as-library.adoc[Mr.Docs as a library] is that a plugin runs inside the ordinary `mrdocs` tool: you keep the command line, the configuration, and everything else Mr.Docs does, and you do not build Mr.Docs or LLVM.
+
+A plugin talks to Mr.Docs through a C interface, declared in the single header {url-header}[`mrdocs/plugin.h`^]. No {cpp} type crosses it. The corpus, the configuration and the parameters reach the plugin as the same values extension scripts see as `ctx.corpus`, `ctx.config` and `ctx.params`, so a plugin reads and writes symbols the way a Lua or JavaScript extension does, and the fields of xref:generators/reference.adoc[the DOM reference] are the fields it finds. Any C or C++ compiler can build a plugin, and a plugin can be written in C.
 
 The {url-plugins}/stats[`stats`^] example is the whole of what follows, as a directory you can copy: the plugin, and a small project documented with it.
 
@@ -19,37 +22,45 @@ target_link_libraries(stats PRIVATE mrdocs::mrdocs)
 target_compile_features(stats PRIVATE cxx_std_23)
 ----
 
-Linking the tool is what resolves the Mr.Docs symbols the plugin calls, and it is the whole build dependency: no LLVM, no Clang, no separate library to ship alongside. That holds because the public headers only ever forward-declare the LLVM types they name; LLVM comes back only for a plugin that reaches past them into Mr.Docs's internal headers, as one supplying its own compilation database would.
+Linking the tool is what resolves the Mr.Docs functions the plugin calls, and it is the whole build dependency: no LLVM, no Clang, no separate library to ship alongside. The plugin includes `mrdocs/plugin.h` and nothing else from Mr.Docs.
 
 Importing the package carries a separate condition. A Mr.Docs built the default way bundles its private dependencies, so `find_package` needs nothing besides the installation. One built to re-export them instead, which the package config reports as `MRDOCS_BUILT_REEXPORT_DEPENDENCIES`, sends `find_package` looking for LLVM and Clang whether or not the plugin ever names them.
 
-The resulting library has to be built the way the Mr.Docs that will load it was built. That requirement is checked rather than assumed, and the section on xref:#_keeping_a_plugin_loadable[keeping a plugin loadable] is about what it covers.
-
 == The entry point
 
-The cpp:MRDOCS_PLUGIN_MAIN[] macro defines the function Mr.Docs calls, naming the cpp:PluginContext[] parameter it receives. This plugin installs one of each thing a plugin can install:
+The `MRDOCS_PLUGIN_INIT` macro defines the two functions Mr.Docs looks for in a plugin. The braces that follow it are the body of `mrdocs_plugin_init`, which Mr.Docs calls once while it starts, with the environment of the call. The body registers what the plugin provides and returns a status. This plugin registers one of each thing a plugin can register:
 
 .`plugin.cpp`
 [source,cpp]
 ----
-include::example$examples/plugins/stats/plugin.cpp[tag=main]
+include::example$examples/plugins/stats/plugin.cpp[tag=init]
 ----
 
-The context is how a plugin reaches Mr.Docs: cpp:PluginContext::installGenerator[] adds a generator, cpp:PluginContext::installTransform[] adds a transform, and cpp:PluginContext::config[] returns the configuration the run was started with, already loaded and normalized, in case what the plugin installs depends on it. The reference is valid for the duration of the call.
+The other function the macro defines, `mrdocs_plugin_abi_version`, reports the version of the interface the plugin was built for, which the section on xref:#_versioning[versioning] explains.
 
-Along with the entry point, the macro defines two functions that report how the library was built, and Mr.Docs calls both before it calls the plugin. One reports cpp:MRDOCS_PLUGIN_API_VERSION[], the version of the interface; the other reports the toolchain. Neither is written by hand, so none of the three can disagree with each other.
+Every function of the interface takes the environment first and returns a `mrdocs_status`: `MRDOCS_STATUS_OK`, or a code that says what was wrong with the call (an invalid argument, a value of the wrong kind, a read-only view, and so on). A function that fails leaves its output parameters alone. The environment belongs to one callback. Mr.Docs creates it before it calls into the plugin, and destroys it when the call returns, so a plugin never keeps one. The environment, and every handle it hands out, belongs to the thread that runs the callback: a plugin uses them on that thread only, and a plugin that wants to work in parallel first copies what it needs (strings, numbers) into data of its own.
+
+== Values
+
+Everything a plugin reads or writes is a `mrdocs_value`, an opaque handle to a value that Mr.Docs owns. A value is `undefined`, `null`, a boolean, an integer, a string, an array, an object, or a function; `mrdocs_get_kind` tells which. The functions that read a scalar (`mrdocs_get_bool`, `mrdocs_get_int64`, `mrdocs_get_string_utf8`) fail with `MRDOCS_STATUS_TYPE_MISMATCH` on a value of another kind. A string is copied into a buffer the plugin provides, and the function reports its full length, so a first call with no buffer says how much room the second needs:
+
+.`plugin.cpp`
+[source,cpp]
+----
+include::example$examples/plugins/stats/plugin.cpp[tag=helpers]
+----
+
+Arrays and objects are views. The handle to a symbol is a view of the live symbol: `mrdocs_object_get` reads one of its fields, and `mrdocs_object_set` writes it back, with the same validation a script's assignment gets, so giving a field a value of the wrong type fails instead of corrupting the symbol. Writing into a symbol accepts strings, numbers, booleans and containers you made with the `mrdocs_create_*` functions; Mr.Docs copies them into the symbol, so changing your container afterwards does not change the symbol. Anything you read from the corpus, the configuration or the parameters is a view that is valid for the callback only, so it cannot be stored in a container of your own (`mrdocs_object_set` and `mrdocs_array_push` fail with `MRDOCS_STATUS_INVALID_ARG`), nor written into a symbol: copy the strings and numbers out of it instead. A field a symbol doesn't have, such as the documentation of an undocumented symbol, reads as `undefined`, and `mrdocs_object_has` tells it apart from a field that is there. To make values of your own, use the `mrdocs_create_*` functions.
+
+A handle is valid until the callback that obtained it returns. Code that loops over a whole corpus would pile up handles until then, so it opens a scope with `mrdocs_scope_open` and closes it with `mrdocs_scope_close` at the end of each iteration, which releases every handle made inside. Scopes close in the reverse order they opened: closing one twice, or an outer one before an inner one, fails with `MRDOCS_STATUS_INVALID_ARG` and releases nothing. A released handle is never valid again, even after newer handles are made: a function that is given one fails with `MRDOCS_STATUS_INVALID_ARG`. The handles a visit callback makes are released when it returns. To keep a value across callbacks, make a reference with `mrdocs_ref_create`, get a handle back with `mrdocs_ref_get`, and delete the reference with `mrdocs_ref_delete`. A reference can hold values the plugin made, but not a view of the corpus, the configuration or the parameters, which are valid for the callback only: `mrdocs_ref_create` fails with `MRDOCS_STATUS_INVALID_ARG` for one. A reference shares the value with the handles that name it, so a change made through a handle is seen through the reference. `mrdocs_ref_delete` accepts a null environment, because the `release` function of a generator or transform, where a plugin deletes the references it keeps in `data`, has none. The `mrdocs` tool calls `release` after the run, before `main` returns, so the static objects of the plugin are still alive; a program that embeds Mr.Docs and does not call `releasePlugins` gets the calls during static destruction, when static objects of a plugin may be gone. When a call fails, the diagnostic names the reason the last call to Mr.Docs failed, and only that call: a call that succeeds clears it.
+
+The context of a callback comes from `mrdocs_get_corpus`, `mrdocs_get_config`, and `mrdocs_get_params`. The corpus is an object whose `symbols` field is an array of every symbol, and `mrdocs_corpus_find` finds one symbol by the id in its `id` field. The configuration and the parameters are read-only. The parameters are the object the user wrote under `generator-options.<id>` or `transform-options.<id>` for the id the plugin registered, or an empty object.
 
 == The generator
 
-A plugin's generator is an ordinary cpp:Generator[] subclass: the same interface the built-in formats implement, and the same one the xref:extensions/as-library.adoc[library] examples use.
+A plugin registers a generator with `mrdocs_register_generator`, passing a descriptor: the id the generator is selected by, a name and a file extension, the function that builds the documentation, and a pointer that function is given back. Mr.Docs copies the descriptor. The first field is the size of the structure, which is how later versions of the interface can add fields without breaking a plugin built earlier. A generator whose id is already taken, by a built-in or by another plugin, fails the registration.
 
-.`plugin.cpp`
-[source,cpp]
-----
-include::example$examples/plugins/stats/plugin.cpp[tag=generator]
-----
-
-cpp:Generator::build[] receives the corpus and the configuration, and owns everything from there: where its files go and what goes in them. This one counts the symbols by kind and writes a single file:
+The function receives the environment. The corpus it finds there is read-only, and `mrdocs_get_output_dir` tells it where its files go. This one counts the symbols by kind and writes a single file:
 
 .`plugin.cpp`
 [source,cpp]
@@ -59,15 +70,9 @@ include::example$examples/plugins/stats/plugin.cpp[tag=build]
 
 == Transforming the corpus
 
-A plugin can also install a cpp:Transform[]: a pass that runs once, after the corpus is built and finalized and before any generator runs, so what it changes is what every output format sees. Where a generator is handed the corpus as `const`, a transform is handed it mutable, and may read it, change the symbols it finds, or both. What it cannot do is create a symbol or destroy one, since a corpus keeps its storage to itself. Everything a symbol holds is in reach, though, including the lists of members that the generators walk to decide what to write.
+A plugin can also register a transform with `mrdocs_register_transform`: a pass that runs once, after the corpus is built and finalized and before any generator runs, so what it changes is what every output format sees. Where a generator gets a read-only corpus, a transform gets a writable one, and may read it, change the symbols it finds, or both. What it cannot do is create a symbol or destroy one, since a corpus keeps its storage to itself.
 
-.`plugin.cpp`
-[source,cpp]
-----
-include::example$examples/plugins/stats/plugin.cpp[tag=transform]
-----
-
-The example's transform gives a symbol with no brief a placeholder one, so that the gap shows up in the output instead of a blank space:
+The example's transform gives a symbol with no brief a placeholder one, so that the gap shows up in the output instead of a blank space. Documentation has no object until a symbol has some, so the transform creates it first:
 
 .`plugin.cpp`
 [source,cpp]
@@ -75,7 +80,11 @@ The example's transform gives a symbol with no brief a placeholder one, so that 
 include::example$examples/plugins/stats/plugin.cpp[tag=apply]
 ----
 
-The transforms a plugin installs run before the ones an extension script registers with `mrdocs.register_transform`, and among themselves in the order they were installed. An error from a transform stops the run before any generator sees the corpus, and the diagnostic names the transform through cpp:Transform::id[].
+The transforms a plugin registers run before the ones an extension script registers with `mrdocs.register_transform`, and among themselves in the order they were registered.
+
+== Reporting errors
+
+A callback that can't do its job calls `mrdocs_set_error` with a message, and returns a status other than `MRDOCS_STATUS_OK`. The message becomes the error that stops the run, before any generator sees the corpus if it came from a transform, and the diagnostic names the generator or the transform. A callback that fails without a message is reported by its id and the status it returned. `mrdocs_log` writes a message to the Mr.Docs log, subject to the user's log level. A warning becomes an error when the user sets xref:configuration/reference.adoc#warn-as-error_option[`warn-as-error`], like the warnings of a script, and a message at the error level makes the run exit with a failure status once it ends. A plugin that can go on after a problem logs a warning; one that can't calls `mrdocs_set_error`.
 
 == Installing a plugin
 
@@ -91,9 +100,9 @@ my-addons/
 
 Every library in such a directory is loaded, in name order within a root, and roots are visited in the order the configuration lists them. One library reachable through several roots is loaded once. Anything that is not a library is ignored, so a directory can hold a README, an import library, or debug information without confusing the search.
 
-A library that cannot be loaded, does not export the entry points, or reports an error of its own stops the run.
+A library that cannot be loaded, does not export the entry points, needs a newer Mr.Docs than the one running, or reports an error of its own stops the run.
 
-A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol; on Windows it only says that a module or procedure could not be found. A plugin built against another version of Mr.Docs, or with another toolchain, often refers to symbols this Mr.Docs does not have, and is refused the same way, so check that the plugin was built against the Mr.Docs that loads it. On Windows, the libraries a plugin depends on are looked for in its own directory, then in the directory of the `mrdocs` executable, then in the system directories, and not in the current directory or `PATH`. Because every library in a plugin directory is loaded as a plugin, a dependency cannot sit there yet: on Windows, put it next to the `mrdocs` executable, or link it into the plugin statically. On Linux and macOS a dependency is found the usual way for the plugin: through its RPATH or RUNPATH pointing outside `plugins/`, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
+A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol, and adds that the plugin may need a newer Mr.Docs when the symbol is a function of the plugin API, which is what a plugin that uses something added after the ABI of the Mr.Docs that loads it looks like. On Windows the message only says that a module or procedure could not be found. On Windows, the libraries a plugin depends on are looked for in its own directory, then in the directory of the `mrdocs` executable, then in the system directories, and not in the current directory or `PATH`. Because every library in a plugin directory is loaded as a plugin, a dependency cannot sit there yet: on Windows, put it next to the `mrdocs` executable, or link it into the plugin statically. On Linux and macOS a dependency is found the usual way for the plugin: through its RPATH or RUNPATH pointing outside `plugins/`, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
 
 Once the library is there, the generator it installs is selectable like any other, through the xref:configuration/reference.adoc#generator_option[`generator`] option:
 
@@ -110,13 +119,20 @@ For the sample project that comes with the example, whose input describes a hand
 include::example$examples/plugins/stats/sample-project/stats.txt[]
 ----
 
-== Keeping a plugin loadable
+== Versioning
 
-A plugin and Mr.Docs pass {cpp} objects between them: the plugin allocates a generator that Mr.Docs destroys, and both inline the standard library types the API exposes. Two things have to hold for that, and Mr.Docs checks both before it calls a plugin, so a mismatch is a diagnostic naming the library rather than a crash somewhere unrelated.
+The interface follows the model of https://nodejs.org/api/n-api.html[Node-API^]: opaque handles, status codes, one environment per call, and a version number that only grows. The loading model, shared libraries discovered in a directory and loaded into the tool, is the one Clang plugins use.
 
-The first is the interface itself. cpp:MRDOCS_PLUGIN_API_VERSION[] names the version of the plugin API, and its value changes whenever that API changes, so a plugin is rebuilt against the headers of the Mr.Docs it is to be loaded by. Note that the plugin API is a small part of the Mr.Docs headers, and only the part a plugin sees: the context, the generator and transform interfaces, and the corpus and configuration they are handed. Changes elsewhere leave it alone.
+The number is the _ABI version_ in `mrdocs/plugin.h`, `MRDOCS_PLUGIN_ABI_VERSION`. It changes when the header changes, and the header only grows: a new function or a new descriptor field is added under a new version, and no function is removed or changed. Every function in the header says which version it appeared in. A plugin reports the version it needs through `mrdocs_plugin_abi_version`, which is `MRDOCS_PLUGIN_ABI_TARGET`: the newest version by default, and a lower one if the plugin defines the macro before including the header, the way a Node-API addon defines `NAPI_VERSION`. Mr.Docs loads a plugin that needs its own version or an earlier one, and refuses a plugin that needs a later one with a message such as:
 
-The second is the toolchain. The two sides have to be built with the same compiler and standard library, in a configuration that lays those types out the same way, so the plugin reports what it was built with: the compiler and its major version, the standard library, and the settings that move those layouts, which on MSVC are the iterator debug level and how the runtime is linked. Mr.Docs refuses a plugin whose report differs from its own.
+[source]
+----
+plugin "stats.so" needs a newer MrDocs (ABI 2, this MrDocs provides 1)
+----
+
+So a plugin keeps working with newer releases of Mr.Docs without a rebuild, and it only needs a newer Mr.Docs when it uses something newer. A change to the symbols a plugin reads that only adds, such as a new field, is a new key in the DOM and not a new version, because nothing about the interface changed. A plugin reads the keys it knows and ignores the rest.
+
+Nothing about the compiler matters. A plugin and Mr.Docs share no {cpp} type, no standard library object, and no allocation, so the plugin can be built with any compiler, standard library, and runtime, and it doesn't have to match the ones Mr.Docs was built with. For the same reason, no exception may leave a callback (`build`, `apply`, `release`, the function given to `mrdocs_object_visit`, or the body of `MRDOCS_PLUGIN_INIT`): the runtime of the plugin may not be able to unwind through the frames of Mr.Docs, and the other way around. A {cpp} plugin catches what its code throws and turns it into a status, as the example does, with `mrdocs_set_error` to explain the failure.
 
 One configuration rules plugins out altogether: a statically linked Mr.Docs. Such a build has no dependable way to load a shared library while it runs, and cannot produce one either, since the startup files a static link brings in carry relocations a shared object cannot hold. The package config reports whether an installation can have plugins at all as `MRDOCS_BUILT_PLUGIN_MODULES`, so a build can ask before it tries.
 

@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
@@ -11,79 +12,102 @@
 // A plugin built the way a plugin author builds one: out of tree, against
 // nothing but an installed MrDocs. It stays deliberately small, since what
 // is under test is the installation rather than the generator: compiling it
-// exercises the headers the package ships and the usage requirements the
-// imported tool carries, and linking it exercises the symbols the tool
+// exercises the header the package ships and the usage requirements the
+// imported tool carries, and linking it exercises the functions the tool
 // exports.
 
-#include <mrdocs/Config.hpp>
-#include <mrdocs/Corpus.hpp>
-#include <mrdocs/Generator.hpp>
-#include <mrdocs/Plugin.hpp>
-#include <mrdocs/Support/Error/Error.hpp>
+#include <mrdocs/plugin.h>
 #include <filesystem>
+#include <exception>
 #include <fstream>
-#include <memory>
-#include <string_view>
+#include <string>
 
 namespace {
 
-class ProbeGenerator final
-    : public mrdocs::Generator
+// The directory as a path. The text is UTF-8, which a path made from a
+// std::string does not read as such on Windows.
+std::filesystem::path
+toPath(std::string const& utf8)
 {
-public:
-    std::string_view
-    id() const noexcept override
-    {
-        return "consumer-probe";
-    }
+#if defined(__cpp_lib_char8_t)
+    return std::filesystem::path(std::u8string(
+        reinterpret_cast<char8_t const*>(utf8.data()), utf8.size()));
+#else
+    return std::filesystem::u8path(utf8);
+#endif
+}
 
-    std::string_view
-    displayName() const noexcept override
-    {
-        return "Consumer probe";
-    }
-
-    std::string_view
-    fileExtension() const noexcept override
-    {
-        return "txt";
-    }
-
-    mrdocs::Expected<void>
-    build(
-        mrdocs::Corpus const& corpus,
-        mrdocs::Config const& config) const override;
-};
-
-mrdocs::Expected<void>
-ProbeGenerator::
-build(
-    mrdocs::Corpus const& corpus,
-    mrdocs::Config const& config) const
+// Write the number of symbols the corpus has into probe.txt, under the
+// directory the generator is given.
+mrdocs_status
+writeProbe(mrdocs_env* env)
 {
-    std::filesystem::path dir(config.configDir());
-    dir /= config.output;
-    std::error_code ec;
-    std::filesystem::create_directories(dir, ec);
-    std::filesystem::path const file = dir / "probe.txt";
+    mrdocs_value corpus;
+    mrdocs_value symbols;
+    std::size_t size = 0;
+    mrdocs_status status = mrdocs_get_corpus(env, &corpus);
+    if (status == MRDOCS_STATUS_OK)
+    {
+        status = mrdocs_object_get(env, corpus, "symbols", &symbols);
+    }
+    if (status == MRDOCS_STATUS_OK)
+    {
+        status = mrdocs_array_length(env, symbols, &size);
+    }
 
-    mrdocs::Expected<void> result;
+    std::string dir(1024, '\0');
+    std::size_t length = 0;
+    if (status == MRDOCS_STATUS_OK)
+    {
+        status = mrdocs_get_output_dir(env, dir.data(), dir.size(), &length);
+    }
+    if (status != MRDOCS_STATUS_OK || length >= dir.size())
+    {
+        return MRDOCS_STATUS_PLUGIN_ERROR;
+    }
+    dir.resize(length);
+
+    std::filesystem::path const file = toPath(dir) / "probe.txt";
     std::ofstream os(file);
     if (!os)
     {
-        result = mrdocs::Unexpected(mrdocs::formatError(
-            "could not open \"{}\" for writing", file.string()));
+        std::string const message =
+            "could not open \"" + file.string() + "\" for writing";
+        mrdocs_set_error(env, message.c_str());
+        return MRDOCS_STATUS_PLUGIN_ERROR;
     }
-    else
+    os << size << '\n';
+    return MRDOCS_STATUS_OK;
+}
+
+// No exception leaves a callback: it becomes the error of the call.
+mrdocs_status
+buildProbe(mrdocs_env* env, void*)
+{
+    try
     {
-        os << corpus.size() << '\n';
+        return writeProbe(env);
     }
-    return result;
+    catch (std::exception const& e)
+    {
+        mrdocs_set_error(env, e.what());
+    }
+    catch (...)
+    {
+        mrdocs_set_error(env, "unexpected exception");
+    }
+    return MRDOCS_STATUS_PLUGIN_ERROR;
 }
 
 } // (anon)
 
-MRDOCS_PLUGIN_MAIN(context)
+MRDOCS_PLUGIN_INIT(env)
 {
-    return context.installGenerator(std::make_unique<ProbeGenerator>());
+    mrdocs_generator_desc generator = {};
+    generator.struct_size = sizeof(generator);
+    generator.id = "consumer-probe";
+    generator.display_name = "Consumer probe";
+    generator.file_extension = "txt";
+    generator.build = buildProbe;
+    return mrdocs_register_generator(env, &generator);
 }

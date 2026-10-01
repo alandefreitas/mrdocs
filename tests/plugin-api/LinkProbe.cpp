@@ -4,92 +4,110 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
 
-// Call the public API from outside the tool, the way a plugin does, so that
-// building this file checks that the API is exported. A plugin compiles its
-// own copy of every inline and template member, and those copies call
-// out-of-line functions that need an export attribute of their own; a
-// missing one is an unresolved external here, and nothing else in the tree
-// would notice. Sorting the members is what earns the traversal its place:
-// it compares every symbol kind, so it reaches far more of the API than it
-// names.
+// Name every function of the plugin C API from outside the tool, the way a
+// plugin does, so that building this file checks that the API is exported.
+// The plugin side of the Windows loader resolves each name against the
+// tool's export table at link time, so a function the tool does not export is
+// an unresolved external here, and nothing else in the tree would notice.
 //
 // Nothing runs, and there is no ctest entry: the object is linked whole, so
-// every symbol it names has to resolve. On Windows that resolution is
-// against the tool's export table, which is where a missing attribute
-// would fail. Elsewhere a module library may leave symbols to the loader,
-// so what this checks there is that the public headers compile with neither
-// `MRDOCS_TOOL` nor `MRDOCS_STATIC_LINK` defined, and that such a library
-// links against the executable at all.
+// every function it names has to resolve. Elsewhere a module library may
+// leave symbols to the loader, so what this checks there is that the header
+// compiles as C++ and that such a library links against the executable at
+// all.
 
-#include <mrdocs/Corpus.hpp>
-#include <mrdocs/Metadata.hpp>
-#include <mrdocs/Transform.hpp>
-#include <cstddef>
-#include <memory>
-#include <string>
-
-using namespace mrdocs;
-
-std::size_t
-probeTraversal(Corpus const& corpus, NamespaceSymbol const& I)
-{
-    Corpus::TraverseOptions opts;
-    opts.ordered = true;
-    opts.recursive = true;
-    std::size_t count = corpus.size();
-    corpus.traverse(opts, I, [&count](auto const&) { ++count; });
-    for ([[maybe_unused]] Symbol const& J : corpus)
-    {
-        ++count;
-    }
-    return count;
-}
-
-std::string
-probeNames(Corpus const& corpus, SymbolID const& id)
-{
-    Symbol const& I = corpus.get(id);
-    return corpus.qualifiedName(I) + corpus.qualifiedName(I, id);
-}
-
-Expected<Symbol const&>
-probeLookup(Corpus const& corpus)
-{
-    return corpus.lookup("x");
-}
+#include <mrdocs/plugin.h>
 
 namespace {
 
-class ProbeTransform final
-    : public Transform
+bool
+visit(mrdocs_env*, char const*, mrdocs_value, void*)
 {
-public:
-    std::string_view
-    id() const noexcept override
-    {
-        return "probe";
-    }
+    return true;
+}
 
-    Expected<void>
-    apply(Corpus& corpus, Config const&) const override
-    {
-        Expected<void> result;
-        if (corpus.find(SymbolID::global) == nullptr)
-        {
-            result = Unexpected(formatError("the global namespace is missing"));
-        }
-        return result;
-    }
-};
+void
+release(void*)
+{
+}
+
+mrdocs_status
+run(mrdocs_env*, void*)
+{
+    return MRDOCS_STATUS_OK;
+}
 
 } // (anon)
 
-Expected<void>
-probeInstallTransform()
+// The entry points the macro defines compile as C++ too.
+MRDOCS_PLUGIN_INIT(env)
 {
-    return installTransform(std::make_unique<ProbeTransform>());
+    return mrdocs_log(env, MRDOCS_LOG_INFO, "");
+}
+
+extern "C" MRDOCS_PLUGIN_EXPORT mrdocs_status
+mrdocs_probe_every_function(mrdocs_env* env)
+{
+    mrdocs_generator_desc generator = {};
+    generator.struct_size = sizeof(generator);
+    generator.id = "probe";
+    generator.build = run;
+    generator.release = release;
+    mrdocs_transform_desc transform = {};
+    transform.struct_size = sizeof(transform);
+    transform.id = "probe";
+    transform.apply = run;
+    transform.release = release;
+
+    mrdocs_value value = nullptr;
+    mrdocs_value other = nullptr;
+    mrdocs_value_kind kind;
+    mrdocs_scope scope;
+    mrdocs_ref ref = nullptr;
+    bool flag = false;
+    int64_t number = 0;
+    size_t length = 0;
+    uint32_t abi = 0;
+    char buffer[16] = {};
+
+    mrdocs_status status = MRDOCS_STATUS_OK;
+    status = mrdocs_register_generator(env, &generator);
+    status = mrdocs_register_transform(env, &transform);
+    status = mrdocs_get_corpus(env, &value);
+    status = mrdocs_get_config(env, &value);
+    status = mrdocs_get_params(env, &value);
+    status = mrdocs_get_output_dir(env, buffer, sizeof buffer, &length);
+    status = mrdocs_corpus_find(env, "", &value);
+    status = mrdocs_corpus_lookup(env, "", nullptr, &value);
+    status = mrdocs_get_kind(env, value, &kind);
+    status = mrdocs_get_bool(env, value, &flag);
+    status = mrdocs_get_int64(env, value, &number);
+    status = mrdocs_get_string_utf8(env, value, buffer, sizeof buffer, &length);
+    status = mrdocs_object_get(env, value, "", &other);
+    status = mrdocs_object_set(env, value, "", other);
+    status = mrdocs_object_has(env, value, "", &flag);
+    status = mrdocs_object_visit(env, value, visit, nullptr);
+    status = mrdocs_array_length(env, value, &length);
+    status = mrdocs_array_get(env, value, 0, &other);
+    status = mrdocs_array_push(env, value, other);
+    status = mrdocs_create_null(env, &value);
+    status = mrdocs_create_bool(env, true, &value);
+    status = mrdocs_create_int64(env, 1, &value);
+    status = mrdocs_create_string(env, "", MRDOCS_AUTO_LENGTH, &value);
+    status = mrdocs_create_object(env, &value);
+    status = mrdocs_create_array(env, &value);
+    status = mrdocs_scope_open(env, &scope);
+    status = mrdocs_scope_close(env, scope);
+    status = mrdocs_ref_create(env, value, &ref);
+    status = mrdocs_ref_get(env, ref, &value);
+    status = mrdocs_ref_delete(env, ref);
+    status = mrdocs_set_error(env, "");
+    status = mrdocs_log(env, MRDOCS_LOG_INFO, "");
+    status = mrdocs_host_info(env, &abi, buffer, sizeof buffer, &length);
+    return status;
 }

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+# Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 #
 # Official repository: https://github.com/cppalliance/mrdocs
 #
@@ -26,7 +27,8 @@ if (MRDOCS_BUILD_PLUGIN_MODULES)
 
     # Documenting the sample project is the test: its configuration asks for
     # the `stats` generator, which exists only if the plugin was found,
-    # loaded, and installed it.
+    # loaded, and registered it. A second test compares what it wrote with
+    # the file the documentation shows.
     add_test(NAME mrdocs-plugin-example-stats
         COMMAND
             mrdocs
@@ -36,4 +38,35 @@ if (MRDOCS_BUILD_PLUGIN_MODULES)
             "--addons-supplemental=${MRDOCS_STATS_ADDONS}"
             --log-level=warn
     )
+    set_tests_properties(mrdocs-plugin-example-stats PROPERTIES
+        FIXTURES_SETUP mrdocs-plugin-example-stats-output)
+    add_test(NAME mrdocs-plugin-example-stats-compare
+        COMMAND ${CMAKE_COMMAND} -E compare_files
+            "${CMAKE_CURRENT_BINARY_DIR}/reference-output/stats.txt"
+            "${CMAKE_CURRENT_SOURCE_DIR}/sample-project/stats.txt"
+    )
+    set_tests_properties(mrdocs-plugin-example-stats-compare PROPERTIES
+        FIXTURES_REQUIRED mrdocs-plugin-example-stats-output)
+
+    # The transform changes the corpus every generator sees, so the XML
+    # generator, run next to the plugin, has to show the brief it added.
+    add_test(NAME mrdocs-plugin-example-brief-filler
+        COMMAND
+            mrdocs
+            "--config=${CMAKE_CURRENT_SOURCE_DIR}/sample-project/mrdocs.yml"
+            --generator=xml
+            "--output=${CMAKE_CURRENT_BINARY_DIR}/transform-output"
+            ${MRDOCS_BUILTIN_DIR_ARGS}
+            "--addons-supplemental=${MRDOCS_STATS_ADDONS}"
+            --log-level=warn
+    )
+    set_tests_properties(mrdocs-plugin-example-brief-filler PROPERTIES
+        FIXTURES_SETUP mrdocs-plugin-example-brief-filler-output)
+    add_test(NAME mrdocs-plugin-example-brief-filler-compare
+        COMMAND ${CMAKE_COMMAND}
+            "-DXML=${CMAKE_CURRENT_BINARY_DIR}/transform-output/reference.xml"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/check-brief.cmake"
+    )
+    set_tests_properties(mrdocs-plugin-example-brief-filler-compare PROPERTIES
+        FIXTURES_REQUIRED mrdocs-plugin-example-brief-filler-output)
 endif ()

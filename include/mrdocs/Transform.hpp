@@ -75,8 +75,8 @@ public:
     This function registers a transform with the global transform
     registry, so that it runs on the corpus of the current build.
 
-    A plugin installs its transforms through
-    @ref PluginContext::installTransform, which calls this function.
+    A plugin registers its transforms through the C API in
+    `mrdocs/plugin.h`, which calls this function.
 
     @par Thread Safety
     This function is thread-safe and may be called concurrently from

@@ -11,11 +11,27 @@
 #ifndef MRDOCS_LIB_SUPPORT_DESCRIBEDTODOM_OBJECT_HPP
 #define MRDOCS_LIB_SUPPORT_DESCRIBEDTODOM_OBJECT_HPP
 
+#include <mrdocs/Metadata/Symbol/SymbolBase.hpp>
 #include <mrdocs/Support/DescribedToDom/DescribedToDomForward.hpp>
 #include <mrdocs/Support/DescribedToDom/detail/DescribedToDomDetail.hpp>
 #include <mrdocs/Support/DescribedToDom/detail/DescribedToDomWrites.hpp>
 
 namespace mrdocs {
+
+/** The error thrown by a write to a field that is never writable.
+
+    The identity and structure fields of a symbol are not data about the
+    symbol: the kind selects the type every visit and cast relies on, the
+    id is the key the corpus stores the symbol under, and the parent and
+    the inherited-from link are what scope walks follow. A write to one of
+    them is refused, so that no script or plugin can retype a symbol,
+    re-key it or make it its own parent.
+*/
+class ReadOnlyFieldError : public std::runtime_error
+{
+public:
+    using std::runtime_error::runtime_error;
+};
 
 //------------------------------------------------
 //
@@ -119,7 +135,9 @@ public:
         `const` (a read-only proxy, as used by the generator render
         path), when `key` is not a field of the underlying type, or
         when the value cannot be converted to the field's declared
-        type.
+        type. Throws @ref ReadOnlyFieldError, which is a
+        `std::runtime_error`, for the `kind`, `id`, `parent` and
+        `inheritedFrom` fields of a symbol.
     */
     void
     set(dom::String key, dom::Value value) override
@@ -133,6 +151,16 @@ public:
         }
         else
         {
+        if constexpr (std::is_convertible_v<T*, Symbol*>)
+        {
+            if (k == "kind" || k == "id" || k == "parent" ||
+                k == "inheritedFrom")
+            {
+                throw ReadOnlyFieldError(formatError(
+                    "cannot set field '{}': the identity and structure "
+                    "fields of a symbol are read-only", k).reason());
+            }
+        }
         std::optional<Expected<void>> outcome =
             detail::described_write::trySetMember<T>(*underlying_, k, value);
         if (!outcome.has_value())

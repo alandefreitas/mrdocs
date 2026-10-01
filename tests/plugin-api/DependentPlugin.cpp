@@ -14,13 +14,13 @@
 // directories, so loading has to fail. The ctest entry checks that the
 // plugin is refused at load time.
 
-#include <mrdocs/Plugin.hpp>
+#include <mrdocs/plugin.h>
 
 extern "C" __declspec(dllimport) int mrdocs_test_dependency_helper();
 
-MRDOCS_PLUGIN_MAIN(context)
+MRDOCS_PLUGIN_INIT(env)
 {
-    (void)context;
+    (void)env;
     mrdocs_test_dependency_helper();
-    return {};
+    return MRDOCS_STATUS_OK;
 }

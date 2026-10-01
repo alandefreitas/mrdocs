@@ -8,19 +8,21 @@
 // Official repository: https://github.com/cppalliance/mrdocs
 //
 
-// A plugin that refers to a function nothing provides, which is what a
-// plugin calling something its MrDocs lacks looks like. The loader resolves
-// every symbol when it opens a library, so the library has to be refused
-// right there, and the message has to name the function. The ctest entry
-// checks that.
+// A plugin that calls a function of the plugin API that this MrDocs does not
+// have, which is what a plugin made for a later MrDocs looks like once it
+// uses something added after the ABI this MrDocs provides. The loader
+// resolves every symbol when it opens a library, so the library has to be
+// refused right there, the message has to name the function, and it has to
+// say that the plugin may need a newer MrDocs, since the plugin never gets
+// far enough to report the ABI it needs. The ctest entry checks that.
 
-#include <mrdocs/Plugin.hpp>
+#include <mrdocs/plugin.h>
 
-extern "C" int mrdocs_test_symbol_nothing_provides();
+extern "C" int mrdocs_function_of_a_later_abi();
 
-MRDOCS_PLUGIN_MAIN(context)
+MRDOCS_PLUGIN_INIT(env)
 {
-    (void)context;
-    mrdocs_test_symbol_nothing_provides();
-    return {};
+    (void)env;
+    mrdocs_function_of_a_later_abi();
+    return MRDOCS_STATUS_OK;
 }

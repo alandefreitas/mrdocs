@@ -11,12 +11,14 @@
 # Each test suite is a separate executable and owns its own CMakeLists:
 #   unit/       - public-API unit tests (mrdocs-unit-tests)
 #   golden/     - reference-output harness (mrdocs-golden-tests)
-#   plugin-api/ - a module library that calls the API a plugin may call,
-#                 where building it is the test (mrdocs-plugin-api-link-test),
-#                 and libraries MrDocs has to refuse to load: one built for a
-#                 foreign plugin API version, one with an undefined symbol
-#                 (Linux and macOS only), and one whose dependency is
-#                 reachable only through PATH (Windows only)
+#   plugin-api/ - the C header of the plugin API compiled as C, a module
+#                 library that calls every function of it, where building
+#                 them is the test (mrdocs-plugin-api-c-header,
+#                 mrdocs-plugin-api-link-test), and libraries MrDocs has to
+#                 refuse to load: one built for an ABI newer than MrDocs
+#                 provides, one with an undefined symbol (Linux and macOS
+#                 only), and one whose dependency is reachable only through
+#                 PATH (Windows only)
 add_subdirectory(unit)
 add_subdirectory(golden)
 # Benchmarks are custom targets, not CTest tests; see benchmarks/README.md.

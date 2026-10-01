@@ -46,25 +46,11 @@ if (MRDOCS_BUILT_PLUGIN_MODULES)
     set_target_properties(consumer_plugin PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "$<1:${plugin_addons}/plugins>")
 
-    string(REGEX MATCH "^[0-9]+\\.[0-9]+"
-        mrdocs_built_cxx "${MRDOCS_BUILT_CXX_COMPILER_VERSION}")
-    string(REGEX MATCH "^[0-9]+\\.[0-9]+"
-        mrdocs_this_cxx "${CMAKE_CXX_COMPILER_VERSION}")
-    if (MRDOCS_BUILT_CXX_COMPILER_ID STREQUAL CMAKE_CXX_COMPILER_ID AND
-        mrdocs_built_cxx AND
-        mrdocs_built_cxx VERSION_EQUAL mrdocs_this_cxx)
-        add_test(NAME consumer-plugin-loads
-            COMMAND ${MRDOCS_EXECUTABLE}
-                --config=${CMAKE_CURRENT_SOURCE_DIR}/mrdocs.yml
-                --compilation-database=${CMAKE_CURRENT_SOURCE_DIR}/docs/compile_commands.json
-                --output=${CMAKE_CURRENT_BINARY_DIR}/plugin-reference
-                --addons-supplemental=${plugin_addons}
-                --generator=consumer-probe)
-    else ()
-        message(STATUS
-            "MrDocs was built with ${MRDOCS_BUILT_CXX_COMPILER_ID} "
-            "${MRDOCS_BUILT_CXX_COMPILER_VERSION} and this project with "
-            "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}: "
-            "building the plugin, but not loading it")
-    endif ()
+    add_test(NAME consumer-plugin-loads
+        COMMAND ${MRDOCS_EXECUTABLE}
+            --config=${CMAKE_CURRENT_SOURCE_DIR}/mrdocs.yml
+            --compilation-database=${CMAKE_CURRENT_SOURCE_DIR}/docs/compile_commands.json
+            --output=${CMAKE_CURRENT_BINARY_DIR}/plugin-reference
+            --addons-supplemental=${plugin_addons}
+            --generator=consumer-probe)
 endif ()

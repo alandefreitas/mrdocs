@@ -9,16 +9,34 @@
 # Official repository: https://github.com/cppalliance/mrdocs
 #
 
+# The header a plugin includes has to be valid C11 on its own, since plugins
+# can be written in C: it is compiled as C, with warnings as errors where the
+# compiler has the flags, and without linking to anything.
+add_library(mrdocs-plugin-api-c-header OBJECT CHeader.c)
+target_include_directories(mrdocs-plugin-api-c-header PRIVATE
+    "${PROJECT_SOURCE_DIR}/include")
+set_target_properties(mrdocs-plugin-api-c-header PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF)
+target_compile_options(mrdocs-plugin-api-c-header PRIVATE
+    $<$<OR:$<C_COMPILER_ID:GNU>,$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>>:-Wall -Wextra -Wpedantic -Wmissing-prototypes -Werror>)
+
 # A module library built and linked the way a plugin is, so that building it
 # is the test: see LinkProbe.cpp for what that catches and what it does not.
 # It is deliberately not registered with ctest, since it runs nothing.
 add_library(mrdocs-plugin-api-link-test MODULE LinkProbe.cpp)
 target_link_libraries(mrdocs-plugin-api-link-test PRIVATE mrdocs)
 target_compile_features(mrdocs-plugin-api-link-test PRIVATE cxx_std_23)
+# The header is compiled into every plugin, so it has to stay clean under the
+# strict warnings a C++ plugin may enable.
+target_compile_options(mrdocs-plugin-api-link-test PRIVATE
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wold-style-cast -Werror>
+    $<$<CXX_COMPILER_ID:GNU>:-Wuseless-cast>)
 
-# The refusal to load a plugin built against another interface version.
-# Every other plugin in the tree reports the version its own headers
-# define, so nothing else can reach that path.
+# The refusal to load a plugin built for an ABI newer than this MrDocs
+# provides. Every other plugin in the tree reports the ABI its own header
+# targets, so nothing else can reach that path.
 add_library(mrdocs-plugin-foreign-version MODULE ForeignVersion.cpp)
 target_link_libraries(mrdocs-plugin-foreign-version PRIVATE mrdocs)
 target_compile_features(mrdocs-plugin-foreign-version PRIVATE cxx_std_23)
@@ -40,13 +58,14 @@ add_test(NAME mrdocs-plugin-foreign-version-refused
         "--addons-supplemental=${MRDOCS_FOREIGN_PLUGIN_ADDONS}"
 )
 set_tests_properties(mrdocs-plugin-foreign-version-refused PROPERTIES
-    PASS_REGULAR_EXPRESSION "was built against version")
+    PASS_REGULAR_EXPRESSION
+        "needs a newer MrDocs \\(ABI [0-9]+, this MrDocs provides [0-9]+\\)")
 
-# The refusal to load a library that refers to a symbol nothing provides.
-# The loader resolves symbols when it opens a library, so the failure has to
-# name the symbol at load time instead of crashing at the first call. A
-# Windows link cannot leave a symbol undefined, so the library cannot be
-# built there.
+# The refusal to load a library that refers to a function of the plugin API
+# that this MrDocs lacks. The loader resolves symbols when it opens a library,
+# so the failure has to name the symbol at load time instead of crashing at
+# the first call, and has to point at a newer MrDocs. A Windows link cannot
+# leave a symbol undefined, so the library cannot be built there.
 if (NOT WIN32)
     add_library(mrdocs-plugin-undefined-symbol MODULE UndefinedSymbol.cpp)
     target_link_libraries(mrdocs-plugin-undefined-symbol PRIVATE mrdocs)
@@ -72,7 +91,7 @@ if (NOT WIN32)
     )
     set_tests_properties(mrdocs-plugin-undefined-symbol-refused PROPERTIES
         PASS_REGULAR_EXPRESSION
-            "could not be loaded:.*mrdocs_test_symbol_nothing_provides")
+            "could not be loaded:.*mrdocs_function_of_a_later_abi.*may need a newer MrDocs")
 endif ()
 
 # The Windows search order for the libraries a plugin depends on. The helper

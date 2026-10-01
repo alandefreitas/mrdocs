@@ -100,9 +100,8 @@ public:
     This function registers a generator with the global
     generator registry, making it available for use.
 
-    A plugin installs its generators through
-    @ref PluginContext::installGenerator, which calls
-    this function.
+    A plugin registers its generators through the C API in
+    `mrdocs/plugin.h`, which calls this function.
 
     @par Thread Safety
     This function is thread-safe and may be called
@@ -133,6 +132,62 @@ installGenerator(std::unique_ptr<Generator> G);
 MRDOCS_DECL
 Generator const*
 findGenerator(std::string_view id) noexcept;
+
+/** Load the plugins the configuration makes visible.
+
+    Each addon root contributes the libraries directly under its
+    plugins subdirectory, in root order and then by name within a
+    root, and one reachable through more than one root is taken once.
+    Every one of them is loaded for the lifetime of the process
+    and its `mrdocs_plugin_init` is called once, so that what a plugin
+    registers is in place before anything looks for it.
+
+    Call this before a generator is looked up by id with
+    @ref findGenerator. It is one of the pieces the command-line tool
+    composes to run its generate step; the order of that step lives in
+    the tool.
+
+    A library that cannot be loaded, does not export the entry points,
+    targets a newer ABI than this MrDocs provides, or reports an error
+    of its own fails the call: a plugin is there because the user put
+    it there, so one that does nothing is not silently accepted.
+
+    @par Thread Safety
+    The registries this installs into are synchronized, so a concurrent
+    @ref installGenerator is safe. Two concurrent calls to this function
+    are not: both would run the same entry points, and the second
+    installation of a generator id fails.
+
+    @return The error, if any occurred.
+
+    @param config The resolved configuration whose addon roots are
+    walked, and which the plugins read.
+*/
+MRDOCS_DECL
+Expected<void>
+loadPlugins(Config const& config);
+
+/** Give back to the plugins everything they handed to MrDocs.
+
+    Calls the `release` function of every generator and transform a
+    plugin registered, once, with the `data` it registered it with.
+    The generators and transforms stay registered but must not run
+    afterwards.
+
+    The command-line tool calls this before it returns from `main`, so
+    that `release` runs while the static objects of every plugin are
+    still alive. A program that loads plugins and does not call it gets
+    the same calls during static destruction, by which time the static
+    objects of a plugin loaded after MrDocs first registered something
+    may be gone.
+
+    @par Thread Safety
+    Safe against concurrent registrations. No generator or transform of
+    a plugin may be running.
+*/
+MRDOCS_DECL
+void
+releasePlugins() noexcept;
 
 /** Handlebars-based generators and the pieces that support them.
 

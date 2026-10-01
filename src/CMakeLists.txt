@@ -137,7 +137,7 @@ if (MRDOCS_INSTALL)
 
     # Public headers (source tree + generated)
     foreach(MRDOCS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include/mrdocs ${PROJECT_BINARY_DIR}/include/mrdocs)
-        foreach(MRDOCS_FILE_PATTERN "*.hpp" "*.ipp" "*.inc")
+        foreach(MRDOCS_FILE_PATTERN "*.hpp" "*.h" "*.ipp" "*.inc")
             install(DIRECTORY ${MRDOCS_INCLUDE_DIR}
                     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
                     COMPONENT development
