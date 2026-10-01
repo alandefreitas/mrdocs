@@ -1,0 +1,8 @@
+# As mrdocs.yml, with a transform that is asked to fail.
+source-root: .
+file-patterns:
+  - sample.cpp
+warn-if-undocumented: false
+transform-options:
+  wrapper-transform:
+    fail: the transform gave up

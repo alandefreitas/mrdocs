@@ -109,5 +109,6 @@ mrdocs_probe_every_function(mrdocs_env* env)
     status = mrdocs_set_error(env, "");
     status = mrdocs_log(env, MRDOCS_LOG_INFO, "");
     status = mrdocs_host_info(env, &abi, buffer, sizeof buffer, &length);
+    status = mrdocs_last_failure(env, buffer, sizeof buffer, &length);
     return status;
 }

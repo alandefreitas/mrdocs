@@ -1,12 +1,13 @@
 = Plugins
 :url-plugins: https://github.com/cppalliance/mrdocs/tree/{page-origin-refname}/examples/plugins
 :url-header: https://github.com/cppalliance/mrdocs/blob/{page-origin-refname}/include/mrdocs/plugin.h
+:url-wrapper: https://github.com/cppalliance/mrdocs/blob/{page-origin-refname}/include/mrdocs/plugin.hpp
 
 A plugin is a shared library that Mr.Docs loads as it starts up, handing it an environment. Through that environment, the plugin registers what it provides, so the rest of the run sees it as if it had shipped with the tool: generators, which turn the corpus into output, and transforms, which change the corpus before any generator sees it.
 
 Reach for a plugin when you need compiled code: a format whose rules are awkward to express in templates, work heavy enough to justify native speed, or a generator that links to a C or C++ library on its own (e.g. SQLite to write the corpus into a database another tool queries, or a PDF library to typeset the reference). The lighter options remain xref:extensions/data-driven-generators.adoc[data-driven generators] (templates only) and xref:extensions/script-generators.adoc[script generators] (Lua or JavaScript). The difference from xref:extensions/as-library.adoc[Mr.Docs as a library] is that a plugin runs inside the ordinary `mrdocs` tool: you keep the command line, the configuration, and everything else Mr.Docs does, and you do not build Mr.Docs or LLVM.
 
-A plugin talks to Mr.Docs through a C interface, declared in the single header {url-header}[`mrdocs/plugin.h`^]. No {cpp} type crosses it. The corpus, the configuration and the parameters reach the plugin as the same values extension scripts see as `ctx.corpus`, `ctx.config` and `ctx.params`, so a plugin reads and writes symbols the way a Lua or JavaScript extension does, and the fields of xref:generators/reference.adoc[the DOM reference] are the fields it finds. Any C or C++ compiler can build a plugin, and a plugin can be written in C.
+A plugin talks to Mr.Docs through a C interface, declared in the single header {url-header}[`mrdocs/plugin.h`^]. No {cpp} type crosses it. The corpus, the configuration and the parameters reach the plugin as the same values extension scripts see as `ctx.corpus`, `ctx.config` and `ctx.params`, so a plugin reads and writes symbols the way a Lua or JavaScript extension does, and the fields of xref:generators/reference.adoc[the DOM reference] are the fields it finds. Any C or C++ compiler can build a plugin, and a plugin can be written in C. {cpp} authors have a header-only wrapper on top of that interface, {url-wrapper}[`mrdocs/plugin.hpp`^], which this page uses for its examples: it turns failed calls into exceptions, gives values the shape of a script's values, and provides base classes for generators and transforms.
 
 The {url-plugins}/stats[`stats`^] example is the whole of what follows, as a directory you can copy: the plugin, and a small project documented with it.
 
@@ -19,18 +20,70 @@ A plugin is a CMake module library that links the `mrdocs` tool:
 find_package(mrdocs REQUIRED CONFIG)
 add_library(stats MODULE plugin.cpp)
 target_link_libraries(stats PRIVATE mrdocs::mrdocs)
-target_compile_features(stats PRIVATE cxx_std_23)
+target_compile_features(stats PRIVATE cxx_std_17)
 ----
 
-Linking the tool is what resolves the Mr.Docs functions the plugin calls, and it is the whole build dependency: no LLVM, no Clang, no separate library to ship alongside. The plugin includes `mrdocs/plugin.h` and nothing else from Mr.Docs.
+Linking the tool is what resolves the Mr.Docs functions the plugin calls, and it is the whole build dependency: no LLVM, no Clang, no separate library to ship alongside. The plugin includes `mrdocs/plugin.hpp`, or `mrdocs/plugin.h` if it is written in C, and nothing else from Mr.Docs.
 
 In the default build (static, not sanitized, which is what the release packages are), the `mrdocs` executable exports the functions of that header, the ones named `mrdocs_*`, and nothing else. None of the {cpp} of Mr.Docs, and none of LLVM, Clang or the other libraries it is built from, can be reached from a plugin, so there is no other symbol to bind to, and a plugin cannot pick up a copy of a library from Mr.Docs by accident. The exported names are the ABI. Two kinds of build keep the full export table instead: a shared build (`MRDOCS_BUILD_SHARED`), which defines the C API in the library, and a sanitized build, where plugins bind to the sanitizer runtime through the executable. The `MRDOCS_NARROW_EXPORTS` CMake option switches the narrowing, and is on by default only for the default build. The narrowed table is also why the fallback backtrace of a crash on Linux and macOS shows addresses instead of function names for Mr.Docs, LLVM and Clang frames: rebuild with `MRDOCS_NARROW_EXPORTS=OFF` to get the names back, or symbolize the printed addresses with `llvm-symbolizer` or `addr2line`. On Linux and macOS, the plugin tests (`MRDOCS_BUILD_PLUGIN_MODULES` with tests on) include a check that a default build exports exactly the functions the header declares.
 
 Importing the package carries a separate condition. A Mr.Docs built the default way bundles its private dependencies, so `find_package` needs nothing besides the installation. One built to re-export them instead, which the package config reports as `MRDOCS_BUILT_REEXPORT_DEPENDENCIES`, sends `find_package` looking for LLVM and Clang whether or not the plugin ever names them.
 
+[#wrapper]
+== The {cpp} wrapper
+
+`mrdocs/plugin.hpp` is a single header that needs {cpp}17 and exceptions. It is compiled entirely inside the plugin, and uses the functions of `mrdocs/plugin.h` and nothing else of Mr.Docs: it names no Mr.Docs type, includes no other Mr.Docs header, and binds to no symbol of the `mrdocs` executable besides the `mrdocs_*` functions. This is the role https://github.com/nodejs/node-addon-api[node-addon-api^] plays for Node-API. Everything is in the `mrdocs::plugin` namespace:
+
+* `Env` is the environment of a callback. It gets the corpus, the configuration and the parameters, makes values, logs, and registers generators and transforms.
+* `Value` is a handle to a value. It reads like a value in a script: `kind()`, `str()`, `integer()`, `boolean()`, `value["key"]`, `value[index]`, `has`, `set`, `push`, and `size`. `Array` and `Object` are `Value`s that can be iterated, in a range-based `for` loop and, in {cpp}20, with the range algorithms and views, and `Array::each` and `Object::visit` call a function for each element.
+* `Scope` and `Ref` are the scopes and references of the C interface as objects that release themselves. A `Ref` kept in a generator or a transform is deleted by its destructor, which runs when Mr.Docs drops the object.
+* `Generator` and `Transform` are the base classes of what a plugin registers.
+* `Error` is what a failed call throws. Its message names the function and the status, followed by the reason Mr.Docs gives for the failure when it has one, and `status()` returns the status. The wrapper's own refusals, such as a null text, a negative index or a key with a NUL character in it, have the same shape and name the wrapper function, as in `Value::set failed: invalid_arg: the text is null`.
+
+Every call that the C interface answers with a status other than `MRDOCS_STATUS_OK` throws `Error` instead, so code that reads a symbol reads straight through. No exception reaches Mr.Docs: the functions the wrapper registers with it catch what the plugin throws, and give the message to `mrdocs_set_error`, so a `std::runtime_error` you throw is the error that stops the run. The classes `Generator` and `Transform` have their virtual tables compiled into the plugin, and only function pointers and a pointer to the object cross to Mr.Docs.
+
+The wrapper has a name for each function of the interface:
+
+[cols="1,1"]
+|===
+|C interface |Wrapper
+
+|`mrdocs_get_corpus`, `mrdocs_get_config`, `mrdocs_get_params`, `mrdocs_get_output_dir`, `mrdocs_corpus_find`
+|`Env::corpus`, `Env::config`, `Env::params`, `Env::outputDir`, `Env::find`
+
+|`mrdocs_get_kind`, `mrdocs_get_bool`, `mrdocs_get_int64`, `mrdocs_get_string_utf8`
+|`Value::kind`, `Value::boolean`, `Value::integer`, `Value::str`
+
+|`mrdocs_object_get`, `mrdocs_object_set`, `mrdocs_object_has`, `mrdocs_object_visit`
+|`Value::operator[]`, `Value::set`, `Value::has`, `Object::visit` and iteration
+
+|`mrdocs_array_length`, `mrdocs_array_get`, `mrdocs_array_push`
+|`Value::size`, `Value::operator[]`, `Value::push`, and `Array` iteration
+
+|`mrdocs_create_null`, `mrdocs_create_bool`, `mrdocs_create_int64`, `mrdocs_create_string`, `mrdocs_create_object`, `mrdocs_create_array`
+|`Env::null`, `Env::boolean`, `Env::integer`, `Env::string`, `Env::object`, `Env::array`; the overloads of `set` and `push` make the value from a string, a number or a boolean
+
+|`mrdocs_scope_open`, `mrdocs_scope_close`
+|`Scope`
+
+|`mrdocs_ref_create`, `mrdocs_ref_get`, `mrdocs_ref_delete`
+|`Ref`
+
+|`mrdocs_set_error`, `mrdocs_log`, `mrdocs_host_info`
+|`Env::setError`, `Env::log`, `Env::hostInfo`
+
+|`mrdocs_last_failure`
+|The message of `Error`
+
+|`mrdocs_register_generator`, `mrdocs_register_transform`
+|`Env::addGenerator`, `Env::addTransform`
+|===
+
+A `Value` follows the rules of the handle it wraps: it is valid until the callback returns, belongs to the thread of the callback, and is a view when it comes from the corpus, the configuration or the parameters. The next sections explain those rules, and show the wrapper at work.
+
 == The entry point
 
-The `MRDOCS_PLUGIN_INIT` macro defines the two functions Mr.Docs looks for in a plugin. The braces that follow it are the body of `mrdocs_plugin_init`, which Mr.Docs calls once while it starts, with the environment of the call. The body registers what the plugin provides and returns a status. This plugin registers one of each thing a plugin can register:
+The `MRDOCS_PLUGIN_INIT_CPP` macro defines the two functions Mr.Docs looks for in a plugin. The braces that follow it are the body of the entry point, which Mr.Docs calls once while it starts, with the environment of the call. The body registers what the plugin provides, and an exception it throws stops the run with its message. This plugin registers one of each thing a plugin can register:
 
 .`plugin.cpp`
 [source,cpp]
@@ -38,23 +91,28 @@ The `MRDOCS_PLUGIN_INIT` macro defines the two functions Mr.Docs looks for in a 
 include::example$examples/plugins/stats/plugin.cpp[tag=init]
 ----
 
+A plugin in C uses `MRDOCS_PLUGIN_INIT` from `mrdocs/plugin.h` instead. Its body receives a `mrdocs_env*` and returns a `mrdocs_status`:
+
+[source,c]
+----
+MRDOCS_PLUGIN_INIT(env)
+{
+    mrdocs_transform_desc transform = { sizeof transform, "my-transform", apply, NULL, NULL };
+    return mrdocs_register_transform(env, &transform);
+}
+----
+
 The other function the macro defines, `mrdocs_plugin_abi_version`, reports the version of the interface the plugin was built for, which the section on xref:#_versioning[versioning] explains.
 
-Every function of the interface takes the environment first and returns a `mrdocs_status`: `MRDOCS_STATUS_OK`, or a code that says what was wrong with the call (an invalid argument, a value of the wrong kind, a read-only view, and so on). A function that fails leaves its output parameters alone. The environment belongs to one callback. Mr.Docs creates it before it calls into the plugin, and destroys it when the call returns, so a plugin never keeps one. The environment, and every handle it hands out, belongs to the thread that runs the callback: a plugin uses them on that thread only, and a plugin that wants to work in parallel first copies what it needs (strings, numbers) into data of its own.
+Every function of the C interface takes the environment first and returns a `mrdocs_status`: `MRDOCS_STATUS_OK`, or a code that says what was wrong with the call (an invalid argument, a value of the wrong kind, a read-only view, and so on). A function that fails leaves its output parameters alone. The wrapper throws `Error` for every status but `MRDOCS_STATUS_OK`. The environment belongs to one callback. Mr.Docs creates it before it calls into the plugin, and destroys it when the call returns, so a plugin never keeps one. The environment, and every handle it hands out, belongs to the thread that runs the callback: a plugin uses them on that thread only, and a plugin that wants to work in parallel first copies what it needs (strings, numbers) into data of its own.
 
 == Values
 
-Everything a plugin reads or writes is a `mrdocs_value`, an opaque handle to a value that Mr.Docs owns. A value is `undefined`, `null`, a boolean, an integer, a string, an array, an object, or a function; `mrdocs_get_kind` tells which. The functions that read a scalar (`mrdocs_get_bool`, `mrdocs_get_int64`, `mrdocs_get_string_utf8`) fail with `MRDOCS_STATUS_TYPE_MISMATCH` on a value of another kind. A string is copied into a buffer the plugin provides, and the function reports its full length, so a first call with no buffer says how much room the second needs:
-
-.`plugin.cpp`
-[source,cpp]
-----
-include::example$examples/plugins/stats/plugin.cpp[tag=helpers]
-----
+Everything a plugin reads or writes is a `mrdocs_value`, an opaque handle to a value that Mr.Docs owns, which the wrapper calls a `Value`. A value is `undefined`, `null`, a boolean, an integer, a string, an array, an object, or a function; `mrdocs_get_kind` (`Value::kind`) tells which. The functions that read a scalar (`mrdocs_get_bool`, `mrdocs_get_int64`, `mrdocs_get_string_utf8`) fail with `MRDOCS_STATUS_TYPE_MISMATCH` on a value of another kind. A string is copied into a buffer the plugin provides, and the function reports its full length, so a C plugin calls it first with no buffer to learn how much room the second call needs. `Value::str` does both calls and returns a `std::string`.
 
 Arrays and objects are views. The handle to a symbol is a view of the live symbol: `mrdocs_object_get` reads one of its fields, and `mrdocs_object_set` writes it back, with the same validation a script's assignment gets, so giving a field a value of the wrong type fails instead of corrupting the symbol. Writing into a symbol accepts strings, numbers, booleans and containers you made with the `mrdocs_create_*` functions; Mr.Docs copies them into the symbol, so changing your container afterwards does not change the symbol. Anything you read from the corpus, the configuration or the parameters is a view that is valid for the callback only, so it cannot be stored in a container of your own (`mrdocs_object_set` and `mrdocs_array_push` fail with `MRDOCS_STATUS_INVALID_ARG`), nor written into a symbol: copy the strings and numbers out of it instead. A field a symbol doesn't have, such as the documentation of an undocumented symbol, reads as `undefined`, and `mrdocs_object_has` tells it apart from a field that is there. To make values of your own, use the `mrdocs_create_*` functions.
 
-A handle is valid until the callback that obtained it returns. Code that loops over a whole corpus would pile up handles until then, so it opens a scope with `mrdocs_scope_open` and closes it with `mrdocs_scope_close` at the end of each iteration, which releases every handle made inside. Scopes close in the reverse order they opened: closing one twice, or an outer one before an inner one, fails with `MRDOCS_STATUS_INVALID_ARG` and releases nothing. A released handle is never valid again, even after newer handles are made: a function that is given one fails with `MRDOCS_STATUS_INVALID_ARG`. The handles a visit callback makes are released when it returns. To keep a value across callbacks, make a reference with `mrdocs_ref_create`, get a handle back with `mrdocs_ref_get`, and delete the reference with `mrdocs_ref_delete`. A reference can hold values the plugin made, but not a view of the corpus, the configuration or the parameters, which are valid for the callback only: `mrdocs_ref_create` fails with `MRDOCS_STATUS_INVALID_ARG` for one. A reference shares the value with the handles that name it, so a change made through a handle is seen through the reference. `mrdocs_ref_delete` accepts a null environment, because the `release` function of a generator or transform, where a plugin deletes the references it keeps in `data`, has none. The `mrdocs` tool calls `release` after the run, before `main` returns, so the static objects of the plugin are still alive. A transform's `release` runs at the same time as a generator's, and the order among the releases of a plugin isn't specified, so a plugin that shares state between its generators and transforms keeps a count in it and frees it in the release that brings the count to zero. A program that embeds Mr.Docs and does not call `releasePlugins` gets the calls during static destruction, when static objects of a plugin may be gone. A plugin initializes once per process, however many runs load it: its `MRDOCS_PLUGIN_INIT` runs the first time and later runs only receive its transforms, so the entry point only sees the configuration of the first run. If it fails, the run fails and the process should exit, because Mr.Docs does not undo what the plugin registered before failing. `releasePlugins` is for process shutdown: after it, loading plugins fails. Loading plugins is not thread-safe. When a call fails, the diagnostic names the reason the last call to Mr.Docs failed, and only that call: a call that succeeds clears it.
+A handle is valid until the callback that obtained it returns. Code that loops over a whole corpus would pile up handles until then, so it opens a scope with `mrdocs_scope_open` and closes it with `mrdocs_scope_close` at the end of each iteration, which releases every handle made inside. Scopes close in the reverse order they opened: closing one twice, or an outer one before an inner one, fails with `MRDOCS_STATUS_INVALID_ARG` and releases nothing. A released handle is never valid again, even after newer handles are made: a function that is given one fails with `MRDOCS_STATUS_INVALID_ARG`. The handles a visit callback makes are released when it returns. To keep a value across callbacks, make a reference with `mrdocs_ref_create`, get a handle back with `mrdocs_ref_get`, and delete the reference with `mrdocs_ref_delete`. A reference can hold values the plugin made, but not a view of the corpus, the configuration or the parameters, which are valid for the callback only: `mrdocs_ref_create` fails with `MRDOCS_STATUS_INVALID_ARG` for one. A reference shares the value with the handles that name it, so a change made through a handle is seen through the reference. `mrdocs_ref_delete` accepts a null environment, because the `release` function of a generator or transform, where a plugin deletes the references it keeps in `data`, has none. The `mrdocs` tool calls `release` after the run, before `main` returns, so the static objects of the plugin are still alive. A transform's `release` runs at the same time as a generator's, and the order among the releases of a plugin isn't specified, so a plugin that shares state between its generators and transforms keeps a count in it and frees it in the release that brings the count to zero. A program that embeds Mr.Docs and does not call `releasePlugins` gets the calls during static destruction, when static objects of a plugin may be gone. A plugin initializes once per process, however many runs load it: its `MRDOCS_PLUGIN_INIT` runs the first time and later runs only receive its transforms, so the entry point only sees the configuration of the first run. If it fails, the run fails and the process should exit, because Mr.Docs does not undo what the plugin registered before failing. `releasePlugins` is for process shutdown: after it, loading plugins fails. Loading plugins is not thread-safe. When a call fails, Mr.Docs records the reason, and the diagnostic of a callback that returns a status without a message names it. The record describes the last call only: a call that succeeds clears it. `mrdocs_last_failure` reads the reason, with the buffer and length of `mrdocs_get_string_utf8`, and does not clear it, so a plugin that wants the reason reads it right after the failure. The wrapper does so for every call it makes, which is why the `Error` it throws says why Mr.Docs refused the call, for instance that a view is read-only.
 
 The context of a callback comes from `mrdocs_get_corpus`, `mrdocs_get_config`, and `mrdocs_get_params`. The corpus is an object whose `symbols` field is an array of every symbol, and `mrdocs_corpus_find` finds one symbol by the id in its `id` field. The configuration and the parameters are read-only. The parameters are the object the user wrote under `generator-options.<id>` or `transform-options.<id>` for the id the plugin registered, or an empty object.
 
@@ -62,7 +120,9 @@ The context of a callback comes from `mrdocs_get_corpus`, `mrdocs_get_config`, a
 
 A plugin registers a generator with `mrdocs_register_generator`, passing a descriptor: the id the generator is selected by, a name and a file extension, the function that builds the documentation, and a pointer that function is given back. Mr.Docs copies the descriptor. The first field is the size of the structure, which is how later versions of the interface can add fields without breaking a plugin built earlier. A generator whose id is already taken, by a built-in or by another plugin, fails the registration.
 
-The function receives the environment. The corpus it finds there is read-only, and `mrdocs_get_output_dir` tells it where its files go. This one counts the symbols by kind and writes a single file:
+In the wrapper, a generator is a class derived from `Generator`. The constructor of the base class takes the id, the name and the file extension, and `Env::addGenerator` fills the descriptor from them, with the object as the pointer the function is given back. Mr.Docs owns the object from then on, and deletes it when it drops the generator.
+
+The `build` function receives the environment. The corpus it finds there is read-only, and `Env::outputDir` (`mrdocs_get_output_dir`) tells it where its files go. This one counts the symbols by kind and writes a single file:
 
 .`plugin.cpp`
 [source,cpp]
@@ -75,7 +135,7 @@ include::example$examples/plugins/stats/plugin.cpp[tag=build]
 
 A plugin can also register a transform with `mrdocs_register_transform`: a pass that runs once, after the corpus is built and finalized and before any generator runs, so what it changes is what every output format sees. Where a generator gets a read-only corpus, a transform gets a writable one, and may read it, change the symbols it finds, or both. What it cannot do is create a symbol or destroy one, since a corpus keeps its storage to itself.
 
-The example's transform gives a symbol with no brief a placeholder one, so that the gap shows up in the output instead of a blank space. Documentation has no object until a symbol has some, so the transform creates it first:
+A transform is a class derived from `Transform` with an `apply` function, registered with `Env::addTransform`. The example's transform gives a symbol with no brief a placeholder one, so that the gap shows up in the output instead of a blank space. Documentation has no object until a symbol has some, so the transform creates it first:
 
 .`plugin.cpp`
 [source,cpp]
@@ -87,7 +147,9 @@ Plugin transforms and the transforms an extension script registers with `mrdocs.
 
 == Reporting errors
 
-A callback that can't do its job calls `mrdocs_set_error` with a message, and returns a status other than `MRDOCS_STATUS_OK`. The message becomes the error that stops the run, before any generator sees the corpus if it came from a transform, and the diagnostic names the generator or the transform. A callback that fails without a message is reported by its id and the status it returned. `mrdocs_log` writes a message to the Mr.Docs log, subject to the user's log level. A warning becomes an error when the user sets xref:configuration/reference.adoc#warn-as-error_option[`warn-as-error`], like the warnings of a script, and a message at the error level makes the run exit with a failure status once it ends. A plugin that can go on after a problem logs a warning; one that can't calls `mrdocs_set_error`.
+A callback written with the wrapper reports an error by throwing: whatever the exception is, its message is the error, an exception with an empty message is reported as "an exception with no message", and an exception that is not a `std::exception` is reported as "unexpected exception". An `Error` from a failed call to Mr.Docs is such an exception, so a plugin that reads a field of the wrong kind stops the run with a message such as `mrdocs_get_string_utf8 failed: type_mismatch`. `Env::setError` gives a message without throwing, and only the first message of a callback is kept.
+
+A callback in C that can't do its job calls `mrdocs_set_error` with a message, and returns a status other than `MRDOCS_STATUS_OK`. The message becomes the error that stops the run, before any generator sees the corpus if it came from a transform, and the diagnostic names the generator or the transform. A callback that fails without a message is reported by its id and the status it returned. `mrdocs_log` writes a message to the Mr.Docs log, subject to the user's log level. A warning becomes an error when the user sets xref:configuration/reference.adoc#warn-as-error_option[`warn-as-error`], like the warnings of a script, and a message at the error level makes the run exit with a failure status once it ends. A plugin that can go on after a problem logs a warning; one that can't calls `mrdocs_set_error`.
 
 == Installing a plugin
 
@@ -135,7 +197,7 @@ plugin "stats.so" needs a newer MrDocs (ABI 2, this MrDocs provides 1)
 
 So a plugin keeps working with newer releases of Mr.Docs without a rebuild, and it only needs a newer Mr.Docs when it uses something newer. A change to the symbols a plugin reads that only adds, such as a new field, is a new key in the DOM and not a new version, because nothing about the interface changed. A plugin reads the keys it knows and ignores the rest.
 
-Nothing about the compiler matters. A plugin and Mr.Docs share no {cpp} type, no standard library object, and no allocation, so the plugin can be built with any compiler, standard library, and runtime, and it doesn't have to match the ones Mr.Docs was built with. For the same reason, no exception may leave a callback (`build`, `apply`, `release`, the function given to `mrdocs_object_visit`, or the body of `MRDOCS_PLUGIN_INIT`): the runtime of the plugin may not be able to unwind through the frames of Mr.Docs, and the other way around. A {cpp} plugin catches what its code throws and turns it into a status, as the example does, with `mrdocs_set_error` to explain the failure.
+Nothing about the compiler matters. A plugin and Mr.Docs share no {cpp} type, no standard library object, and no allocation, so the plugin can be built with any compiler, standard library, and runtime, and it doesn't have to match the ones Mr.Docs was built with. For the same reason, no exception may leave a callback (`build`, `apply`, `release`, the function given to `mrdocs_object_visit`, or the body of `MRDOCS_PLUGIN_INIT`): the runtime of the plugin may not be able to unwind through the frames of Mr.Docs, and the other way around. A {cpp} plugin catches what its code throws and turns it into a status, with `mrdocs_set_error` to explain the failure. The wrapper does this for every callback it registers, so the compiler and standard library of a wrapper plugin only have to agree with themselves.
 
 One configuration rules plugins out altogether: a statically linked Mr.Docs. Such a build has no dependable way to load a shared library while it runs, and cannot produce one either, since the startup files a static link brings in carry relocations a shared object cannot hold. The package config reports whether an installation can have plugins at all as `MRDOCS_BUILT_PLUGIN_MODULES`, so a build can ask before it tries.
 

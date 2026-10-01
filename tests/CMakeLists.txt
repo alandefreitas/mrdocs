@@ -20,7 +20,10 @@
 #                 refuse to load: one built for an ABI newer than MrDocs
 #                 provides, one with an undefined symbol (Linux and macOS
 #                 only), and one whose dependency is reachable only through
-#                 PATH (Windows only)
+#                 PATH (Windows only); wrapper/ holds plugins written with the
+#                 C++ wrapper (mrdocs/plugin.hpp), run to check values,
+#                 iteration, references and the errors the wrapper turns
+#                 exceptions into
 add_subdirectory(unit)
 add_subdirectory(golden)
 # Benchmarks are custom targets, not CTest tests; see benchmarks/README.md.

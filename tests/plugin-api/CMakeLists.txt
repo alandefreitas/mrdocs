@@ -160,3 +160,6 @@ if (WIN32)
         PASS_REGULAR_EXPRESSION
             "the plugin \".*mrdocs-plugin-dependent.*\" could not be loaded:")
 endif ()
+
+# The C++ wrapper of the plugin API, compiled into plugins of its own.
+add_subdirectory(wrapper)

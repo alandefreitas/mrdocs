@@ -15,7 +15,7 @@
 if (MRDOCS_BUILD_PLUGIN_MODULES)
     add_library(mrdocs-stats-plugin-example MODULE plugin.cpp)
     target_link_libraries(mrdocs-stats-plugin-example PRIVATE mrdocs)
-    target_compile_features(mrdocs-stats-plugin-example PRIVATE cxx_std_23)
+    target_compile_features(mrdocs-stats-plugin-example PRIVATE cxx_std_17)
 
     # MrDocs looks for plugins in the `plugins` subdirectory of an addon root,
     # so the library is built into one. The generator expression keeps CMake

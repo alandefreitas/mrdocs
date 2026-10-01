@@ -1,0 +1,16 @@
+# The project the wrapper plugin runs on. The options give its generator and
+# its transform something to read; the generator to run is chosen on the
+# command line.
+source-root: .
+file-patterns:
+  - sample.cpp
+warn-if-undocumented: false
+generator-options:
+  wrapper-values:
+    greeting: hello
+    count: 3
+    nested:
+      flag: true
+transform-options:
+  wrapper-transform:
+    tag: made by the transform

@@ -1614,10 +1614,15 @@ mrdocs_ref_get(mrdocs_env* env, mrdocs_ref ref, mrdocs_value* result)
 }
 
 mrdocs_status MRDOCS_PLUGIN_CALL
-mrdocs_ref_delete(mrdocs_env*, mrdocs_ref ref)
+mrdocs_ref_delete(mrdocs_env* env, mrdocs_ref ref)
 {
     // Not guarded: a plugin deletes the references it keeps in `data` from
-    // `release`, which runs with no environment.
+    // `release`, which runs with no environment. With one, the call succeeds
+    // and leaves no reason behind, like any other call that succeeds.
+    if (env)
+    {
+        env->lastFailure.clear();
+    }
     delete ref;
     return MRDOCS_STATUS_OK;
 }
@@ -1698,6 +1703,20 @@ mrdocs_host_info(
         }
         return MRDOCS_STATUS_OK;
     });
+}
+
+mrdocs_status MRDOCS_PLUGIN_CALL
+mrdocs_last_failure(
+    mrdocs_env* env, char* buffer, size_t capacity, size_t* length)
+{
+    // Not run through `guard`, which would clear the reason being asked for.
+    if (!env || (!buffer && capacity != 0))
+    {
+        // Refused without recording a reason, which would replace the one
+        // being asked for.
+        return MRDOCS_STATUS_INVALID_ARG;
+    }
+    return mrdocs::copyOut(*env, env->lastFailure, buffer, capacity, length);
 }
 
 } // extern "C"

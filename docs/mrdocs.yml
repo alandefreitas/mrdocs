@@ -15,6 +15,10 @@ input:
   - ../libs/polyfill/include
 file-patterns:
   - '*.hpp'
+# plugin.hpp is compiled into plugins, outside this library, and is described
+# on the Plugins page rather than in the reference of the library.
+exclude-patterns:
+  - ../include/mrdocs/plugin.hpp
 include-symbols:
   - 'mrdocs::**'
 # The corpus finalizers live in src/ and reach the reference only through the

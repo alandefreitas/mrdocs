@@ -1,0 +1,84 @@
+params object
+  count integer
+  greeting string
+  nested object
+  greeting = hello
+  count = 3
+  nested.flag = true
+  has(count) = 1
+  has(missing) = 0
+  missing undefined
+made
+  null null
+  boolean 1
+  integer -42
+  string text
+  string with a NUL 3
+  empty string 0
+  object.empty 0
+  object.text a literal
+  object.string a std::string
+  object.flag 1
+  object.small 7
+  object.big 1099511627776
+  object.unsigned 8
+  object.largest 9223372036854775807
+  object.value a value
+  array.size 7
+  array[0] first
+  array[2] 0
+  array[4] null
+  array[5] 0
+  array[6] third
+  isObject 1 0
+iteration
+  object one=1
+  object three=3
+  object two=2
+  array sum 46
+  array each 46
+  visit stopped after 1
+  visit rethrew 1
+  scope ok
+  scope released invalid_arg
+  each released invalid_arg
+reference
+  tag made by the transform
+  symbols 4
+corpus
+  function answer
+  find ok
+errors
+  str of an integer type_mismatch
+  integer of a string type_mismatch
+  boolean of a string type_mismatch
+  property of a string type_mismatch
+  element of an object type_mismatch
+  element out of range invalid_arg
+  negative element invalid_arg
+  push to an object type_mismatch
+  size of an object type_mismatch
+  Array of an object type_mismatch
+  Object of an array type_mismatch
+  set on read-only params read_only
+  set on read-only config read_only
+  register outside init invalid_arg
+  store a view invalid_arg
+  set a huge unsigned invalid_arg
+  push a huge unsigned invalid_arg
+  set a null text invalid_arg
+  push a null text invalid_arg
+  set with a NUL key invalid_arg
+  has with a NUL key invalid_arg
+  get with a NUL key invalid_arg
+  no error ok
+  reason carried 1
+  refusal shape 1
+registration
+  duplicate id host_error
+  reason carried 1
+  destroyed 1
+host
+  abi 1
+  release 1
+  output dir 1
