@@ -18,6 +18,7 @@
 #include "CApi.hpp"
 #include <mrdocs/Config.hpp>
 #include <mrdocs/Corpus.hpp>
+#include <mrdocs/Extensions/ExtensionRegistry.hpp>
 #include <mrdocs/Generator.hpp>
 #include <mrdocs/Metadata/DomCorpus.hpp>
 #include <mrdocs/Support/DescribedToDom.hpp>
@@ -33,6 +34,8 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <filesystem>
+#include <iterator>
 #include <map>
 #include <mutex>
 #include <memory>
@@ -87,6 +90,9 @@ struct mrdocs_env
 
     Phase phase;
     mrdocs::Config const& config;
+    // Where `mrdocs_register_transform` collects the transforms; set while
+    // the plugin initializes.
+    mrdocs::PluginTransforms* transforms = nullptr;
     mrdocs::Corpus* mutableCorpus = nullptr;
     mrdocs::Corpus const* corpus = nullptr;
     mrdocs::dom::Object params;
@@ -752,33 +758,122 @@ public:
     }
 
     Expected<void>
-    apply(Corpus& corpus, Config const& config) const override
+    apply(
+        Corpus& corpus,
+        Config const& config,
+        dom::Object const& params) const override
     {
         Env env(Env::Phase::transform, config);
         env.mutableCorpus = &corpus;
-        env.params = optionsFor(config.transformOptions, id_);
+        env.params = params;
         return invoke(env, "transform", id_, false,
             [&] { return apply_(&env, data_.get()); });
     }
 };
+
+// The transforms of every plugin that has initialized, by the canonical path
+// of its library. They live as long as the generators the plugin registered,
+// and each registry that loads the plugin shares them.
+std::map<std::string, PluginTransforms>&
+initializedPlugins()
+{
+    static std::map<std::string, PluginTransforms> instance;
+    return instance;
+}
+
+// The transforms registered by plugins whose init failed. Nothing runs them;
+// they are kept so that their release runs with the generators' of the same
+// plugin.
+PluginTransforms&
+abandonedTransforms()
+{
+    static PluginTransforms instance;
+    return instance;
+}
+
+bool released = false;
+
+// The identity of a plugin: its path made canonical, or absolute and
+// normalized when the file cannot be resolved. The path is UTF-8, which is
+// read as such and not in the code page of the system, and the key is UTF-8
+// too.
+std::string
+pluginKey(std::string_view const path)
+{
+    namespace fs = std::filesystem;
+    try
+    {
+        std::u8string const utf8(
+            reinterpret_cast<char8_t const*>(path.data()), path.size());
+        std::error_code ec;
+        fs::path key = fs::canonical(fs::path(utf8), ec);
+        if (ec)
+        {
+            key = fs::weakly_canonical(fs::path(utf8), ec);
+        }
+        if (ec)
+        {
+            return std::string(path);
+        }
+        std::u8string const result = key.u8string();
+        return std::string(
+            reinterpret_cast<char const*>(result.data()), result.size());
+    }
+    catch (std::exception const&)
+    {
+        return std::string(path);
+    }
+}
 
 } // (anon)
 
 void
 releasePlugins() noexcept
 {
+    released = true;
     PluginData::giveBackAll();
+}
+
+bool
+pluginsReleased() noexcept
+{
+    return released;
 }
 
 Expected<void>
 initializePlugin(
     std::string_view const path,
     PluginInitFn const init,
-    Config const& config)
+    Config const& config,
+    ExtensionRegistry& registry)
 {
-    Env env(Env::Phase::init, config);
-    return invoke(env, "plugin", path, true,
-        [&] { return init(&env); });
+    auto& initialized = initializedPlugins();
+    std::string const key = pluginKey(path);
+    auto it = initialized.find(key);
+    if (it == initialized.end())
+    {
+        PluginTransforms transforms;
+        Env env(Env::Phase::init, config);
+        env.transforms = &transforms;
+        Expected<void> const result = invoke(env, "plugin", path, true,
+            [&] { return init(&env); });
+        if (!result)
+        {
+            // What a failed init registered stays registered, like its
+            // generators: the transforms are given back with them.
+            auto& abandoned = abandonedTransforms();
+            abandoned.insert(abandoned.end(),
+                std::make_move_iterator(transforms.begin()),
+                std::make_move_iterator(transforms.end()));
+            return Unexpected(result.error());
+        }
+        it = initialized.emplace(key, std::move(transforms)).first;
+    }
+    for (std::shared_ptr<Transform const> const& transform : it->second)
+    {
+        MRDOCS_TRY(registry.addTransform(transform));
+    }
+    return {};
 }
 
 } // mrdocs
@@ -851,13 +946,8 @@ mrdocs_register_transform(mrdocs_env* env, mrdocs_transform_desc const* desc)
                 "the transform descriptor needs an id and an apply function");
         }
         mrdocs::PluginData data(accepted.data, accepted.release);
-        mrdocs::Expected<void> const installed = mrdocs::installTransform(
-            std::make_unique<mrdocs::CTransform>(accepted, std::move(data)));
-        if (!installed)
-        {
-            return env->fail(MRDOCS_STATUS_HOST_ERROR,
-                installed.error().reason());
-        }
+        env->transforms->push_back(std::make_shared<mrdocs::CTransform>(
+            accepted, std::move(data)));
         return MRDOCS_STATUS_OK;
     });
 }

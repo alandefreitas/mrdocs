@@ -69,4 +69,33 @@ if (MRDOCS_BUILD_PLUGIN_MODULES)
     )
     set_tests_properties(mrdocs-plugin-example-brief-filler-compare PROPERTIES
         FIXTURES_REQUIRED mrdocs-plugin-example-brief-filler-output)
+
+    # A plugin transform and a script transform share one pipeline, plugin
+    # first. The script in pipeline-project reads the placeholder brief the
+    # plugin's transform wrote and appends its own transform-options text to
+    # it, so the combined text can only appear if both ran, in that order.
+    # A second script keeps the corpus past the end of the run, so a tool that
+    # destroyed the corpus before the script engines would crash the run.
+    # The option is given twice because a value on the command line replaces
+    # the one in the configuration file.
+    add_test(NAME mrdocs-plugin-example-pipeline
+        COMMAND
+            mrdocs
+            "--config=${CMAKE_CURRENT_SOURCE_DIR}/pipeline-project/mrdocs.yml"
+            "--output=${CMAKE_CURRENT_BINARY_DIR}/pipeline-output"
+            ${MRDOCS_BUILTIN_DIR_ARGS}
+            "--addons-supplemental=${MRDOCS_STATS_ADDONS}"
+            "--addons-supplemental=${CMAKE_CURRENT_SOURCE_DIR}/pipeline-project/addons"
+            --log-level=warn
+    )
+    set_tests_properties(mrdocs-plugin-example-pipeline PROPERTIES
+        FIXTURES_SETUP mrdocs-plugin-example-pipeline-output)
+    add_test(NAME mrdocs-plugin-example-pipeline-compare
+        COMMAND ${CMAKE_COMMAND}
+            "-DXML=${CMAKE_CURRENT_BINARY_DIR}/pipeline-output/reference.xml"
+            "-DBRIEF=Undocumented, checked by the script."
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/check-brief.cmake"
+    )
+    set_tests_properties(mrdocs-plugin-example-pipeline-compare PROPERTIES
+        FIXTURES_REQUIRED mrdocs-plugin-example-pipeline-output)
 endif ()

@@ -14,7 +14,9 @@ this directory holds one of each:
 Building the library and documenting the sample project with it is what the
 `mrdocs-plugin-example-stats` test does; `mrdocs-plugin-example-stats-compare`
 then checks that the output is the stats.txt kept here, and the
-`mrdocs-plugin-example-brief-filler` tests check the transform. By hand, it is the same two steps:
+`mrdocs-plugin-example-brief-filler` tests check the transform. The
+`mrdocs-plugin-example-pipeline` tests run it next to a Lua transform in
+pipeline-project/, which has to run after the plugin's. By hand, it is the same two steps:
 build the library into the plugins subdirectory of a directory of your own,
 then name that directory when you run MrDocs.
 

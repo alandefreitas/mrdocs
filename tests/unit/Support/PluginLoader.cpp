@@ -10,6 +10,9 @@
 //
 
 #include <mrdocs/Support/PluginLoader.hpp>
+#include <mrdocs/Config.hpp>
+#include <mrdocs/Extensions/ExtensionRegistry.hpp>
+#include <mrdocs/Generator.hpp>
 #include <mrdocs/Support/Filesystem/Path.hpp>
 #include <mrdocs/Support/Filesystem/Temp.hpp>
 #include <test_suite/test_suite.hpp>
@@ -226,6 +229,24 @@ struct PluginLoaderTest
 #endif
     }
 
+    // Loading plugins fails once the plugins have been released, and the
+    // failure names the reason.
+    void
+    testLoadAfterRelease()
+    {
+        Config config;
+        BOOST_TEST(Config::load(config, "").has_value());
+        ExtensionRegistry registry;
+        releasePlugins();
+        Expected<void> const result = loadPlugins(config, registry);
+        BOOST_TEST(!result.has_value());
+        if (!result)
+        {
+            BOOST_TEST(result.error().reason().find("released") !=
+                std::string::npos);
+        }
+    }
+
     void
     testMissingApiHint()
     {
@@ -264,6 +285,7 @@ struct PluginLoaderTest
         testNonAsciiRoot();
         testAppleExtensions();
         testMissingApiHint();
+        testLoadAfterRelease();
     }
 };
 

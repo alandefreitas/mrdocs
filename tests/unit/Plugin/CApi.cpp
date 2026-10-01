@@ -13,6 +13,7 @@
 #include <mrdocs/Config.hpp>
 #include <mrdocs/Config/ReferenceDirectories.hpp>
 #include <mrdocs/Corpus.hpp>
+#include <mrdocs/Extensions/ExtensionRegistry.hpp>
 #include <mrdocs/Generator.hpp>
 #include <mrdocs/Support/Filesystem/Path.hpp>
 #include <mrdocs/Support/Filesystem/Temp.hpp>
@@ -719,18 +720,39 @@ staleVisitFailureInit(mrdocs_env* env)
     return MRDOCS_STATUS_PLUGIN_ERROR;
 }
 
-// The failing transform stays in the process-wide registry once registered,
-// so it fails only while a test arms it.
-bool failTransformArmed = false;
+// The failing transform stays in the test pipeline once registered, so it
+// fails only while a test arms it: with a message, with none, or with none
+// after a call to MrDocs that failed.
+enum class FailMode
+{
+    off,
+    message,
+    silent,
+    silentAfterFailedCall
+};
+FailMode failTransformMode = FailMode::off;
 
 mrdocs_status
 failTransform(mrdocs_env* env, void*)
 {
-    if (!failTransformArmed)
+    switch (failTransformMode)
     {
+    case FailMode::off:
         return MRDOCS_STATUS_OK;
+    case FailMode::message:
+        mrdocs_set_error(env, "transform boom");
+        return MRDOCS_STATUS_PLUGIN_ERROR;
+    case FailMode::silentAfterFailedCall:
+    {
+        mrdocs_value config = nullptr;
+        int64_t number = 0;
+        mrdocs_get_config(env, &config);
+        mrdocs_get_int64(env, config, &number);
+        return MRDOCS_STATUS_PLUGIN_ERROR;
     }
-    mrdocs_set_error(env, "transform boom");
+    case FailMode::silent:
+        break;
+    }
     return MRDOCS_STATUS_PLUGIN_ERROR;
 }
 
@@ -1234,6 +1256,120 @@ rename(mrdocs_env* env, void*)
     return MRDOCS_STATUS_OK;
 }
 
+// What the transforms of the pipeline test saw: each one logs its own mode,
+// the name its callback found for the symbol that starts with `Widget`, and
+// the `answer` of its parameters.
+std::vector<std::string> pipelineLog;
+
+// How many times a plugin that counts its initializations ran its entry point.
+int initCount = 0;
+
+mrdocs_status
+logWidget(mrdocs_env* env, void* data)
+{
+    mrdocs_value corpus = nullptr;
+    mrdocs_value symbols = nullptr;
+    size_t size = 0;
+    mrdocs_get_corpus(env, &corpus);
+    mrdocs_object_get(env, corpus, "symbols", &symbols);
+    mrdocs_array_length(env, symbols, &size);
+    std::string seen = "<none>";
+    for (size_t i = 0; i < size; ++i)
+    {
+        mrdocs_scope scope = 0;
+        mrdocs_scope_open(env, &scope);
+        mrdocs_value symbol = nullptr;
+        mrdocs_value name = nullptr;
+        mrdocs_array_get(env, symbols, i, &symbol);
+        mrdocs_object_get(env, symbol, "name", &name);
+        if (std::string const candidate = text(env, name);
+            candidate.starts_with("Widget"))
+        {
+            seen = candidate;
+        }
+        mrdocs_scope_close(env, scope);
+    }
+    mrdocs_value params = nullptr;
+    mrdocs_value answer = nullptr;
+    std::int64_t number = -1;
+    mrdocs_get_params(env, &params);
+    if (mrdocs_object_get(env, params, "answer", &answer) == MRDOCS_STATUS_OK)
+    {
+        mrdocs_get_int64(env, answer, &number);
+    }
+    pipelineLog.push_back(
+        std::string(static_cast<char const*>(data)) + ":" + seen + ":" +
+        std::to_string(number));
+    return MRDOCS_STATUS_OK;
+}
+
+mrdocs_status
+registerLogging(mrdocs_env* env, char const* id, char const* mode)
+{
+    mrdocs_transform_desc transform = {};
+    transform.struct_size = sizeof(transform);
+    transform.id = id;
+    transform.apply = logWidget;
+    transform.data = const_cast<char*>(mode);
+    BOOST_TEST(mrdocs_register_transform(env, &transform) ==
+        MRDOCS_STATUS_OK);
+    return MRDOCS_STATUS_OK;
+}
+
+mrdocs_status
+registerPipelineFirst(mrdocs_env* env)
+{
+    return registerLogging(env, "capi-order-first", "first");
+}
+
+mrdocs_status
+registerPipelineLast(mrdocs_env* env)
+{
+    return registerLogging(env, "capi-order-last", "last");
+}
+
+// A transform that reads the `page` parameter, which the test sets to a safe
+// string, and logs its kind and the text the string reader gives for it.
+mrdocs_status
+logSafeString(mrdocs_env* env, void*)
+{
+    mrdocs_value params = nullptr;
+    mrdocs_value page = nullptr;
+    mrdocs_get_params(env, &params);
+    mrdocs_object_get(env, params, "page", &page);
+    pipelineLog.push_back(
+        std::to_string(static_cast<int>(kindOf(env, page))) + ":" +
+        text(env, page));
+    return MRDOCS_STATUS_OK;
+}
+
+mrdocs_status
+registerSafeStringReader(mrdocs_env* env)
+{
+    mrdocs_transform_desc transform = {};
+    transform.struct_size = sizeof(transform);
+    transform.id = "capi-safe-string";
+    transform.apply = logSafeString;
+    BOOST_TEST(mrdocs_register_transform(env, &transform) ==
+        MRDOCS_STATUS_OK);
+    return MRDOCS_STATUS_OK;
+}
+
+mrdocs_status
+registerSharedLogging(mrdocs_env* env)
+{
+    ++initCount;
+    mrdocs_transform_desc transform = {};
+    transform.struct_size = sizeof(transform);
+    transform.id = "capi-order-first";
+    transform.apply = logWidget;
+    transform.data = const_cast<char*>("shared");
+    transform.release = release;
+    BOOST_TEST(mrdocs_register_transform(env, &transform) ==
+        MRDOCS_STATUS_OK);
+    return MRDOCS_STATUS_OK;
+}
+
 // A string the descriptors use as `data`, so that a callback can tell which
 // behavior it was registered for.
 char const modeNormal[] = "normal";
@@ -1341,6 +1477,11 @@ writeFile(std::string_view path, std::string_view content)
 
 struct CApiTest
 {
+    // The pipeline the plugins of the tests register their transforms in. It
+    // lives as long as the test, so that the registrations made by one
+    // method are alive for the ones that follow.
+    ExtensionRegistry registry;
+
     // A configuration with no input, enough for the callbacks that do not
     // build a corpus.
     static Config
@@ -1356,7 +1497,7 @@ struct CApiTest
     {
         Config const config = plainConfig();
         Expected<void> const result =
-            initializePlugin("values", valuesInit, config);
+            initializePlugin("values", valuesInit, config, registry);
         BOOST_TEST(result.has_value());
     }
 
@@ -1368,14 +1509,14 @@ struct CApiTest
         Config config = plainConfig();
         config.warnAsError = false;
         auto before = report::results;
-        BOOST_TEST(initializePlugin("logging", loggingInit, config)
+        BOOST_TEST(initializePlugin("logging", loggingInit, config, registry)
             .has_value());
         BOOST_TEST(report::results.warnCount == before.warnCount + 1);
         BOOST_TEST(report::results.errorCount == before.errorCount);
 
         config.warnAsError = true;
         before = report::results;
-        BOOST_TEST(initializePlugin("logging", loggingInit, config)
+        BOOST_TEST(initializePlugin("logging-strict", loggingInit, config, registry)
             .has_value());
         BOOST_TEST(report::results.warnCount == before.warnCount);
         BOOST_TEST(report::results.errorCount == before.errorCount + 1);
@@ -1386,7 +1527,7 @@ struct CApiTest
         config.warnAsError = false;
         before = report::results;
         BOOST_TEST(initializePlugin(
-            "logging-error", errorLoggingInit, config).has_value());
+            "logging-error", errorLoggingInit, config, registry).has_value());
         BOOST_TEST(report::results.warnCount == before.warnCount);
         BOOST_TEST(report::results.errorCount == before.errorCount + 1);
     }
@@ -1396,7 +1537,7 @@ struct CApiTest
     {
         Config const config = plainConfig();
         Expected<void> const result =
-            initializePlugin("context", contextInit, config);
+            initializePlugin("context", contextInit, config, registry);
         BOOST_TEST(result.has_value());
     }
 
@@ -1404,13 +1545,13 @@ struct CApiTest
     testInitializerOutcome()
     {
         Config const config = plainConfig();
-        BOOST_TEST(initializePlugin("nothing", nothingInit, config)
+        BOOST_TEST(initializePlugin("nothing", nothingInit, config, registry)
             .has_value());
 
         // A status other than ok fails the run, and the diagnostic names the
         // plugin and the status.
         Expected<void> const failed =
-            initializePlugin("failing", failingInit, config);
+            initializePlugin("failing", failingInit, config, registry);
         BOOST_TEST(!failed.has_value());
         if (!failed)
         {
@@ -1422,7 +1563,7 @@ struct CApiTest
         // A reported error fails the run whatever the status was, and the
         // first message is the one kept.
         Expected<void> const reported =
-            initializePlugin("reporting", errorInit, config);
+            initializePlugin("reporting", errorInit, config, registry);
         BOOST_TEST(!reported.has_value());
         if (!reported)
         {
@@ -1434,7 +1575,7 @@ struct CApiTest
         // The reason the last call to MrDocs failed is part of the
         // diagnostic when the plugin gave none.
         Expected<void> const bad =
-            initializePlugin("bad-call", badCallInit, config);
+            initializePlugin("bad-call", badCallInit, config, registry);
         BOOST_TEST(!bad.has_value());
         if (!bad)
         {
@@ -1445,7 +1586,8 @@ struct CApiTest
         // A call that failed earlier and was followed by calls that
         // succeeded is not blamed for a failure the plugin does not explain.
         Expected<void> const stale =
-            initializePlugin("stale-failure", staleFailureInit, config);
+            initializePlugin(
+                "stale-failure", staleFailureInit, config, registry);
         BOOST_TEST(!stale.has_value());
         if (!stale)
         {
@@ -1457,7 +1599,7 @@ struct CApiTest
 
         // Neither is a visit whose callback made calls that failed.
         Expected<void> const staleVisit = initializePlugin(
-            "stale-visit-failure", staleVisitFailureInit, config);
+            "stale-visit-failure", staleVisitFailureInit, config, registry);
         BOOST_TEST(!staleVisit.has_value());
         if (!staleVisit)
         {
@@ -1473,8 +1615,8 @@ struct CApiTest
     {
         Config const config = plainConfig();
         observed = Observed();
-        BOOST_TEST(initializePlugin("register", registerGenerators, config)
-            .has_value());
+        BOOST_TEST(initializePlugin(
+            "register", registerGenerators, config, registry).has_value());
 
         Generator const* const generator = findGenerator("capi-test-generator");
         BOOST_TEST(generator != nullptr);
@@ -1495,8 +1637,8 @@ struct CApiTest
         }
         BOOST_TEST(observed.releases == 0);
 
-        BOOST_TEST(initializePlugin("refused", registerRefused, config)
-            .has_value());
+        BOOST_TEST(initializePlugin(
+            "refused", registerRefused, config, registry).has_value());
     }
 
     // A generator registration that fails after MrDocs accepted the
@@ -1509,7 +1651,8 @@ struct CApiTest
         Config const config = plainConfig();
         observed = Observed();
         BOOST_TEST(initializePlugin(
-            "duplicate-id", duplicateIdInit, config).has_value());
+            "duplicate-id", duplicateIdInit, config, registry)
+            .has_value());
         BOOST_TEST(observed.releases == 1);
     }
 
@@ -1544,8 +1687,9 @@ struct CApiTest
         BOOST_TEST(clamped.second == 99);
 
         Config const config = plainConfig();
+        ExtensionRegistry other;
         BOOST_TEST(initializePlugin(
-            "larger-descriptor", largerDescriptorInit, config)
+            "larger-descriptor", largerDescriptorInit, config, other)
             .has_value());
     }
 
@@ -1559,14 +1703,14 @@ struct CApiTest
     {
         Config const config = plainConfig();
         observed = Observed();
-        BOOST_TEST(initializePlugin("reference", referenceInit, config)
-            .has_value());
+        BOOST_TEST(initializePlugin(
+            "reference", referenceInit, config, registry).has_value());
         BOOST_TEST(observed.referencesDeleted == 0);
         releasePlugins();
-        BOOST_TEST(observed.releases == 4);
+        BOOST_TEST(observed.releases == 5);
         BOOST_TEST(observed.referencesDeleted == 1);
         releasePlugins();
-        BOOST_TEST(observed.releases == 4);
+        BOOST_TEST(observed.releases == 5);
         BOOST_TEST(observed.referencesDeleted == 1);
     }
 
@@ -1724,7 +1868,7 @@ struct CApiTest
         // The transform changes the live symbol, and gets its own
         // parameters.
         observed = Observed();
-        BOOST_TEST(applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(registry.applyTransforms(*corpus, config).has_value());
         BOOST_TEST(observed.answer == 43);
         BOOST_TEST(observed.lookupFound);
         BOOST_TEST(observed.lookupName == "Gadget");
@@ -1744,11 +1888,10 @@ struct CApiTest
         // A transform that reports an error stops the run, and the message
         // names the transform once.
         BOOST_TEST(initializePlugin(
-            "failing-transform", registerFailingTransform, config)
+            "failing-transform", registerFailingTransform, config, registry)
             .has_value());
-        failTransformArmed = true;
-        Expected<void> const failed = applyTransforms(*corpus, config);
-        failTransformArmed = false;
+        failTransformMode = FailMode::message;
+        Expected<void> const failed = registry.applyTransforms(*corpus, config);
         BOOST_TEST(!failed.has_value());
         if (!failed)
         {
@@ -1757,6 +1900,558 @@ struct CApiTest
                 "the transform \"capi-test-transform-error\" failed: "
                 "transform boom");
         }
+
+        // One that fails without a message is reported by its status, with
+        // the reason of the last failed call when there was one.
+        failTransformMode = FailMode::silent;
+        Expected<void> const noMessage =
+            registry.applyTransforms(*corpus, config);
+        BOOST_TEST(!noMessage.has_value());
+        if (!noMessage)
+        {
+            BOOST_TEST(noMessage.error().reason() ==
+                "the transform \"capi-test-transform-error\" failed: "
+                "status plugin_error");
+        }
+        failTransformMode = FailMode::silentAfterFailedCall;
+        Expected<void> const afterCall =
+            registry.applyTransforms(*corpus, config);
+        failTransformMode = FailMode::off;
+        BOOST_TEST(!afterCall.has_value());
+        if (!afterCall)
+        {
+            std::string const reason = afterCall.error().reason();
+            BOOST_TEST(reason.starts_with(
+                "the transform \"capi-test-transform-error\" failed: "
+                "status plugin_error; the last call to MrDocs failed: "));
+            BOOST_TEST(reason.size() > std::string(
+                "the transform \"capi-test-transform-error\" failed: "
+                "status plugin_error; the last call to MrDocs failed: ")
+                    .size());
+        }
+    }
+
+    // Plugin transforms and script transforms share one pipeline that runs
+    // in registration order, each with its own `transform-options`. The
+    // script renames `Widget`, so what the plugin transforms around it see
+    // tells where it ran. A lookup that missed before the pipeline started
+    // does not hide the new name from the script that runs after the
+    // rename, which appends to it for the transforms that follow.
+    void
+    testPipelineOrder()
+    {
+        ScopedTempDirectory src("mrdocs-capi-pipeline");
+        BOOST_TEST(src);
+        std::string const srcDir(src.path());
+        writeFile(files::appendPath(srcDir, "input.cpp"),
+            "struct Widget {};\n");
+        std::string const extensions = files::appendPath(srcDir, "extensions");
+        BOOST_TEST(files::createDirectory(extensions).has_value());
+        writeFile(files::appendPath(extensions, "rename.lua"),
+            "mrdocs.register_transform(\"capi-order-script\", function(ctx)\n"
+            "    for _, symbol in ipairs(ctx.corpus.symbols) do\n"
+            "        if symbol.name == \"Widget\" then\n"
+            "            symbol.name = \"Widget\" .. ctx.params.suffix\n"
+            "        end\n"
+            "    end\n"
+            "end)\n");
+        writeFile(files::appendPath(extensions, "zprobe.lua"),
+            "mrdocs.register_transform(\"capi-order-probe\", function(ctx)\n"
+            "    local found = ctx.corpus.lookup(\"WidgetScripted\")\n"
+            "    if found then\n"
+            "        found.name = found.name .. \"Probed\"\n"
+            "    end\n"
+            "end)\n");
+        std::string const configPath = files::appendPath(srcDir, "mrdocs.yml");
+        writeFile(configPath,
+            "source-root: " + srcDir + "\n"
+            "addons: " + srcDir + "\n"
+            "output: " + files::appendPath(srcDir, "out") + "\n"
+            "input:\n  - " + srcDir + "\n"
+            "transform-options:\n"
+            "  capi-order-first:\n"
+            "    answer: 1\n"
+            "  capi-order-script:\n"
+            "    suffix: Scripted\n"
+            "  capi-order-last:\n"
+            "    answer: 3\n");
+        ReferenceDirectories dirs;
+        dirs.cwd = srcDir;
+        dirs.mrdocsRoot = srcDir;
+        Config config;
+        BOOST_TEST(Config::load_file(config, configPath, dirs).has_value());
+        Expected<Corpus> corpus = Corpus::build(config);
+        BOOST_TEST(corpus.has_value());
+        if (!corpus)
+        {
+            return;
+        }
+
+        // A plugin that loaded before the scripts, one that loaded after.
+        ExtensionRegistry pipeline;
+        BOOST_TEST(initializePlugin(
+            "first", registerPipelineFirst, config, pipeline).has_value());
+        BOOST_TEST(pipeline.loadScripts(config).has_value());
+        BOOST_TEST(initializePlugin(
+            "last", registerPipelineLast, config, pipeline).has_value());
+
+        BOOST_TEST(!corpus->lookup(SymbolID::global, "WidgetScripted")
+            .has_value());
+        pipelineLog.clear();
+        BOOST_TEST(pipeline.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(pipelineLog.size() == 2u);
+        if (pipelineLog.size() == 2u)
+        {
+            BOOST_TEST(pipelineLog[0] == "first:Widget:1");
+            BOOST_TEST(pipelineLog[1] == "last:WidgetScriptedProbed:3");
+        }
+        BOOST_TEST(!corpus->lookup(SymbolID::global, "WidgetScripted")
+            .has_value());
+        BOOST_TEST(corpus->lookup(SymbolID::global, "WidgetScriptedProbed")
+            .has_value());
+
+        // A transform without options gets an empty object.
+        Config const plain = plainConfig();
+        ExtensionRegistry bare;
+        BOOST_TEST(initializePlugin(
+            "bare", registerPipelineFirst, plain, bare).has_value());
+        pipelineLog.clear();
+        BOOST_TEST(bare.applyTransforms(*corpus, plain).has_value());
+        BOOST_TEST(pipelineLog.size() == 1u);
+        if (!pipelineLog.empty())
+        {
+            BOOST_TEST(pipelineLog[0] == "first:WidgetScriptedProbed:-1");
+        }
+    }
+
+    // A safe string is a string that a template helper marked as already
+    // escaped. It has a kind of its own, `MRDOCS_VALUE_SAFE_STRING`, and
+    // `mrdocs_get_string_utf8` reads it like a string. The corpus holds none;
+    // a parameter can, since the parameters are a DOM object, which the test
+    // builds by hand here.
+    void
+    testSafeString()
+    {
+        ScopedTempDirectory src("mrdocs-capi-safe");
+        BOOST_TEST(src);
+        std::string const srcDir(src.path());
+        writeFile(files::appendPath(srcDir, "input.cpp"),
+            "struct Widget {};\n");
+        std::string const configPath = files::appendPath(srcDir, "mrdocs.yml");
+        writeFile(configPath,
+            "source-root: " + srcDir + "\n"
+            "addons: " + srcDir + "\n"
+            "output: " + files::appendPath(srcDir, "out") + "\n"
+            "input:\n  - " + srcDir + "\n");
+        ReferenceDirectories dirs;
+        dirs.cwd = srcDir;
+        dirs.mrdocsRoot = srcDir;
+        Config config;
+        BOOST_TEST(Config::load_file(config, configPath, dirs).has_value());
+        dom::Object options;
+        options.set("page", safeString("<b>escaped</b>"));
+        config.transformOptions["capi-safe-string"] = options;
+        Expected<Corpus> corpus = Corpus::build(config);
+        BOOST_TEST(corpus.has_value());
+        if (!corpus)
+        {
+            return;
+        }
+        ExtensionRegistry pipeline;
+        BOOST_TEST(initializePlugin(
+            "safe-string", registerSafeStringReader, config, pipeline)
+            .has_value());
+        pipelineLog.clear();
+        BOOST_TEST(pipeline.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(pipelineLog.size() == 1u);
+        if (!pipelineLog.empty())
+        {
+            BOOST_TEST(pipelineLog[0] ==
+                std::to_string(static_cast<int>(MRDOCS_VALUE_SAFE_STRING)) +
+                ":<b>escaped</b>");
+        }
+    }
+
+    // The kind, id, parent and inheritedFrom fields of a symbol are read-only
+    // for extension scripts too, since the symbol proxy refuses them whoever
+    // writes: each assignment raises an error a script can catch, and the
+    // symbol is the same afterwards. Each script writes how many of the four
+    // assignments it saw refused into the name of the symbol.
+    void
+    testScriptReadOnlyFields()
+    {
+        ScopedTempDirectory src("mrdocs-capi-readonly");
+        BOOST_TEST(src);
+        std::string const srcDir(src.path());
+        writeFile(files::appendPath(srcDir, "input.cpp"),
+            "struct Widget {};\nstruct Gadget {};\n");
+        std::string const extensions = files::appendPath(srcDir, "extensions");
+        BOOST_TEST(files::createDirectory(extensions).has_value());
+        writeFile(files::appendPath(extensions, "readonly.lua"),
+            "mrdocs.register_transform(\"capi-readonly-lua\", function(ctx)\n"
+            "    for _, symbol in ipairs(ctx.corpus.symbols) do\n"
+            "        if symbol.name == \"Widget\" then\n"
+            "            local refused = 0\n"
+            "            local kind = symbol.kind\n"
+            "            for _, field in ipairs({\"kind\", \"id\", \"parent\", "
+            "\"inheritedFrom\"}) do\n"
+            "                local ok, err = pcall(function()\n"
+            "                    symbol[field] = \"function\"\n"
+            "                end)\n"
+            "                if not ok and string.find(tostring(err), "
+            "\"read%-only\") then\n"
+            "                    refused = refused + 1\n"
+            "                end\n"
+            "            end\n"
+            "            if symbol.kind == kind then\n"
+            "                symbol.name = \"LuaRefused\" .. refused\n"
+            "            end\n"
+            "        end\n"
+            "    end\n"
+            "end)\n");
+        writeFile(files::appendPath(extensions, "readonly.js"),
+            "mrdocs.register_transform(\"capi-readonly-js\", function(ctx) {\n"
+            "    for (const symbol of ctx.corpus.symbols) {\n"
+            "        if (symbol.name === \"Gadget\") {\n"
+            "            let refused = 0;\n"
+            "            const kind = symbol.kind;\n"
+            "            for (const field of [\"kind\", \"id\", \"parent\", "
+            "\"inheritedFrom\"]) {\n"
+            "                try {\n"
+            "                    symbol[field] = \"function\";\n"
+            "                } catch (err) {\n"
+            "                    if (String(err).includes(\"read-only\")) {\n"
+            "                        refused += 1;\n"
+            "                    }\n"
+            "                }\n"
+            "            }\n"
+            "            if (symbol.kind === kind) {\n"
+            "                symbol.name = \"JsRefused\" + refused;\n"
+            "            }\n"
+            "        }\n"
+            "    }\n"
+            "});\n");
+        std::string const configPath = files::appendPath(srcDir, "mrdocs.yml");
+        writeFile(configPath,
+            "source-root: " + srcDir + "\n"
+            "addons: " + srcDir + "\n"
+            "output: " + files::appendPath(srcDir, "out") + "\n"
+            "input:\n  - " + srcDir + "\n");
+        ReferenceDirectories dirs;
+        dirs.cwd = srcDir;
+        dirs.mrdocsRoot = srcDir;
+        Config config;
+        BOOST_TEST(Config::load_file(config, configPath, dirs).has_value());
+        Expected<Corpus> corpus = Corpus::build(config);
+        BOOST_TEST(corpus.has_value());
+        if (!corpus)
+        {
+            return;
+        }
+        ExtensionRegistry pipeline;
+        BOOST_TEST(pipeline.loadScripts(config).has_value());
+        BOOST_TEST(pipeline.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(corpus->lookup(SymbolID::global, "LuaRefused4")
+            .has_value());
+        BOOST_TEST(corpus->lookup(SymbolID::global, "JsRefused4")
+            .has_value());
+    }
+
+    // The lists of symbol ids of a symbol, such as the members of a
+    // namespace, can be reordered or shortened by a transform but not
+    // extended, since a generator follows them and a namespace listed as its
+    // own member would never end. The script tries to list the namespace
+    // under itself, a record under the namespaces and a namespace twice, and
+    // counts the refusals in the new name of the namespace; then it empties
+    // the list, which is accepted.
+    void
+    testMemberListsOnlyShrink()
+    {
+        ScopedTempDirectory src("mrdocs-capi-members");
+        BOOST_TEST(src);
+        std::string const srcDir(src.path());
+        writeFile(files::appendPath(srcDir, "input.cpp"),
+            "namespace outer {\n"
+            "namespace inner { void f(); }\n"
+            "struct S {};\n"
+            "}\n");
+        std::string const extensions = files::appendPath(srcDir, "extensions");
+        BOOST_TEST(files::createDirectory(extensions).has_value());
+        writeFile(files::appendPath(extensions, "members.lua"),
+            "mrdocs.register_transform(\"capi-members\", function(ctx)\n"
+            "    local outer, record\n"
+            "    for _, symbol in ipairs(ctx.corpus.symbols) do\n"
+            "        if symbol.name == \"outer\" then outer = symbol end\n"
+            "        if symbol.name == \"S\" then record = symbol end\n"
+            "    end\n"
+            "    local members = outer.members\n"
+            "    local inner = members.namespaces[1]\n"
+            "    local refused = 0\n"
+            "    for _, ids in ipairs({\n"
+            "        { outer.id },\n"
+            "        { record.id },\n"
+            "        { inner, inner }\n"
+            "    }) do\n"
+            "        local ok, err = pcall(function()\n"
+            "            members.namespaces = ids\n"
+            "        end)\n"
+            "        if not ok and string.find(tostring(err), "
+            "\"extended\") then\n"
+            "            refused = refused + 1\n"
+            "        end\n"
+            "    end\n"
+            "    local kept = #members.namespaces\n"
+            "    local emptied = pcall(function()\n"
+            "        members.namespaces = {}\n"
+            "    end)\n"
+            "    outer.name = \"Outer\" .. refused .. \"Kept\" .. kept .. "
+            "(emptied and \"Emptied\" or \"Stuck\")\n"
+            "end)\n");
+        std::string const configPath = files::appendPath(srcDir, "mrdocs.yml");
+        writeFile(configPath,
+            "source-root: " + srcDir + "\n"
+            "addons: " + srcDir + "\n"
+            "output: " + files::appendPath(srcDir, "out") + "\n"
+            "input:\n  - " + srcDir + "\n");
+        ReferenceDirectories dirs;
+        dirs.cwd = srcDir;
+        dirs.mrdocsRoot = srcDir;
+        Config config;
+        BOOST_TEST(Config::load_file(config, configPath, dirs).has_value());
+        Expected<Corpus> corpus = Corpus::build(config);
+        BOOST_TEST(corpus.has_value());
+        if (!corpus)
+        {
+            return;
+        }
+        ExtensionRegistry pipeline;
+        BOOST_TEST(pipeline.loadScripts(config).has_value());
+        BOOST_TEST(pipeline.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(corpus->lookup(SymbolID::global, "Outer3Kept1Emptied")
+            .has_value());
+    }
+
+    // Every script transform gets a corpus object of its own. The first
+    // script replaces `symbols` and `lookup` of the object it was given, as
+    // a script narrowing its own view would, and the scripts after it, of
+    // either engine, still see every symbol and the original `lookup`. The
+    // second script renames a symbol after the number of symbols it saw, the
+    // third one after whether `lookup` still finds a symbol.
+    void
+    testScriptsDoNotShareCorpus()
+    {
+        ScopedTempDirectory src("mrdocs-capi-ownctx");
+        BOOST_TEST(src);
+        std::string const srcDir(src.path());
+        writeFile(files::appendPath(srcDir, "input.cpp"),
+            "struct Widget {};\nstruct Gadget {};\nstruct Gizmo {};\n");
+        std::string const extensions = files::appendPath(srcDir, "extensions");
+        BOOST_TEST(files::createDirectory(extensions).has_value());
+        writeFile(files::appendPath(extensions, "a_narrow.lua"),
+            "mrdocs.register_transform(\"capi-ownctx-narrow\", "
+            "function(ctx)\n"
+            "    ctx.corpus.symbols = {}\n"
+            "    ctx.corpus.lookup = function() return nil end\n"
+            "end)\n");
+        writeFile(files::appendPath(extensions, "b_count.lua"),
+            "mrdocs.register_transform(\"capi-ownctx-count\", "
+            "function(ctx)\n"
+            "    local count = 0\n"
+            "    for _, symbol in ipairs(ctx.corpus.symbols) do\n"
+            "        if symbol.name == \"Widget\" then\n"
+            "            count = #ctx.corpus.symbols\n"
+            "            symbol.name = \"Counted\" .. (count > 0 and "
+            "\"Some\" or \"None\")\n"
+            "        end\n"
+            "    end\n"
+            "end)\n");
+        writeFile(files::appendPath(extensions, "c_lookup.js"),
+            "mrdocs.register_transform(\"capi-ownctx-lookup\", "
+            "function(ctx) {\n"
+            "    for (const symbol of ctx.corpus.symbols) {\n"
+            "        if (symbol.name === \"Gadget\") {\n"
+            "            const found = ctx.corpus.lookup(\"Gizmo\");\n"
+            "            symbol.name = found ? \"LookedUp\" : \"Lost\";\n"
+            "        }\n"
+            "    }\n"
+            "});\n");
+        std::string const configPath = files::appendPath(srcDir, "mrdocs.yml");
+        writeFile(configPath,
+            "source-root: " + srcDir + "\n"
+            "addons: " + srcDir + "\n"
+            "output: " + files::appendPath(srcDir, "out") + "\n"
+            "input:\n  - " + srcDir + "\n");
+        ReferenceDirectories dirs;
+        dirs.cwd = srcDir;
+        dirs.mrdocsRoot = srcDir;
+        Config config;
+        BOOST_TEST(Config::load_file(config, configPath, dirs).has_value());
+        Expected<Corpus> corpus = Corpus::build(config);
+        BOOST_TEST(corpus.has_value());
+        if (!corpus)
+        {
+            return;
+        }
+        ExtensionRegistry pipeline;
+        BOOST_TEST(pipeline.loadScripts(config).has_value());
+        BOOST_TEST(pipeline.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(corpus->lookup(SymbolID::global, "CountedSome")
+            .has_value());
+        BOOST_TEST(corpus->lookup(SymbolID::global, "LookedUp").has_value());
+    }
+
+    // A plugin initializes once per process, keyed by its canonical path.
+    // A later call for the same plugin, as the next run of an embedder
+    // makes, does not run the entry point again and attaches the transform
+    // the plugin registered to the pipeline of its registry, sharing the
+    // state of the plugin with the first. The plugin's `release` runs once,
+    // when the plugins are released, not when a registry is destroyed.
+    void
+    testInitOnce()
+    {
+        Config const config = plainConfig();
+        ScopedTempDirectory src("mrdocs-capi-shared");
+        BOOST_TEST(src);
+        std::string const srcDir(src.path());
+        writeFile(files::appendPath(srcDir, "input.cpp"),
+            "struct Widget {};\n");
+        std::string const configPath = files::appendPath(srcDir, "mrdocs.yml");
+        writeFile(configPath,
+            "source-root: " + srcDir + "\n"
+            "addons: " + srcDir + "\n"
+            "output: " + files::appendPath(srcDir, "out") + "\n"
+            "input:\n  - " + srcDir + "\n");
+        ReferenceDirectories dirs;
+        dirs.cwd = srcDir;
+        dirs.mrdocsRoot = srcDir;
+        Config runConfig;
+        BOOST_TEST(Config::load_file(runConfig, configPath, dirs).has_value());
+        Expected<Corpus> corpus = Corpus::build(runConfig);
+        BOOST_TEST(corpus.has_value());
+        if (!corpus)
+        {
+            return;
+        }
+
+        // The library exists, and a link to its directory and a link to
+        // the file reach it under other names. A file system that cannot
+        // make links leaves those two out.
+        std::string const path = files::appendPath(srcDir, "once.so");
+        writeFile(path, "");
+        std::string const sameFile =
+            files::appendPath(files::appendPath(srcDir, "."), "once.so");
+        std::string const linkedDir = files::appendPath(srcDir, "linked");
+        std::string const linkedFile = files::appendPath(srcDir, "once-link.so");
+        std::error_code dirLinkEc;
+        std::error_code fileLinkEc;
+        std::filesystem::create_directory_symlink(
+            std::filesystem::path(srcDir), std::filesystem::path(linkedDir),
+            dirLinkEc);
+        std::filesystem::create_symlink(
+            std::filesystem::path(path), std::filesystem::path(linkedFile),
+            fileLinkEc);
+        int const before = observed.releases;
+        initCount = 0;
+        pipelineLog.clear();
+        {
+            ExtensionRegistry first;
+            ExtensionRegistry second;
+            BOOST_TEST(initializePlugin(
+                path, registerSharedLogging, config, first).has_value());
+            BOOST_TEST(initializePlugin(
+                sameFile, registerSharedLogging, config, second).has_value());
+            BOOST_TEST(initCount == 1);
+            BOOST_TEST(first.applyTransforms(*corpus, runConfig).has_value());
+            BOOST_TEST(second.applyTransforms(*corpus, runConfig).has_value());
+            BOOST_TEST(pipelineLog.size() == 2u);
+
+            // Loading the plugin again into a registry that already holds
+            // its transform adds nothing: the transform runs once.
+            BOOST_TEST(initializePlugin(
+                sameFile, registerSharedLogging, config, first).has_value());
+            BOOST_TEST(initCount == 1);
+            pipelineLog.clear();
+            BOOST_TEST(first.applyTransforms(*corpus, runConfig).has_value());
+            BOOST_TEST(pipelineLog.size() == 1u);
+
+            // The same library reached through a link is the same plugin.
+            if (!dirLinkEc)
+            {
+                ExtensionRegistry viaDirectory;
+                BOOST_TEST(initializePlugin(
+                    files::appendPath(linkedDir, "once.so"),
+                    registerSharedLogging, config, viaDirectory).has_value());
+                BOOST_TEST(initCount == 1);
+                pipelineLog.clear();
+                BOOST_TEST(viaDirectory.applyTransforms(*corpus, runConfig)
+                    .has_value());
+                BOOST_TEST(pipelineLog.size() == 1u);
+            }
+            if (!fileLinkEc)
+            {
+                ExtensionRegistry viaFile;
+                BOOST_TEST(initializePlugin(
+                    linkedFile, registerSharedLogging, config, viaFile)
+                    .has_value());
+                BOOST_TEST(initCount == 1);
+            }
+        }
+        BOOST_TEST(observed.releases == before);
+    }
+
+    // Assigning a registry over one that loaded a JavaScript extension
+    // releases that registry's transforms before its script engine, and the
+    // assigned registry runs the transforms it was given.
+    void
+    testMoveAssignOverScripts()
+    {
+        ScopedTempDirectory src("mrdocs-capi-assign");
+        BOOST_TEST(src);
+        std::string const srcDir(src.path());
+        writeFile(files::appendPath(srcDir, "input.cpp"),
+            "struct Widget {};\n");
+        std::string const extensions = files::appendPath(srcDir, "extensions");
+        BOOST_TEST(files::createDirectory(extensions).has_value());
+        writeFile(files::appendPath(extensions, "noop.js"),
+            "mrdocs.register_transform(\"capi-assign-script\", "
+            "function(ctx) { return; });\n");
+        std::string const configPath = files::appendPath(srcDir, "mrdocs.yml");
+        writeFile(configPath,
+            "source-root: " + srcDir + "\n"
+            "addons: " + srcDir + "\n"
+            "output: " + files::appendPath(srcDir, "out") + "\n"
+            "input:\n  - " + srcDir + "\n");
+        ReferenceDirectories dirs;
+        dirs.cwd = srcDir;
+        dirs.mrdocsRoot = srcDir;
+        Config config;
+        BOOST_TEST(Config::load_file(config, configPath, dirs).has_value());
+        Expected<Corpus> corpus = Corpus::build(config);
+        BOOST_TEST(corpus.has_value());
+        if (!corpus)
+        {
+            return;
+        }
+
+        ExtensionRegistry target;
+        BOOST_TEST(target.loadScripts(config).has_value());
+        BOOST_TEST(target.applyTransforms(*corpus, config).has_value());
+        ExtensionRegistry source;
+        BOOST_TEST(initializePlugin(
+            "assigned", registerPipelineFirst, config, source).has_value());
+        target = std::move(source);
+        pipelineLog.clear();
+        BOOST_TEST(target.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(pipelineLog.size() == 1u);
+        BOOST_TEST(source.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(pipelineLog.size() == 1u);
+
+        // A registry assigned to itself keeps what it has.
+        ExtensionRegistry& alias = target;
+        target = std::move(alias);
+        pipelineLog.clear();
+        BOOST_TEST(target.applyTransforms(*corpus, config).has_value());
+        BOOST_TEST(pipelineLog.size() == 1u);
     }
 
     void
@@ -1770,6 +2465,13 @@ struct CApiTest
         testRegistrationFailureReleases();
         testDescriptorCopy();
         testGeneratorAndTransformOverCorpus();
+        testPipelineOrder();
+        testSafeString();
+        testScriptReadOnlyFields();
+        testMemberListsOnlyShrink();
+        testScriptsDoNotShareCorpus();
+        testInitOnce();
+        testMoveAssignOverScripts();
         testRelease();
     }
 };

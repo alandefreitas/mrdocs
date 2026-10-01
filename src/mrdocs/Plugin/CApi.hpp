@@ -20,32 +20,60 @@
 #include <mrdocs/Support/Error/Expected.hpp>
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace mrdocs {
+
+class ExtensionRegistry;
+class Transform;
+
+/** The transforms a plugin registered while it initialized, in
+    registration order.
+*/
+using PluginTransforms = std::vector<std::shared_ptr<Transform const>>;
 
 /** The type of the `mrdocs_plugin_init` function a plugin exports.
 */
 using PluginInitFn = mrdocs_status (MRDOCS_PLUGIN_CALL *)(mrdocs_env*);
 
-/** Call a plugin's `mrdocs_plugin_init` and report how it went.
+/** Initialize a plugin once per process and add its transforms to a registry.
 
-    The plugin registers its generators and transforms from inside the call.
-    The function returns an error if the plugin returns a status other than
-    `MRDOCS_STATUS_OK` or reports an error with `mrdocs_set_error`.
+    A plugin is identified by the canonical form of `path`. The first call
+    for a plugin runs its `mrdocs_plugin_init`, from inside which the plugin
+    registers its generators and transforms. Generators go to the global
+    generator registry. The transforms stay with the process, next to the
+    generators, and are attached to `registry`. A later call for the same
+    plugin does not run `init` again: it only attaches the same transforms
+    to its `registry`, so that every registry shares the state of the plugin.
+
+    The call fails if the plugin returns a status other than
+    `MRDOCS_STATUS_OK` or reports an error with `mrdocs_set_error`. A plugin
+    that failed leaves no record: whatever it registered before failing
+    stays registered, generators and transforms alike, and is released with
+    the rest of the plugins' registrations. The only sensible action is to
+    exit.
 
     @return The error, if any occurred, naming the plugin.
 
-    @param path The path of the plugin library, for diagnostics.
+    @param path The path of the plugin library.
     @param init The plugin's `mrdocs_plugin_init`.
-    @param config The configuration the plugin reads.
+    @param config The configuration the plugin reads, on the first call only.
+    @param registry The registry that receives the plugin's transforms.
 */
 Expected<void>
 initializePlugin(
     std::string_view path,
     PluginInitFn init,
-    Config const& config);
+    Config const& config,
+    ExtensionRegistry& registry);
+
+/** Return whether `releasePlugins` has been called in this process.
+*/
+bool
+pluginsReleased() noexcept;
 
 /** Copy a descriptor a plugin passed into the host's layout of it.
 

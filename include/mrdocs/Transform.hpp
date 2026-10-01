@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
@@ -16,9 +17,9 @@
 #include <mrdocs/Platform.hpp>
 #include <mrdocs/Config.hpp>
 #include <mrdocs/Corpus.hpp>
+#include <mrdocs/Dom.hpp>
 #include <mrdocs/Support/Error/Error.hpp>
 #include <mrdocs/Support/Error/Expected.hpp>
-#include <memory>
 #include <string_view>
 
 namespace mrdocs {
@@ -31,6 +32,11 @@ namespace mrdocs {
     copy, and may read it, change the symbols it finds, or both. What
     it cannot do is create a symbol or destroy one, since a corpus keeps
     its storage to itself.
+
+    Transforms are collected by an @ref ExtensionRegistry, which runs
+    them as one pipeline: the transforms a plugin registers and the ones
+    an extension script registers go through the same list, in the order
+    they were registered.
 */
 class MRDOCS_VISIBLE
     Transform
@@ -45,8 +51,11 @@ public:
     /** Return the symbolic name of the transform.
 
         A diagnostic about a transform names it with this, so a
-        recognizable name is worth choosing. Unlike a generator id it
-        selects nothing, and need not be unique.
+        recognizable name is worth choosing. The id also keys the
+        `transform-options` block the transform receives as `params`, so
+        transforms that share an id share their parameters. Unlike a
+        generator id it does not choose which transform runs, and need not
+        be unique.
     */
     MRDOCS_DECL
     virtual
@@ -56,64 +65,27 @@ public:
     /** Transform the corpus.
 
         @par Thread Safety
-        Transforms run one at a time, in the order they were installed.
+        The transforms of one pipeline run one at a time, in the order they
+        were registered. A transform held by several registries can run
+        concurrently, for different corpora.
 
         @return The error, if any occurred. An error stops the run,
         before any generator is given the corpus.
 
         @param corpus The corpus to read and change.
         @param config The configuration that drove the build.
+        @param params The transform's own options: the
+        `transform-options.<id>` block of the configuration for the
+        transform's @ref id, or an empty object when it has none.
     */
     MRDOCS_DECL
     virtual
     Expected<void>
-    apply(Corpus& corpus, Config const& config) const = 0;
+    apply(
+        Corpus& corpus,
+        Config const& config,
+        dom::Object const& params) const = 0;
 };
-
-/** Install a corpus transform.
-
-    This function registers a transform with the global transform
-    registry, so that it runs on the corpus of the current build.
-
-    A plugin registers its transforms through the C API in
-    `mrdocs/plugin.h`, which calls this function.
-
-    @par Thread Safety
-    This function is thread-safe and may be called concurrently from
-    multiple threads.
-
-    @return An error if the transform is null.
-
-    @param T The transform to install. Ownership is transferred to the
-    registry.
-*/
-MRDOCS_DECL
-Expected<void>
-installTransform(std::unique_ptr<Transform> T);
-
-/** Apply the installed transforms to a corpus.
-
-    Invokes each installed transform once, in the order the transforms
-    were installed, and stops at the first one that fails.
-
-    Call this after the corpus is finalized and before a generator runs.
-    It is one of the pieces the command-line tool composes to run its
-    generate step; the order of that step lives in the tool.
-
-    @par Thread Safety
-    Safe against a concurrent @ref installTransform, which the registry
-    synchronizes; a transform installed while this runs simply does not
-    run this time.
-
-    @return The error, if any occurred, naming the transform it came
-    from.
-
-    @param corpus The corpus to transform.
-    @param config The configuration that drove the build.
-*/
-MRDOCS_DECL
-Expected<void>
-applyTransforms(Corpus& corpus, Config const& config);
 
 } // mrdocs
 

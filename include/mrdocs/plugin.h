@@ -360,7 +360,11 @@ typedef struct mrdocs_transform_desc
     /* Handed back to `apply` and `release`. */
     void* data;
     /* Called once when MrDocs drops the transform, with `data`. May be null.
-       See @ref mrdocs_generator_desc for when it runs and what it may call. */
+       It runs at the same time as the `release` of a generator, and under
+       the same rules: see @ref mrdocs_generator_desc. The order among the
+       releases of a plugin is not specified. A plugin that shares state
+       between its generators and transforms keeps a count in it, and frees
+       it in the release that brings the count to zero. */
     void (MRDOCS_PLUGIN_CALL *release)(void* data);
 } mrdocs_transform_desc;
 
@@ -387,7 +391,12 @@ typedef bool (MRDOCS_PLUGIN_CALL *mrdocs_visit_fn)(
    `mrdocs_plugin_abi_version` reports @ref MRDOCS_PLUGIN_ABI_TARGET.
    `mrdocs_plugin_init` is the function MrDocs calls once, while it starts up,
    with the environment of the call; the braces that follow the macro are its
-   body, which registers what the plugin provides and returns a status:
+   body, which registers what the plugin provides and returns a status. In a
+   process that runs MrDocs more than once the call happens for the first run
+   only, so `mrdocs_get_config` shows the configuration of that run and what
+   the body registers must not depend on it; decisions that depend on the
+   configuration belong in the callbacks, which receive the configuration of
+   the run they execute in:
 
        MRDOCS_PLUGIN_INIT(env)
        {

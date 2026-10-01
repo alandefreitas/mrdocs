@@ -57,6 +57,13 @@ A generator's `ctx` carries one more field, `ctx.output`, covered on the xref:ex
 
 A script can register any number of transforms and generators, or none at all. If it registers nothing, Mr.Docs warns that the script had no effect and moves on.
 
+[#transform-order]
+=== Transform order
+
+Script transforms and xref:extensions/plugins.adoc#transforms[plugin transforms] run in one pipeline, one at a time, in the order they were registered. Mr.Docs loads plugins first and extension scripts second, so every transform a plugin registers runs before any transform a script registers. Among plugins the order is the order they load, and among scripts it is the order of the script files, as described in <<_languages_and_locations,Languages and locations>>. Within a plugin or a script, it is the order of the registration calls.
+
+Each transform gets its own `transform-options.<id>` block, whether it comes from a script or a plugin. A transform sees the changes of the ones that ran before it. If one fails, the run stops and the message names it. Mr.Docs discards the symbol lookups it had remembered after each transform, so a lookup by name sees the names the earlier transforms wrote, and so does a lookup made after the last one. The lookups of a transform that renames a symbol may still return what they remembered from before the rename: its own renames are seen by lookups from the next transform on.
+
 == Accessing the corpus
 
 === Iterating symbols

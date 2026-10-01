@@ -19,7 +19,6 @@
 #include <mrdocs/Support/Chrono.hpp>
 #include <mrdocs/Support/Filesystem/Path.hpp>
 #include <mrdocs/Support/Report.hpp>
-#include <mrdocs/Transform.hpp>
 #include <mrdocs/Version.hpp>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/PrettyStackTrace.h>
@@ -28,6 +27,7 @@
 #include <llvm/TargetParser/Host.h>
 #include <chrono>
 #include <cstdlib>
+#include <optional>
 #include <ranges>
 #include <span>
 #include <string>
@@ -236,8 +236,15 @@ DoGenerateAction(
     // --------------------------------------------------------------
     // Plugins come first: one that cannot install what it provides
     // fails the run, while an addon generator directory whose id is
-    // already taken is skipped.
-    MRDOCS_TRY(loadPlugins(config));
+    // already taken is skipped. The registry is created here so that the
+    // transforms the plugins register land in the same pipeline as the
+    // ones the extension scripts register below, ahead of them. The
+    // corpus is declared first so that it outlives the registry: closing
+    // a script engine runs finalizers, and a value a script kept can still
+    // refer to the corpus.
+    std::optional<Corpus> corpusStorage;
+    ExtensionRegistry extensions;
+    MRDOCS_TRY(loadPlugins(config, extensions));
 
     // --------------------------------------------------------------
     //
@@ -262,7 +269,8 @@ DoGenerateAction(
     // configuration (a compile_commands.json path, a CMakeLists.txt plus
     // cmake options, or one synthesized from source-root and input). A
     // corpus is just extracted symbols; extensions are a separate step.
-    MRDOCS_TRY(Corpus corpus, Corpus::build(config));
+    MRDOCS_TRY(Corpus built, Corpus::build(config));
+    Corpus& corpus = corpusStorage.emplace(std::move(built));
     // The global namespace is always extracted, so a size of 1 means no
     // declaration other than the global namespace was found. Treat that
     // the same as a truly empty corpus here.
@@ -279,24 +287,16 @@ DoGenerateAction(
 
     // --------------------------------------------------------------
     //
-    // Apply plugin transforms
+    // Apply transforms
     //
     // --------------------------------------------------------------
-    // Plugin transforms run first, which is what this call site ahead of
-    // the extension one decides: what MrDocs was set up with applies
-    // before what a user script asks for.
-    MRDOCS_TRY(applyTransforms(corpus, config));
-
-    // --------------------------------------------------------------
-    //
-    // Run user extension scripts
-    //
-    // --------------------------------------------------------------
-    // Extensions are optional and live outside the corpus. Load them,
-    // then apply their transforms after finalization and before any
+    // Extensions are optional and live outside the corpus. Load the
+    // scripts into the registry that already holds the plugin transforms,
+    // then run the whole pipeline after finalization and before any
     // generator runs, so mutations are visible to every output format.
+    // Transforms run in registration order: plugins first, then scripts.
     // The registry also owns the script-defined generators, used below.
-    MRDOCS_TRY(ExtensionRegistry extensions, ExtensionRegistry::load(config));
+    MRDOCS_TRY(extensions.loadScripts(config));
     MRDOCS_TRY(extensions.applyTransforms(corpus, config));
 
     // --------------------------------------------------------------
@@ -389,7 +389,7 @@ int
 mrdocs_main(int argc, char const** argv)
 {
     // Plugins get their `release` call here, while their static objects
-    // are alive, instead of from the static destruction of the registries.
+    // are alive, instead of from static destruction.
     struct ReleasePlugins
     {
         ~ReleasePlugins() { releasePlugins(); }

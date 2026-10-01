@@ -386,6 +386,17 @@ public:
     void
     finalize(Config const& config);
 
+    /** Forget the results of earlier name lookups.
+
+        A lookup by name remembers what it found. Code that renames
+        symbols or changes their scope after the corpus is finalized, such
+        as a corpus transform, must call this afterwards so that later
+        lookups see the new names instead of the remembered results.
+    */
+    MRDOCS_DECL
+    void
+    invalidateLookupCache() noexcept;
+
 private:
     Corpus() noexcept = default;
 
