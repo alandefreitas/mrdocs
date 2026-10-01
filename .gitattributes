@@ -3,3 +3,4 @@ tests/golden/fixtures/** text eol=lf
 tests/plugin-api/wrapper/values.txt text eol=lf
 tests/plugin-api/c/c-plugin.txt text eol=lf
 examples/plugins/stats/sample-project/stats.txt text eol=lf
+examples/plugins/deprecations/sample-project/deprecations.txt text eol=lf

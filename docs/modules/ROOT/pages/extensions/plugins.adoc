@@ -9,7 +9,7 @@ Reach for a plugin when you need compiled code: a format whose rules are awkward
 
 A plugin talks to Mr.Docs through a C interface, declared in the single header {url-header}[`mrdocs/plugin.h`^]. No {cpp} type crosses it. The corpus, the configuration and the parameters reach the plugin as the same values extension scripts see as `ctx.corpus`, `ctx.config` and `ctx.params`, so a plugin reads and writes symbols the way a Lua or JavaScript extension does, and the fields of xref:generators/reference.adoc[the DOM reference] are the fields it finds. It follows the loading model of Clang's plugins (a shared library loaded into the tool, which adds to the tool's registries) and the ABI model of https://nodejs.org/api/n-api.html[Node-API^] (opaque handles, status codes, and a version number that only grows); the xref:#why-c[section on the C interface] says why. Any C or C++ compiler can build a plugin, and a plugin can be written in C. {cpp} authors have a header-only wrapper on top of that interface, {url-wrapper}[`mrdocs/plugin.hpp`^], which this page uses for its examples: it turns failed calls into exceptions, gives values the shape of a script's values, and provides base classes for generators and transforms.
 
-The {url-plugins}/stats[`stats`^] example is the whole of what follows, as a directory you can copy: the plugin, and a small project documented with it.
+The {url-plugins}/stats[`stats`^] example is the walkthrough of this page, as a directory you can copy: the plugin, and a small project documented with it. The {url-plugins}/deprecations[`deprecations`^] example, xref:#deprecations-example[further down], is a larger plugin that reads more of the corpus.
 
 == Building a plugin
 
@@ -214,6 +214,51 @@ For the sample project that comes with the example, whose input describes a hand
 [source,text]
 ----
 include::example$examples/plugins/stats/sample-project/stats.txt[]
+----
+
+[#deprecations-example]
+== A realistic example
+
+The `stats` plugin is the smallest thing that uses every part of the interface. A plugin you write for a project usually reads more of the corpus than a symbol's kind. The {url-plugins}/deprecations[deprecations example] reports what the code marks as `\[[deprecated]]`, and uses the message of the attribute where the documentation has nothing to say. It has the same two parts, a generator and a transform, written on the wrapper.
+
+Every symbol has an `attributes` array, with one object per attribute as written in the source (`Symbol::Attributes` in the C++ API). The `kind` of an attribute says which one it is, and a `\[[deprecated]]` carries its text in `message` (`DeprecatedAttribute::Message`), which is missing when the attribute has none. Both parts of the plugin need to find it, so the lookup is a function of its own, next to a test of which symbols to look at. The `extraction` of a symbol says how it got into the corpus. Only `regular` and `see-below` symbols are shown as their own; the others are a `dependency` (extracted only because a documented symbol uses it, such as a deprecated base class of another library) or `implementation-defined` (hidden by the configuration, such as a type in a `detail` namespace). A symbol can also be a copy of a base class member made for a derived class, which has `inheritedFrom` and is listed on the page of the derived class. The transform skips only the `dependency` and `implementation-defined` symbols, so the copy gets its brief too. The generator skips the copy as well, because it would be reported at the line of the derived class, and reports a base class member where it is declared:
+
+.`plugin.cpp`
+[source,cpp]
+----
+include::example$examples/plugins/deprecations/plugin.cpp[tag=find]
+----
+
+Helpers read the parts of a symbol the report prints. The location comes from the `loc` object of the symbol, which holds a `loc` array of declarations and the `defLoc` of the definition when there is one. The report points at the first declaration, the one a user of the header sees and usually the one that carries the attribute (a later redeclaration may add `\[[deprecated]]`, and the report still names the first line), and falls back to the definition only for a symbol with no separate declaration. The scopes around a symbol are found by following its `parent` id with `Env::find`, up to the global namespace, which has no parent. A symbol or scope with no `name` field, such as an unnamed enumeration, is printed as `(anonymous)`, and the members of an anonymous namespace belong to the enclosing scope. An explicit or partial specialization has the same `name` as its primary template, so its `template.args` are printed after the name (`Box<int>`), with the scopes written in front of a type name (`Box<vendor::Old>`) and `...` for an argument that is more than a name or a constant:
+
+.`plugin.cpp`
+[source,cpp]
+----
+include::example$examples/plugins/deprecations/plugin.cpp[tag=names]
+----
+
+The generator walks the symbols, and keeps what it needs from each deprecated one. An overload set is a symbol of its own that is deprecated when all its members are, so the generator skips it and reports the members. The handles a symbol gives out are released when the loop body returns, so the generator copies strings into the fields of its own `Entry`, sorts the entries by name, path and line, and only then writes the file:
+
+.`plugin.cpp`
+[source,cpp]
+----
+include::example$examples/plugins/deprecations/plugin.cpp[tag=build]
+----
+
+The transform finds the same attribute and writes the message into the documentation of a symbol that has no brief. It covers every symbol the documentation shows, including the copy of a deprecated base class member that a derived class page lists, while the generator reports the member only where it is declared. MrDocs makes the brief of an overload set from its members before the transforms run, so a set of deprecated functions with no documentation would show an empty description in the namespace listing. The transform gives such a set a brief of its own: the message the members share, or a plain "Deprecated." when they differ. It runs before the generator, so any output format shows the text, and the report is made from the same corpus:
+
+.`plugin.cpp`
+[source,cpp]
+----
+include::example$examples/plugins/deprecations/plugin.cpp[tag=apply]
+----
+
+For the sample project of the example, which deprecates two types (one of them an unnamed enumeration), a variable, an enumerator, three sets of overloaded functions (one documented, two not), five member functions (two of them in explicit specializations, and one defined in a source file) and a function in a header outside the source root, which has no source path and is listed without a location, the generator writes:
+
+.`deprecations.txt`
+[source,text]
+----
+include::example$examples/plugins/deprecations/sample-project/deprecations.txt[]
 ----
 
 == When a plugin is refused
