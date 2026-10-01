@@ -76,6 +76,11 @@ jobs:
         run: |
           npx -y -p ajv-cli -- ajv compile -s docs/modules/ROOT/attachments/schemas/generators/mrdocs.schema.json
 
+      # The Linux release check runs on a binary that is supposed to pass.
+      # This shows each of its rejections firing, on stub objdump listings.
+      - name: Check Linux portability script
+        run: utils/release/test-check-linux-portability.sh
+
       - name: Check bootstrap options partial is up to date
         run: python3 ./utils/docs/generate_bootstrap_options.py --check
 

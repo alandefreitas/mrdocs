@@ -283,6 +283,12 @@ describe("affectsBuildPipeline", () => {
         expect(affectsBuildPipeline([".github/scripts/generate-demos.sh"])).toBe(true);
     });
 
+    it("flags the release container action, the release CMake files and the package checks", () => {
+        expect(affectsBuildPipeline([".github/actions/linux-release-container/action.yml"])).toBe(true);
+        expect(affectsBuildPipeline(["utils/cmake/release-linux.cmake"])).toBe(true);
+        expect(affectsBuildPipeline(["utils/release/check-linux-portability.sh"])).toBe(true);
+    });
+
     it("flags bootstrap entry and sources", () => {
         expect(affectsBuildPipeline(["bootstrap.py"])).toBe(true);
         expect(affectsBuildPipeline(["utils/bootstrap/main.py"])).toBe(true);

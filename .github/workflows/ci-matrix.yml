@@ -34,8 +34,12 @@ jobs:
         uses: alandefreitas/cpp-actions/cpp-matrix@v1.9.5
         id: cpp-matrix
         with:
+          # gcc stops at 15: the Linux release is built by the main gcc entry
+          # in an ubuntu:20.04 container (see "containers" below), and the
+          # ubuntu-toolchain-r/test PPA publishes a released GCC for that
+          # Ubuntu up to 15. Its GCC 16 is a pre-release snapshot.
           compilers: |
-            gcc >=14
+            gcc >=14 <16
             clang >=18
             msvc >=14.40
             apple-clang >=17
@@ -52,18 +56,34 @@ jobs:
             clang: Release
             apple-clang: Release
             msvc: RelWithDebInfo
+          # WARNING: do not "update" the Linux release container to a newer Ubuntu.
+          # The Linux release is built in ubuntu:20.04 on purpose: its glibc 2.31
+          # is the floor the released binary runs on, and building on a newer
+          # distribution raises the floor. The compiler is not tied to the
+          # distribution: the local action
+          # .github/actions/linux-release-container, which ci-build.yml,
+          # ci-releases.yml and ci-documentation.yml call around Setup C++,
+          # adds ppa:ubuntu-toolchain-r/test (it publishes GCC 15 for 20.04),
+          # installs the Python 3.9 or newer and the CMake 3.26 or newer that
+          # bootstrap.py, LLVM and the configuration of this repository need,
+          # and exports CC and CXX from the Setup C++ outputs, because the c++
+          # of this container is GCC 9. That action is the one place to edit.
+          # The policy, the reasons for it, and its origin (manylinux and
+          # auditwheel) are in
+          # docs/modules/ROOT/pages/contribute/binary-compatibility.adoc.
+          # The cache key of LLVM derives from the container name (llvm-os-key).
+          containers: |
+            gcc is-main: ubuntu:20.04
           append-install: |
             gcc: cmake ninja-build unzip openjdk-11-jdk-headless libncurses-dev nodejs npm
             clang: cmake ninja-build unzip openjdk-11-jdk-headless libncurses-dev libstdc++-14-dev nodejs npm
           append-ccflags: |
             gcc: -Werror -Wall
-            gcc is-main: -static
             clang: -Werror -Wall
             apple-clang: -Werror -Wall
             msvc: /WX /W4
           append-cxxflags: |
             gcc: -Werror -Wall
-            gcc is-main: -static
             clang: -Werror -Wall
             apple-clang: -Werror -Wall
             msvc: /WX /W4
@@ -106,6 +126,9 @@ jobs:
 
             # Packaging and release configuration
             is-release-build: {{and is-main (includes (list "gcc" "msvc" "apple-clang") compiler)}}
+            # The gcc build that produces the Linux package links the way the
+            # Linux release does (utils/cmake/release-linux.cmake).
+            mrdocs-linux-release: {{and is-main (ieq compiler 'gcc')}}
             mrdocs-package-generators: {{select (ieq os 'windows') "7Z ZIP WIX" "TGZ TXZ"}}
             mrdocs-release-package-artifact: release-packages-{{{ lowercase os }}}
 

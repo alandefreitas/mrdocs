@@ -83,6 +83,16 @@ elseif (MRDOCS_NARROW_EXPORTS)
         set(MRDOCS_EXPORTS_NARROWED ON)
     endif ()
 endif ()
+# The Linux release links libstdc++ statically, and only the narrowed table
+# keeps that copy from being exported to, and bound by, the libstdc++ of a
+# plugin (utils/cmake/release-linux.cmake).
+if (MRDOCS_LINUX_RELEASE AND NOT MRDOCS_EXPORTS_NARROWED)
+    message(FATAL_ERROR
+        "MRDOCS_LINUX_RELEASE needs the narrowed export table of the mrdocs "
+        "executable, which keeps the statically linked libstdc++ out of the "
+        "dynamic symbol table: configure with MRDOCS_NARROW_EXPORTS=ON and "
+        "without a sanitizer. See utils/cmake/release-linux.cmake")
+endif ()
 # Tells tests/plugin-api whether the export table is narrowed, so that it
 # checks the table only when it is.
 set_property(TARGET mrdocs PROPERTY MRDOCS_NARROW_EXPORTS ${MRDOCS_EXPORTS_NARROWED})

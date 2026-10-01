@@ -17,9 +17,9 @@ set(MRDOCS_BUILT_BUNDLED "@MRDOCS_DO_BUNDLE_DEPENDENCIES@")
 set(MRDOCS_BUILT_REEXPORT_DEPENDENCIES "@MRDOCS_DO_REEXPORT_DEPENDENCIES@")
 set(MRDOCS_BUILT_CXX_COMPILER_ID "@CMAKE_CXX_COMPILER_ID@")
 set(MRDOCS_BUILT_CXX_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@")
-# Whether this installation can load plugins: a statically linked MrDocs
-# can neither produce a shared module nor load one. Building a plugin against
-# an installation needs only mrdocs::plugin.
+# Whether this installation can load plugins: a MrDocs linked with -static
+# cannot load a shared module. The Linux release is not linked that way.
+# Building a plugin against an installation needs only mrdocs::plugin.
 set(MRDOCS_BUILT_PLUGIN_MODULES "@MRDOCS_PLUGIN_MODULES_SUPPORTED@")
 
 # Calendar release this installation was built from (YYYY.M.D), decomposed

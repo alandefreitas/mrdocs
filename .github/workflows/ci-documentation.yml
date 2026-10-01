@@ -62,12 +62,28 @@ jobs:
         with:
           node-version: '20'
 
+      # The preparation of the Linux release container lives in one place, in
+      # two phases around Setup C++.
+      - name: Prepare The Linux Release Container (toolchain)
+        if: ${{ matrix.mrdocs-linux-release == 'true' }}
+        uses: ./.github/actions/linux-release-container
+        with:
+          phase: before-setup-cpp
+
       - name: Setup C++
         uses: alandefreitas/cpp-actions/setup-cpp@v1.9.5
         id: setup-cpp
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
+
+      - name: Prepare The Linux Release Container (compiler)
+        if: ${{ matrix.mrdocs-linux-release == 'true' }}
+        uses: ./.github/actions/linux-release-container
+        with:
+          phase: after-setup-cpp
+          cc: ${{ steps.setup-cpp.outputs.cc }}
+          cxx: ${{ steps.setup-cpp.outputs.cxx }}
 
       # Same dual-source pattern as ci-releases.yml: fresh-build artifact
       # when we built this run, develop-release fallback otherwise.

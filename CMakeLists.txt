@@ -64,19 +64,42 @@ set_ternary(MRDOCS_DO_REEXPORT_DEPENDENCIES "NOT MRDOCS_DO_BUNDLE_DEPENDENCIES A
 set_ternary(MRDOCS_GCC   "CMAKE_CXX_COMPILER_ID STREQUAL \"GNU\"" ON OFF)
 set_ternary(MRDOCS_CLANG "CMAKE_CXX_COMPILER_ID MATCHES \"Clang$\"" ON OFF)
 
-# Whether the tool built here can load plugins: a statically linked tool cannot
-# load a shared module. The package config exports this, independent of
-# MRDOCS_BUILD_PLUGIN_MODULES, which only chooses whether this build runs the
-# plugin tests and examples. Building a plugin does not depend on either; a
-# plugin links mrdocs::plugin.
-if (CMAKE_CXX_FLAGS MATCHES "(^| )-static($| )" OR
-    CMAKE_EXE_LINKER_FLAGS MATCHES "(^| )-static($| )")
-    set(MRDOCS_PLUGIN_MODULES_SUPPORTED OFF)
-else ()
-    set(MRDOCS_PLUGIN_MODULES_SUPPORTED ON)
-endif ()
+# Whether the tool built here can load plugins: a tool linked with -static or
+# -static-pie cannot load a shared module. The release is not linked that way,
+# but a build of your own can be, in the common flags or in the flags of any
+# configuration. MRDOCS_PLUGIN_MODULES_SUPPORTED is exported as
+# MRDOCS_BUILT_PLUGIN_MODULES by the package config, and
+# utils/cmake/release-linux.cmake refuses MRDOCS_STATIC_LINK_FLAGS. It is the
+# default of MRDOCS_BUILD_PLUGIN_MODULES.
+set(mrdocs_link_flag_variables
+    CMAKE_C_FLAGS CMAKE_CXX_FLAGS CMAKE_EXE_LINKER_FLAGS)
+foreach (mrdocs_config IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+    list(APPEND mrdocs_link_flag_variables
+        CMAKE_C_FLAGS_${mrdocs_config}
+        CMAKE_CXX_FLAGS_${mrdocs_config}
+        CMAKE_EXE_LINKER_FLAGS_${mrdocs_config})
+endforeach ()
+set(MRDOCS_STATIC_LINK_FLAGS OFF)
+foreach (mrdocs_flag_variable IN LISTS mrdocs_link_flag_variables)
+    if ("${${mrdocs_flag_variable}}" MATCHES "(^| )-static(-pie)?($| )")
+        set(MRDOCS_STATIC_LINK_FLAGS ON)
+    endif ()
+endforeach ()
+set_ternary(MRDOCS_PLUGIN_MODULES_SUPPORTED MRDOCS_STATIC_LINK_FLAGS OFF ON)
+
+# Whether this build runs the plugin tests and examples. Building or loading a
+# plugin does not depend on it: a plugin links mrdocs::plugin. It defaults to
+# whether the tool can load plugins at all.
 option(MRDOCS_BUILD_PLUGIN_MODULES "Build and run the plugin tests and examples"
        ${MRDOCS_PLUGIN_MODULES_SUPPORTED})
+
+# The link flags of the Linux release: a glibc floor and a static C++ runtime
+# instead of -static, so that the binary runs on Ubuntu 20.04 and newer and can
+# still load plugins. The reasons are in the file.
+option(MRDOCS_LINUX_RELEASE "Link the way the Linux release does (see utils/cmake/release-linux.cmake)" OFF)
+if (MRDOCS_LINUX_RELEASE)
+    include(utils/cmake/release-linux.cmake)
+endif ()
 
 # Nothing of MrDocs's C++ is part of an interface a plugin can call: the tool
 # exports the functions of <mrdocs/plugin.h> and nothing else. Every target

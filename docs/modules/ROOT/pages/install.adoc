@@ -8,6 +8,8 @@ Binary packages are available from our https://github.com/cppalliance/mrdocs/rel
 
 mrdocs-releases::[]
 
+The Linux package needs glibc 2.31 or later, which means Ubuntu 20.04, Debian 11, Fedora 32, RHEL 9, or anything newer. It needs nothing else from the system: the C++ runtime is part of the executable. Distributions that don't use glibc, such as Alpine, aren't covered. The package loads xref:extensions/plugins.adoc[plugins]. The xref:contribute/binary-compatibility.adoc#linux-release[binary compatibility] page explains how this floor is kept.
+
 [#mrdocs-bootstrap-script]
 == Build from Source
 

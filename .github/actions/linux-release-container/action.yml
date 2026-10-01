@@ -1,0 +1,139 @@
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
+#
+# Official repository: https://github.com/cppalliance/mrdocs
+#
+
+# Prepares the ubuntu:20.04 container of the Linux release (see the warning at
+# the container line in ci-matrix.yml and
+# docs/modules/ROOT/pages/contribute/binary-compatibility.adoc). Build & Test,
+# Releases and Documentation all use it, so the preparation lives only here.
+# A workflow calls it twice, under `if: matrix.mrdocs-linux-release == 'true'`:
+# with phase `before-setup-cpp` right before Setup C++, and with phase
+# `after-setup-cpp` right after it. The checkout of the repository has to come
+# before the first call, because a local action is read from the checkout.
+
+name: Linux Release Container
+description: Prepare the ubuntu:20.04 container of the Linux release around Setup C++
+
+inputs:
+  phase:
+    description: before-setup-cpp or after-setup-cpp
+    required: true
+  cc:
+    description: The C compiler from the outputs of Setup C++ (after-setup-cpp)
+    default: ''
+  cxx:
+    description: The C++ compiler from the outputs of Setup C++ (after-setup-cpp)
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # The container has no GCC 15 in its own repositories. setup-cpp adds
+    # ppa:ubuntu-toolchain-r/ppa only, and the released GCC for that Ubuntu is
+    # in the /test PPA.
+    - name: Add The Toolchain PPA
+      if: ${{ inputs.phase == 'before-setup-cpp' }}
+      shell: bash
+      run: |
+        if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+        export DEBIAN_FRONTEND=noninteractive
+        $SUDO apt-get update
+        $SUDO apt-get install -y --no-install-recommends software-properties-common gnupg dirmngr gpg-agent ca-certificates
+        $SUDO add-apt-repository -y ppa:ubuntu-toolchain-r/test
+        $SUDO apt-get update
+
+    # bootstrap.py needs Python 3.9 or newer (the Python of ubuntu:20.04 is
+    # 3.8), and LLVM and the configuration of this repository by MrDocs (the
+    # "mrdocs" demo, the Antora reference and mrdocs-self-doc) need CMake 3.26
+    # or newer (the CMake of ubuntu:20.04 is 3.16). The pip wheel of CMake
+    # stays below 4, which dropped the policy versions that some of the
+    # third-party projects still ask for.
+    #
+    # The Python comes from uv, which installs a python-build-standalone
+    # build (glibc 2.17 or newer, so it runs in this container), not from
+    # actions/setup-python, whose Python is built on the runner and needs a
+    # glibc newer than the 2.31 of this container, and not from the
+    # deadsnakes PPA, which no longer carries packages for this Ubuntu. uv
+    # marks its Pythons as externally managed; the marker is removed because
+    # this copy exists only for the job. python3 is a link in /usr/local/bin,
+    # so the Python 3.8 that the apt tools run on stays what /usr/bin/python3
+    # names. The scripts that pip installs (cmake, ctest, cpack) are linked
+    # into /usr/local/bin too, because the bin directory of the Python is not
+    # on PATH. The bin directory of the Python also goes first on the PATH of
+    # the later steps of the job (GITHUB_PATH), so the Python 3.11 is the one
+    # that python3 names there whatever else the job installs or puts in
+    # /usr/local/bin. Setup C++ puts /usr/bin in front of it, where the
+    # Python 3.8 lives, so the Export The Compiler step, which runs after
+    # Setup C++, adds the directory to GITHUB_PATH once more to put it back
+    # in front.
+    - name: Setup Python
+      if: ${{ inputs.phase == 'before-setup-cpp' }}
+      shell: bash
+      run: |
+        if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+        export DEBIAN_FRONTEND=noninteractive
+        $SUDO apt-get install -y --no-install-recommends curl ca-certificates
+        curl -LsSf https://astral.sh/uv/install.sh | $SUDO env UV_UNMANAGED_INSTALL=/usr/local/bin sh
+        export UV_PYTHON_INSTALL_DIR=/opt/python
+        $SUDO env UV_PYTHON_INSTALL_DIR=$UV_PYTHON_INSTALL_DIR uv python install 3.11
+        python=$(uv python find 3.11)
+        prefix=$("$python" -c 'import sys; print(sys.base_prefix)')
+        $SUDO rm -f "$prefix"/lib/python3.11/EXTERNALLY-MANAGED
+        $SUDO ln -sf "$python" /usr/local/bin/python3
+        python3 --version
+
+    - name: Install CMake
+      if: ${{ inputs.phase == 'before-setup-cpp' }}
+      shell: bash
+      run: |
+        if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+        prefix=$(python3 -c 'import sys; print(sys.base_prefix)')
+        $SUDO python3 -m pip install 'cmake>=3.26,<4'
+        for tool in cmake ctest cpack; do
+          $SUDO ln -sf "$prefix/bin/$tool" "/usr/local/bin/$tool"
+        done
+        echo "$prefix/bin" >> "$GITHUB_PATH"
+        cmake --version
+
+    # The compiler of the release has to be the default compiler of the
+    # container as well. The packages installed above bring the GCC 9 of
+    # ubuntu:20.04 as gcc, g++, cc and c++. CMake falls back to c++ when no
+    # compiler is named, and MrDocs probes the compiler named in each compile
+    # command, which is plain g++ for commands it synthesizes; with GCC 9
+    # there, CMake rejects cxx_std_23 and the include search mixes the
+    # libstdc++ of GCC 9 with the one of GCC 15. So gcc and g++ become links to
+    # the compilers Setup C++ chose, and cc and c++ (alternatives on Ubuntu)
+    # are switched to them too. $CC and $CXX are exported for the steps that
+    # read them.
+    - name: Export The Compiler
+      if: ${{ inputs.phase == 'after-setup-cpp' }}
+      shell: bash
+      env:
+        MRDOCS_CC: ${{ inputs.cc }}
+        MRDOCS_CXX: ${{ inputs.cxx }}
+      run: |
+        if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+        test -x "$MRDOCS_CC" && test -x "$MRDOCS_CXX"
+        $SUDO ln -sf "$MRDOCS_CC" /usr/bin/gcc
+        $SUDO ln -sf "$MRDOCS_CXX" /usr/bin/g++
+        $SUDO update-alternatives --install /usr/bin/cc cc "$MRDOCS_CC" 100
+        $SUDO update-alternatives --set cc "$MRDOCS_CC"
+        $SUDO update-alternatives --install /usr/bin/c++ c++ "$MRDOCS_CXX" 100
+        $SUDO update-alternatives --set c++ "$MRDOCS_CXX"
+        gcc --version | head -n 1
+        g++ --version | head -n 1
+        cc --version | head -n 1
+        c++ --version | head -n 1
+        echo "CC=$MRDOCS_CC" >> "$GITHUB_ENV"
+        echo "CXX=$MRDOCS_CXX" >> "$GITHUB_ENV"
+        python_bin=$(dirname "$(readlink -f /usr/local/bin/python3)")
+        echo "$python_bin" >> "$GITHUB_PATH"
+        echo "PATH=$PATH"
+        type -a python3
+        python3 --version
