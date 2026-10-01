@@ -64,14 +64,19 @@ set_ternary(MRDOCS_DO_REEXPORT_DEPENDENCIES "NOT MRDOCS_DO_BUNDLE_DEPENDENCIES A
 set_ternary(MRDOCS_GCC   "CMAKE_CXX_COMPILER_ID STREQUAL \"GNU\"" ON OFF)
 set_ternary(MRDOCS_CLANG "CMAKE_CXX_COMPILER_ID MATCHES \"Clang$\"" ON OFF)
 
+# Whether the tool built here can load plugins: a statically linked tool cannot
+# load a shared module. The package config exports this, independent of
+# MRDOCS_BUILD_PLUGIN_MODULES, which only chooses whether this build runs the
+# plugin tests and examples. Building a plugin does not depend on either; a
+# plugin links mrdocs::plugin.
 if (CMAKE_CXX_FLAGS MATCHES "(^| )-static($| )" OR
     CMAKE_EXE_LINKER_FLAGS MATCHES "(^| )-static($| )")
-    set(MRDOCS_PLUGIN_MODULES_DEFAULT OFF)
+    set(MRDOCS_PLUGIN_MODULES_SUPPORTED OFF)
 else ()
-    set(MRDOCS_PLUGIN_MODULES_DEFAULT ON)
+    set(MRDOCS_PLUGIN_MODULES_SUPPORTED ON)
 endif ()
-option(MRDOCS_BUILD_PLUGIN_MODULES "Build the plugin example and its link test"
-       ${MRDOCS_PLUGIN_MODULES_DEFAULT})
+option(MRDOCS_BUILD_PLUGIN_MODULES "Build and run the plugin tests and examples"
+       ${MRDOCS_PLUGIN_MODULES_SUPPORTED})
 
 # Nothing of MrDocs's C++ is part of an interface a plugin can call: the tool
 # exports the functions of <mrdocs/plugin.h> and nothing else. Every target

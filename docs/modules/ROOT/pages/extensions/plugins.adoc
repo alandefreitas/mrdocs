@@ -13,17 +13,17 @@ The {url-plugins}/stats[`stats`^] example is the whole of what follows, as a dir
 
 == Building a plugin
 
-A plugin is a CMake module library that links the `mrdocs` tool:
+A plugin is a CMake module library that links `mrdocs::plugin`:
 
 [source,cmake]
 ----
 find_package(mrdocs REQUIRED CONFIG)
 add_library(stats MODULE plugin.cpp)
-target_link_libraries(stats PRIVATE mrdocs::mrdocs)
+target_link_libraries(stats PRIVATE mrdocs::plugin)
 target_compile_features(stats PRIVATE cxx_std_17)
 ----
 
-Linking the tool is what resolves the Mr.Docs functions the plugin calls, and it is the whole build dependency: no LLVM, no Clang, no separate library to ship alongside. The plugin includes `mrdocs/plugin.hpp`, or `mrdocs/plugin.h` if it is written in C, and nothing else from Mr.Docs.
+`mrdocs::plugin` is an interface target that the package exports. It adds the include directory of the Mr.Docs headers and resolves the Mr.Docs functions the plugin calls: on Windows it links the import library of the `mrdocs` executable, and on macOS it tells the linker to leave undefined symbols to be resolved when the tool loads the plugin, as a Linux linker already does for a module. That covers every undefined symbol of the plugin, not just the `mrdocs_*` functions, so a misspelled function name or a library the plugin forgot to link shows up when the plugin is loaded and not when it is linked. It states no {cpp} standard and no compiler option, so a plugin written in C links it too. It is the whole build dependency: no LLVM, no Clang, no separate library to ship alongside. The plugin includes `mrdocs/plugin.hpp`, or `mrdocs/plugin.h` if it is written in C, and nothing else from Mr.Docs.
 
 In the default build (static, not sanitized, which is what the release packages are), the `mrdocs` executable exports the functions of that header, the ones named `mrdocs_*`, and nothing else. None of the {cpp} of Mr.Docs, and none of LLVM, Clang or the other libraries it is built from, can be reached from a plugin, so there is no other symbol to bind to, and a plugin cannot pick up a copy of a library from Mr.Docs by accident. The exported names are the ABI. Two kinds of build keep the full export table instead: a shared build (`MRDOCS_BUILD_SHARED`), which defines the C API in the library, and a sanitized build, where plugins bind to the sanitizer runtime through the executable. The `MRDOCS_NARROW_EXPORTS` CMake option switches the narrowing, and is on by default only for the default build. The narrowed table is also why the fallback backtrace of a crash on Linux and macOS shows addresses instead of function names for Mr.Docs, LLVM and Clang frames: rebuild with `MRDOCS_NARROW_EXPORTS=OFF` to get the names back, or symbolize the printed addresses with `llvm-symbolizer` or `addr2line`. On Linux and macOS, the plugin tests (`MRDOCS_BUILD_PLUGIN_MODULES` with tests on) include a check that a default build exports exactly the functions the header declares.
 
@@ -199,6 +199,6 @@ So a plugin keeps working with newer releases of Mr.Docs without a rebuild, and 
 
 Nothing about the compiler matters. A plugin and Mr.Docs share no {cpp} type, no standard library object, and no allocation, so the plugin can be built with any compiler, standard library, and runtime, and it doesn't have to match the ones Mr.Docs was built with. For the same reason, no exception may leave a callback (`build`, `apply`, `release`, the function given to `mrdocs_object_visit`, or the body of `MRDOCS_PLUGIN_INIT`): the runtime of the plugin may not be able to unwind through the frames of Mr.Docs, and the other way around. A {cpp} plugin catches what its code throws and turns it into a status, with `mrdocs_set_error` to explain the failure. The wrapper does this for every callback it registers, so the compiler and standard library of a wrapper plugin only have to agree with themselves.
 
-One configuration rules plugins out altogether: a statically linked Mr.Docs. Such a build has no dependable way to load a shared library while it runs, and cannot produce one either, since the startup files a static link brings in carry relocations a shared object cannot hold. The package config reports whether an installation can have plugins at all as `MRDOCS_BUILT_PLUGIN_MODULES`, so a build can ask before it tries.
+One configuration rules plugins out altogether: a statically linked Mr.Docs. Such a build has no dependable way to load a shared library while it runs, and cannot produce one either, since the startup files a static link brings in carry relocations a shared object cannot hold. The package config reports whether an installation can load plugins as `MRDOCS_BUILT_PLUGIN_MODULES`, so a build can ask before it tries. It does not depend on `MRDOCS_BUILD_PLUGIN_MODULES`, which only chooses whether a Mr.Docs build runs its own plugin tests and examples.
 
 That is not hypothetical for the published binaries: the Linux release is linked statically, so that one binary runs across distributions, and therefore cannot load a plugin. The Windows and macOS releases are not, and can. A Mr.Docs you build yourself takes plugins on every platform, since the static link is a choice the Linux release makes rather than a default.

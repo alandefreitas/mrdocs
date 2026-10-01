@@ -18,19 +18,14 @@ file(GLOB_RECURSE TOOL_SOURCES CONFIGURE_DEPENDS
 
 add_executable(mrdocs ${TOOL_SOURCES})
 target_include_directories(mrdocs
-    PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/>"
-    "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/>"
-    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
     PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_BINARY_DIR}/src"
 )
 
 target_compile_definitions(mrdocs PRIVATE -DMRDOCS_TOOL)
-# The core is linked privately so that a plugin, which links the tool, does not
-# link the core as well: a second copy of a static core would give the plugin
-# its own generator and transform registries.
+# The tool states no usage requirements: a plugin links mrdocs::plugin, below,
+# and a program that uses MrDocs as a library links mrdocs::mrdocs-core.
 target_link_libraries(mrdocs PRIVATE mrdocs-core)
 
 set_target_properties(mrdocs PROPERTIES ENABLE_EXPORTS ON)
@@ -92,19 +87,29 @@ endif ()
 # checks the table only when it is.
 set_property(TARGET mrdocs PROPERTY MRDOCS_NARROW_EXPORTS ${MRDOCS_EXPORTS_NARROWED})
 
-target_include_directories(mrdocs INTERFACE
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/libs/polyfill/include>"
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/libs/dom/include>"
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/libs/handlebars/include>")
+# What a plugin links. A plugin compiles <mrdocs/plugin.h> or <mrdocs/plugin.hpp>
+# and binds to the mrdocs_* functions of the running tool, so the include
+# directory is all it needs to compile: no C++ standard beyond what the plugin
+# chooses (a plugin written in C needs none), no compiler option, no library of
+# MrDocs. Linux and the other ELF platforms let a module leave symbols undefined,
+# and the tool provides them when it loads the module. macOS needs the linker
+# told so. Windows resolves them against the import library of the executable,
+# which ENABLE_EXPORTS makes the linker write and the installation ships. The
+# import library names the module "mrdocs.exe", so on Windows only the tool under
+# that name can load a plugin: a renamed tool or an embedding program cannot.
+add_library(mrdocs-plugin INTERFACE)
+add_library(mrdocs::plugin ALIAS mrdocs-plugin)
+set_target_properties(mrdocs-plugin PROPERTIES EXPORT_NAME plugin)
+target_include_directories(mrdocs-plugin INTERFACE
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+if (WIN32)
+    target_link_libraries(mrdocs-plugin INTERFACE mrdocs)
+elseif (APPLE)
+    target_link_options(mrdocs-plugin INTERFACE
+        "LINKER:-undefined,dynamic_lookup")
+endif ()
 
-# What a plugin needs to compile the public headers. Since the tool links
-# mrdocs-core privately, so that a plugin does not link the core itself, the
-# usage requirements mrdocs-core states PUBLIC do not reach a plugin and are
-# repeated here: /Zc:__cplusplus for Platform.hpp, and /Zc:preprocessor for the
-# variadic macros in Describe.hpp and MRDOCS_TRY, which the traditional
-# preprocessor expands into something that does not compile.
-target_compile_options(mrdocs PUBLIC
-    "$<$<CXX_COMPILER_ID:MSVC>:/EHs;/Zc:__cplusplus;/Zc:preprocessor>")
 # The command-line frontend uses a few LLVM utilities directly (pretty stack
 # traces, host triple), so the tool links LLVM rather than reaching it only
 # through mrdocs-core.
@@ -120,7 +125,7 @@ endif ()
 
 # Install the tool into the shared export set (finalized by mrdocs_install()).
 if (MRDOCS_INSTALL)
-    install(TARGETS mrdocs
+    install(TARGETS mrdocs mrdocs-plugin
             EXPORT mrdocs-targets
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

@@ -39,8 +39,8 @@ add_custom_target(consumer-docs ALL
 
 if (MRDOCS_BUILT_PLUGIN_MODULES)
     add_library(consumer_plugin MODULE src/plugin.cpp)
-    target_link_libraries(consumer_plugin PRIVATE mrdocs::mrdocs)
-    target_compile_features(consumer_plugin PRIVATE cxx_std_23)
+    target_link_libraries(consumer_plugin PRIVATE mrdocs::plugin)
+    target_compile_features(consumer_plugin PRIVATE cxx_std_17)
 
     set(plugin_addons "${CMAKE_CURRENT_BINARY_DIR}/plugin-addons")
     set_target_properties(consumer_plugin PROPERTIES

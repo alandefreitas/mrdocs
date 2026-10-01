@@ -26,7 +26,7 @@ target_compile_options(mrdocs-plugin-api-c-header PRIVATE
 # is the test: see LinkProbe.cpp for what that catches and what it does not.
 # It is deliberately not registered with ctest, since it runs nothing.
 add_library(mrdocs-plugin-api-link-test MODULE LinkProbe.cpp)
-target_link_libraries(mrdocs-plugin-api-link-test PRIVATE mrdocs)
+target_link_libraries(mrdocs-plugin-api-link-test PRIVATE mrdocs::plugin)
 target_compile_features(mrdocs-plugin-api-link-test PRIVATE cxx_std_23)
 # The header is compiled into every plugin, so it has to stay clean under the
 # strict warnings a C++ plugin may enable.
@@ -62,7 +62,7 @@ endif ()
 # provides. Every other plugin in the tree reports the ABI its own header
 # targets, so nothing else can reach that path.
 add_library(mrdocs-plugin-foreign-version MODULE ForeignVersion.cpp)
-target_link_libraries(mrdocs-plugin-foreign-version PRIVATE mrdocs)
+target_link_libraries(mrdocs-plugin-foreign-version PRIVATE mrdocs::plugin)
 target_compile_features(mrdocs-plugin-foreign-version PRIVATE cxx_std_23)
 
 # The library goes into an addon root of its own, so that it is offered to
@@ -89,15 +89,12 @@ set_tests_properties(mrdocs-plugin-foreign-version-refused PROPERTIES
 # that this MrDocs lacks. The loader resolves symbols when it opens a library,
 # so the failure has to name the symbol at load time instead of crashing at
 # the first call, and has to point at a newer MrDocs. A Windows link cannot
-# leave a symbol undefined, so the library cannot be built there.
+# leave a symbol undefined, so the library cannot be built there. On macOS
+# mrdocs::plugin tells the linker to leave it undefined.
 if (NOT WIN32)
     add_library(mrdocs-plugin-undefined-symbol MODULE UndefinedSymbol.cpp)
-    target_link_libraries(mrdocs-plugin-undefined-symbol PRIVATE mrdocs)
+    target_link_libraries(mrdocs-plugin-undefined-symbol PRIVATE mrdocs::plugin)
     target_compile_features(mrdocs-plugin-undefined-symbol PRIVATE cxx_std_23)
-    if (APPLE)
-        target_link_options(mrdocs-plugin-undefined-symbol PRIVATE
-            -undefined dynamic_lookup)
-    endif ()
 
     set(MRDOCS_UNDEFINED_PLUGIN_ADDONS
         "${CMAKE_CURRENT_BINARY_DIR}/undefined-symbol-addons")
@@ -138,7 +135,7 @@ if (WIN32)
 
     add_library(mrdocs-plugin-dependent MODULE DependentPlugin.cpp)
     target_link_libraries(mrdocs-plugin-dependent PRIVATE
-        mrdocs mrdocs-plugin-dependency-helper)
+        mrdocs::plugin mrdocs-plugin-dependency-helper)
     target_compile_features(mrdocs-plugin-dependent PRIVATE cxx_std_23)
     set_target_properties(mrdocs-plugin-dependent PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY

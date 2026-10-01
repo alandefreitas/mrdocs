@@ -18,8 +18,7 @@
 // Nothing runs, and there is no ctest entry: the object is linked whole, so
 // every function it names has to resolve. Elsewhere a module library may
 // leave symbols to the loader, so what this checks there is that the header
-// compiles as C++ and that such a library links against the executable at
-// all.
+// compiles as C++ and that a library that links mrdocs::plugin builds.
 
 #include <mrdocs/plugin.h>
 

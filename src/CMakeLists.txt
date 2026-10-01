@@ -162,10 +162,12 @@ endif()
 # Bundle private dependencies into mrdocs-core
 #-------------------------------------------------
 # Bundle mrdocs-core library with the private libraries it links
-# into one self-contained fat library, so a consumer project can
-# link the static mrdocs-core without the dependencies installed.
-# This lets a plugin author link against the exact LLVM mrdocs
-# was built with without building mrdocs from source.
+# into one self-contained fat library, so a program that uses MrDocs
+# as a library (it links mrdocs::mrdocs-core) can do so without LLVM
+# and the other dependencies installed. Plugins do not use this
+# archive: they link only the mrdocs::plugin interface target, which
+# binds to the C API the mrdocs executable exports and to no library
+# of MrDocs.
 if (MRDOCS_DO_BUNDLE_DEPENDENCIES AND MRDOCS_INSTALL)
     set(_mrdocs_bundled_lib_filename "${CMAKE_STATIC_LIBRARY_PREFIX}mrdocs-core-bundled${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(_mrdocs_bundled_lib_path "${CMAKE_CURRENT_BINARY_DIR}/${_mrdocs_bundled_lib_filename}")

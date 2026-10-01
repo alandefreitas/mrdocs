@@ -17,7 +17,7 @@
 # plugins are built as C++17 with the strict warnings a plugin may enable.
 function (mrdocs_add_wrapper_plugin target source addons)
     add_library(${target} MODULE ${source})
-    target_link_libraries(${target} PRIVATE mrdocs)
+    target_link_libraries(${target} PRIVATE mrdocs::plugin)
     target_compile_features(${target} PRIVATE cxx_std_17)
     set_target_properties(${target} PROPERTIES
         CXX_STANDARD 17
@@ -86,7 +86,7 @@ set_tests_properties(mrdocs-plugin-wrapper-values-compare PROPERTIES
 # The wrapper compiled as C++20, where Array and Object are ranges. Nothing
 # links or runs: building the object is the test.
 add_library(mrdocs-plugin-wrapper-ranges OBJECT Ranges.cpp)
-target_link_libraries(mrdocs-plugin-wrapper-ranges PRIVATE mrdocs)
+target_link_libraries(mrdocs-plugin-wrapper-ranges PRIVATE mrdocs::plugin)
 target_compile_features(mrdocs-plugin-wrapper-ranges PRIVATE cxx_std_20)
 
 # An exception that leaves a callback is the error of the run, whatever its

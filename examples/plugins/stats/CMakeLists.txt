@@ -9,12 +9,13 @@
 # Official repository: https://github.com/cppalliance/mrdocs
 #
 
-# In the MrDocs build the plugin links the tool that was just built. Out of
-# tree it is the same library built the way a plugin author builds one,
-# against an installed MrDocs; tests/cmake covers that.
+# In the MrDocs build the plugin links the same mrdocs::plugin target that an
+# installed package exports. Out of tree it is the same library built the way
+# a plugin author builds one, against an installed MrDocs; tests/cmake covers
+# that.
 if (MRDOCS_BUILD_PLUGIN_MODULES)
     add_library(mrdocs-stats-plugin-example MODULE plugin.cpp)
-    target_link_libraries(mrdocs-stats-plugin-example PRIVATE mrdocs)
+    target_link_libraries(mrdocs-stats-plugin-example PRIVATE mrdocs::plugin)
     target_compile_features(mrdocs-stats-plugin-example PRIVATE cxx_std_17)
 
     # MrDocs looks for plugins in the `plugins` subdirectory of an addon root,
