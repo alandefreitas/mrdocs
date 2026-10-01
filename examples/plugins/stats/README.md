@@ -17,9 +17,11 @@ Building the library and documenting the sample project with it is what the
 `mrdocs-plugin-example-stats` test does, and
 `mrdocs-plugin-example-stats-output` checks that the generator wrote
 stats.txt; the `mrdocs-plugin-example-brief-filler` tests check that the
-transform's brief reaches another generator. By hand, it is the same two
-steps: build the library into the plugins subdirectory of a directory of
-your own, then name that directory when you run MrDocs.
+transform's brief reaches another generator. The
+`mrdocs-plugin-example-pipeline` tests run it next to a Lua transform in
+pipeline-project/, which has to run after the plugin's. By hand, it is the
+same two steps: build the library into the plugins subdirectory of a
+directory of your own, then name that directory when you run MrDocs.
 
 ```
 mrdocs --config=sample-project/mrdocs.yml --addons-supplemental=<that directory>

@@ -323,17 +323,19 @@ checkAbiVersion(
     return {};
 }
 
-// Load one library and run its entry point.
+// Load one library, and initialize its plugin unless an earlier call did, and
+// add its transforms to the pipeline of the registry.
 Expected<void>
 loadPlugin(
     std::string const& path,
-    Config const& config)
+    Config const& config,
+    ExtensionRegistry& registry)
 {
     MRDOCS_TRY(LibraryHandle const library, openLibrary(path));
     MRDOCS_TRY(checkAbiVersion(library, path));
     MRDOCS_TRY(PluginInitFn const init,
         findEntryPoint<PluginInitFn>(library, "mrdocs_plugin_init", path));
-    MRDOCS_TRY(initializePlugin(path, init, config));
+    MRDOCS_TRY(initializePlugin(path, init, config, registry));
     report::info("Loaded plugin \"{}\"", path);
     return {};
 }
@@ -390,8 +392,10 @@ discoverPlugins(std::vector<std::string> const& roots)
 }
 
 Expected<void>
-loadPlugins(Config const& config)
+loadPlugins(Config const& config, ExtensionRegistry& registry)
 {
+    MRDOCS_CHECK(!pluginsReleased(), formatError(
+        "plugins were already released in this process, so they cannot be loaded"));
     std::vector<std::string> const paths =
         discoverPlugins(addonRoots(config));
     MRDOCS_CHECK(canLoadPlugins || paths.empty(), formatError(
@@ -400,7 +404,7 @@ loadPlugins(Config const& config)
         paths.front()));
     for (std::string const& path : paths)
     {
-        MRDOCS_TRY(loadPlugin(path, config));
+        MRDOCS_TRY(loadPlugin(path, config, registry));
     }
     return {};
 }

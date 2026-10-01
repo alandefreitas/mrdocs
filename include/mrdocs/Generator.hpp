@@ -27,6 +27,8 @@
 
 namespace mrdocs {
 
+class ExtensionRegistry;
+
 /** Base class for documentation generators.
 */
 class MRDOCS_VISIBLE
@@ -142,48 +144,88 @@ findGenerator(std::string_view id) noexcept;
     and its `mrdocs_plugin_init` is called once, so that what a plugin
     registers is in place before anything looks for it.
 
+    The generators a plugin registers go to the global generator registry.
+    The transforms it registers are added to the pipeline of `registry`,
+    in the order the plugins load and the plugin registers them. Load
+    plugins before the extension scripts of the same registry, so that
+    plugin transforms run first.
+
+    A plugin initializes once per process, however many times this
+    function is called. A plugin is identified by the canonical path of
+    its library, so a root written another way, or reached through a link,
+    still names the same plugin. The transforms a plugin registers belong
+    to the process, next to its generators. A later call, for another run
+    with another registry, does not run the entry point again: it adds the
+    transforms the plugin registered the first time to the pipeline of its
+    `registry`, which share the plugin's state with every other registry
+    that holds them.
+
+    Only the configuration of the first call reaches the entry point of a
+    plugin. What the entry point registers must therefore not depend on
+    the configuration: decisions that do belong in the callbacks, which
+    receive the configuration of the run they execute in.
+
     Call this before a generator is looked up by id with
     @ref findGenerator. It is one of the pieces the command-line tool
     composes to run its generate step; the order of that step lives in
     the tool.
 
+    The plugins bind to the `mrdocs_*` functions of the program that loads
+    them. The `mrdocs` tool provides them. On Windows a plugin imports them
+    from a module named `mrdocs.exe`, so a program that embeds MrDocs or a
+    renamed tool cannot load any plugin there: the load fails because that
+    module is not found. On the other platforms a program that embeds
+    MrDocs has to export the `mrdocs_*` functions from its executable, or
+    the plugin is refused for a symbol that nothing provides.
+
     A library that cannot be loaded, does not export the entry points,
     targets a newer ABI than this MrDocs provides, or reports an error
     of its own fails the call: a plugin is there because the user put
-    it there, so one that does nothing is not silently accepted.
+    it there, so one that does nothing is not silently accepted. A
+    plugin whose entry point failed may have registered part of what it
+    meant to, and MrDocs does not undo that, so the only sensible action
+    after such a failure is to exit.
+
+    The call fails once @ref releasePlugins has been called in the
+    process.
 
     @par Thread Safety
-    The registries this installs into are synchronized, so a concurrent
-    @ref installGenerator is safe. Two concurrent calls to this function
-    are not: both would run the same entry points, and the second
-    installation of a generator id fails.
+    Not thread-safe, like the rest of the setup of a run. No other call
+    to this function, to @ref installGenerator or to @ref findGenerator
+    may run meanwhile, and nothing else may use `registry`.
 
     @return The error, if any occurred.
 
     @param config The resolved configuration whose addon roots are
-    walked, and which the plugins read.
+    walked. The plugins read it in their entry point only on the first
+    call that loads them.
+    @param registry The registry that receives the transforms the plugins
+    register. It may be destroyed at any time: the transforms are shared
+    with the process.
 */
 MRDOCS_DECL
 Expected<void>
-loadPlugins(Config const& config);
+loadPlugins(Config const& config, ExtensionRegistry& registry);
 
 /** Give back to the plugins everything they handed to MrDocs.
 
     Calls the `release` function of every generator and transform a
-    plugin registered, once, with the `data` it registered it with.
-    The generators and transforms stay registered but must not run
-    afterwards.
+    plugin registered, once, with the `data` it registered it with, and
+    marks the process as released: a later @ref loadPlugins fails. This
+    is for process shutdown. The generators stay registered and the
+    transforms stay in the pipelines that hold them, but none of them may
+    run afterwards.
 
     The command-line tool calls this before it returns from `main`, so
     that `release` runs while the static objects of every plugin are
     still alive. A program that loads plugins and does not call it gets
-    the same calls during static destruction, by which time the static
+    the calls during static destruction, by which time the static
     objects of a plugin loaded after MrDocs first registered something
     may be gone.
 
     @par Thread Safety
-    Safe against concurrent registrations. No generator or transform of
-    a plugin may be running.
+    Not thread-safe. No generator or transform of a plugin may be
+    running, and no other call to @ref loadPlugins may be in progress.
 */
 MRDOCS_DECL
 void

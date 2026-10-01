@@ -1,0 +1,11 @@
+addons-supplemental:
+  - addons
+generator: xml
+multipage: false
+warn-if-undocumented: false
+source-root: .
+file-patterns:
+  - undocumented.cpp
+transform-options:
+  brief-checker:
+    suffix: checked by the script

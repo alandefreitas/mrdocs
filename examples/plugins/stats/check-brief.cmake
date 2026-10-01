@@ -8,10 +8,15 @@
 # Official repository: https://github.com/cppalliance/mrdocs
 #
 
-# Fail unless the XML output holds the placeholder brief that the plugin's
-# transform gives the symbols nobody documented. Run with -DXML=<file>.
+# Fail unless the XML output holds the brief that the plugin's transform gives
+# the symbols nobody documented, or the text a later transform made of it.
+# Run with -DXML=<file>; -DBRIEF=<text> names the expected text and defaults
+# to the placeholder the plugin writes.
+if (NOT DEFINED BRIEF)
+    set(BRIEF "Undocumented.")
+endif ()
 file(READ "${XML}" content)
-string(FIND "${content}" "<literal>Undocumented.</literal>" position)
+string(FIND "${content}" "<literal>${BRIEF}</literal>" position)
 if (position EQUAL -1)
-    message(FATAL_ERROR "the brief the transform adds is missing from ${XML}")
+    message(FATAL_ERROR "the brief \"${BRIEF}\" is missing from ${XML}")
 endif ()

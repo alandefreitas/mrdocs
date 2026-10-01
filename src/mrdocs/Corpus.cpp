@@ -1010,6 +1010,13 @@ lookupCacheSet(
     lookupCache_[contextId][std::string(name)] = info;
 }
 
+void
+Corpus::
+invalidateLookupCache() noexcept
+{
+    lookupCache_.clear();
+}
+
 std::vector<SymbolID>
 getParents(Corpus const& C, Symbol const& I)
 {
