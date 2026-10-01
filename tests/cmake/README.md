@@ -4,7 +4,7 @@ An out-of-tree project that consumes an installed MrDocs the way a user does: `f
 
 ## The plugin and the toolchain it was built with
 
-`src/plugin.cpp` is built twice in the CI jobs that run on Linux with gcc or clang, except the ones with a sanitizer or coverage, and the main gcc job, whose MrDocs is linked with `-static` and can't load plugins.
+`src/plugin.cpp` is built twice in the CI jobs that run on Linux with gcc or clang, except the ones with a sanitizer or coverage, and the main gcc job, which runs in the `ubuntu:20.04` container of the Linux release. That job still builds `consumer_plugin` and loads it, and the Releases workflow builds the plugin again from the installed package in `ubuntu:20.04`, `ubuntu:22.04` and `debian:11` containers (`.github/scripts/smoke-test-linux-package.sh`).
 
 - `consumer_plugin` is built by the compiler of the project, which is the one that built MrDocs. `consumer-plugin-loads` loads it.
 - `consumer_plugin_foreign` is the same file built by a compiler of the other family, and `consumer-plugin-foreign-compiler-loads` loads it. A gcc-built MrDocs loads a plugin built by clang, and a clang-built MrDocs loads one built by gcc.

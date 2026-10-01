@@ -17,8 +17,9 @@ set(MRDOCS_BUILT_BUNDLED "@MRDOCS_DO_BUNDLE_DEPENDENCIES@")
 set(MRDOCS_BUILT_REEXPORT_DEPENDENCIES "@MRDOCS_DO_REEXPORT_DEPENDENCIES@")
 set(MRDOCS_BUILT_CXX_COMPILER_ID "@CMAKE_CXX_COMPILER_ID@")
 set(MRDOCS_BUILT_CXX_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@")
-# Whether this installation can load plugins: not a statically linked or
-# shared build. Building a plugin against an installation needs only
+# Whether this installation can load plugins: not a MrDocs linked with
+# -static, which cannot load a shared module, and not a shared build. The Linux
+# release is neither. Building a plugin against an installation needs only
 # mrdocs::plugin.
 set(MRDOCS_BUILT_PLUGIN_MODULES "@MRDOCS_PLUGIN_MODULES_SUPPORTED@")
 
