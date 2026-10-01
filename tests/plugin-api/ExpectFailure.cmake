@@ -12,7 +12,8 @@
 # failed and its output says why: checking the output alone would also pass
 # a run that reported the plugin and went on. Arguments, as -D definitions:
 # MRDOCS, the executable; CONFIG and OUTPUT, for its --config and --output;
-# ADDONS, if set, for its --addons-supplemental; BUILTIN_ARGS, the in-tree
+# ADDONS, if set, for its --addons-supplemental; GENERATOR, if set, for its
+# --generator; BUILTIN_ARGS, the in-tree
 # directory flags with | between them, since a ; would split the definition
 # that carries them; EXPECTED, a regular expression the output has to match.
 
@@ -25,12 +26,17 @@ set(addons_args)
 if (ADDONS)
     set(addons_args "--addons-supplemental=${ADDONS}")
 endif ()
+set(generator_args)
+if (GENERATOR)
+    set(generator_args "--generator=${GENERATOR}")
+endif ()
 execute_process(
     COMMAND "${MRDOCS}"
         "--config=${CONFIG}"
         "--output=${OUTPUT}"
         ${builtin_args}
         ${addons_args}
+        ${generator_args}
     RESULT_VARIABLE status
     OUTPUT_VARIABLE output
     ERROR_VARIABLE output)

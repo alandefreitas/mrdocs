@@ -21,7 +21,10 @@
 #                 provides, one without the entry point, one with an
 #                 undefined symbol (Linux and macOS only), and one whose
 #                 dependency is reachable only through PATH (Windows only,
-#                 also run from a non-ASCII addon root)
+#                 also run from a non-ASCII addon root); wrapper/ holds
+#                 plugins written with the C++ wrapper (mrdocs/plugin.hpp),
+#                 run to check values, iteration, references and the errors
+#                 the wrapper turns exceptions into
 add_subdirectory(unit)
 add_subdirectory(golden)
 # Benchmarks are custom targets, not CTest tests; see benchmarks/README.md.

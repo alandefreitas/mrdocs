@@ -847,6 +847,21 @@ mrdocs_host_info(
     size_t capacity,
     size_t* length);
 
+/* Get the reason the last function that failed gave.
+
+   Every function that fails records why, and the next call to a function
+   replaces the record: one that succeeds leaves none. This function does not
+   replace it, so the plugin reads the reason right after the failure, before
+   it makes another call. The text is filled in like the string of
+   @ref mrdocs_get_string_utf8, and is empty when there is no reason.
+   @ref mrdocs_set_error does not record one.
+
+   @since ABI 1
+*/
+MRDOCS_PLUGIN_API mrdocs_status MRDOCS_PLUGIN_CALL
+mrdocs_last_failure(
+    mrdocs_env* env, char* buffer, size_t capacity, size_t* length);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

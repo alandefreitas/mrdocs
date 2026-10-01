@@ -533,6 +533,34 @@ contextInit(mrdocs_env* env)
     BOOST_TEST(mrdocs_create_int64(env, 1, &other) == MRDOCS_STATUS_OK);
     BOOST_TEST(mrdocs_object_set(env, value, "generator", other) ==
         MRDOCS_STATUS_READ_ONLY);
+
+    // The reason of the failure is there to read, and reading it does not
+    // clear it. A call that succeeds leaves none.
+    char reason[128] = {};
+    size_t reasonLength = 0;
+    BOOST_TEST(mrdocs_last_failure(
+        env, nullptr, 0, &reasonLength) == MRDOCS_STATUS_OK);
+    BOOST_TEST(reasonLength > 0);
+    BOOST_TEST(mrdocs_last_failure(
+        env, reason, sizeof reason, &reasonLength) == MRDOCS_STATUS_OK);
+    BOOST_TEST(std::string(reason).find("read-only") != std::string::npos);
+    BOOST_TEST(std::string(reason).size() == reasonLength);
+    BOOST_TEST(mrdocs_last_failure(
+        env, reason, sizeof reason, &reasonLength) == MRDOCS_STATUS_OK);
+    BOOST_TEST(reasonLength > 0);
+    BOOST_TEST(mrdocs_last_failure(nullptr, reason, sizeof reason, nullptr) ==
+        MRDOCS_STATUS_INVALID_ARG);
+    // A bad buffer is refused without replacing the reason being read.
+    BOOST_TEST(mrdocs_last_failure(env, nullptr, 16, &reasonLength) ==
+        MRDOCS_STATUS_INVALID_ARG);
+    BOOST_TEST(mrdocs_last_failure(
+        env, reason, sizeof reason, &reasonLength) == MRDOCS_STATUS_OK);
+    BOOST_TEST(std::string(reason).find("read-only") != std::string::npos);
+    BOOST_TEST(mrdocs_create_int64(env, 1, &other) == MRDOCS_STATUS_OK);
+    BOOST_TEST(mrdocs_last_failure(
+        env, reason, sizeof reason, &reasonLength) == MRDOCS_STATUS_OK);
+    BOOST_TEST(reasonLength == 0u);
+    BOOST_TEST(std::string(reason).empty());
     mrdocs_ref ref = nullptr;
     BOOST_TEST(mrdocs_ref_create(env, value, &ref) ==
         MRDOCS_STATUS_INVALID_ARG);
@@ -549,8 +577,13 @@ contextInit(mrdocs_env* env)
     mrdocs_value holder = nullptr;
     BOOST_TEST(mrdocs_create_object(env, &holder) == MRDOCS_STATUS_OK);
     BOOST_TEST(mrdocs_ref_create(env, holder, &ref) == MRDOCS_STATUS_OK);
+    BOOST_TEST(mrdocs_object_set(env, params, "k", other) ==
+        MRDOCS_STATUS_READ_ONLY);
     BOOST_TEST(mrdocs_ref_delete(env, ref) == MRDOCS_STATUS_OK);
     ref = nullptr;
+    BOOST_TEST(mrdocs_last_failure(
+        env, reason, sizeof reason, &reasonLength) == MRDOCS_STATUS_OK);
+    BOOST_TEST(reasonLength == 0u);
     BOOST_TEST(mrdocs_object_set(env, holder, "config", value) ==
         MRDOCS_STATUS_INVALID_ARG);
     BOOST_TEST(mrdocs_object_set(env, holder, "params", params) ==

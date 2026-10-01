@@ -149,3 +149,6 @@ if (WIN32)
     set_tests_properties(mrdocs-plugin-non-ascii-path-fails PROPERTIES
         ENVIRONMENT "PATH=${path_with_helper}")
 endif ()
+
+# The C++ wrapper of the plugin API, compiled into plugins of its own.
+add_subdirectory(wrapper)

@@ -6,10 +6,11 @@ this directory holds one of each:
 - plugin.cpp is the plugin. It registers a generator, `stats`, which writes one
   line per symbol kind saying how many symbols of that kind the corpus has,
   and a last line saying how many symbols have a brief; and a transform that
-  gives a symbol without a brief a placeholder one. It uses the C interface
-  of `mrdocs/plugin.h` directly.
+  gives an undocumented symbol a placeholder brief. It
+  uses the C++ wrapper of `mrdocs/plugin.hpp`, which sits on the C interface
+  of `mrdocs/plugin.h`.
 - sample-project/ is the project it is run on: a little C++ to document, one
-  function of it left undocumented for the transform to fill in, a
+  function of it left undocumented for the transform to fill in, an
   mrdocs.yml that asks for `generator: stats`, and stats.txt, what the
   generator writes for that input.
 
