@@ -32,6 +32,7 @@
 ** xref:extensions/corpus-transforms.adoc[Corpus Transforms]
 ** xref:extensions/script-generators.adoc[Script Generators]
 ** xref:extensions/plugins.adoc[Plugins]
+** xref:extensions/plugin-api-reference.adoc[C API Reference]
 ** xref:extensions/antora.adoc[Antora Extensions]
 ** xref:extensions/as-library.adoc[Mr.Docs as a Library]
 ** xref:extensions/script-engines.adoc[Script Engines]

@@ -1,0 +1,45 @@
+// Auto-generated from include/mrdocs/plugin.h.
+// Run `python utils/docs/generate_plugin_api_reference.py --update` to regenerate.
+// Do not edit by hand; CI checks this file matches the header.
+
+The header describes ABI 1. Each row names the ABI version a function first appeared in: a plugin built for ABI _n_ can call it on every Mr.Docs that provides ABI _n_ or later.
+
+[cols="3,1,6",options="header"]
+|===
+|Function |Since |Summary
+
+|`mrdocs_register_generator` |ABI 1 |Register a generator.
+|`mrdocs_register_transform` |ABI 1 |Register a corpus transform.
+|`mrdocs_get_corpus` |ABI 1 |Get the corpus.
+|`mrdocs_get_config` |ABI 1 |Get the configuration, as an object keyed by option name in camelCase.
+|`mrdocs_get_params` |ABI 1 |Get the parameters of the callback.
+|`mrdocs_get_output_dir` |ABI 1 |Get the directory a generator writes into.
+|`mrdocs_corpus_find` |ABI 1 |Find a symbol by its id.
+|`mrdocs_corpus_lookup` |ABI 1 |Find a symbol by its qualified name, as `corpus.lookup` does in a script.
+|`mrdocs_get_kind` |ABI 1 |Get the kind of a value.
+|`mrdocs_get_bool` |ABI 1 |Get a boolean.
+|`mrdocs_get_int64` |ABI 1 |Get an integer.
+|`mrdocs_get_string_utf8` |ABI 1 |Get a string as UTF-8.
+|`mrdocs_object_get` |ABI 1 |Get the value of a property.
+|`mrdocs_object_set` |ABI 1 |Set a property.
+|`mrdocs_object_has` |ABI 1 |Tell whether an object has a property.
+|`mrdocs_object_visit` |ABI 1 |Call `callback` for each property of an object, in the order the object keeps them, until it returns false.
+|`mrdocs_array_length` |ABI 1 |Get the number of elements of an array.
+|`mrdocs_array_get` |ABI 1 |Get an element.
+|`mrdocs_array_push` |ABI 1 |Append an element.
+|`mrdocs_create_null` |ABI 1 |Make a `null`.
+|`mrdocs_create_bool` |ABI 1 |Make a boolean.
+|`mrdocs_create_int64` |ABI 1 |Make an integer.
+|`mrdocs_create_string` |ABI 1 |Make a string from UTF-8 text.
+|`mrdocs_create_object` |ABI 1 |Make an empty object.
+|`mrdocs_create_array` |ABI 1 |Make an empty array.
+|`mrdocs_scope_open` |ABI 1 |Open a scope.
+|`mrdocs_scope_close` |ABI 1 |Close a scope, releasing the handles made since it was opened.
+|`mrdocs_ref_create` |ABI 1 |Make a reference to a value, which keeps the value past the callback.
+|`mrdocs_ref_get` |ABI 1 |Get a handle, valid in the current callback, to the value a reference holds.
+|`mrdocs_ref_delete` |ABI 1 |Delete a reference.
+|`mrdocs_set_error` |ABI 1 |Report an error.
+|`mrdocs_log` |ABI 1 |Write a message to MrDocs's log, subject to the user's log level.
+|`mrdocs_host_info` |ABI 1 |Get facts about the MrDocs that loaded the plugin.
+|`mrdocs_last_failure` |ABI 1 |Get the reason the last function that failed gave.
+|===

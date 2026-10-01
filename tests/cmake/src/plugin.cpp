@@ -81,7 +81,7 @@ writeProbe(mrdocs_env* env)
 }
 
 // No exception leaves a callback: it becomes the error of the call.
-mrdocs_status
+mrdocs_status MRDOCS_PLUGIN_CALL
 buildProbe(mrdocs_env* env, void*)
 {
     try

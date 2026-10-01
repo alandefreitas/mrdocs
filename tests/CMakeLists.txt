@@ -16,7 +16,15 @@
 #                 nothing else (mrdocs-plugin-exports), a module
 #                 library that calls every function of it, where building
 #                 them is the test (mrdocs-plugin-api-c-header,
-#                 mrdocs-plugin-api-link-test), and libraries MrDocs has to
+#                 mrdocs-plugin-abi-baseline-<n>, a C file of static
+#                 assertions on the layout and signatures of ABI <n>,
+#                 mrdocs-plugin-api-link-test, and on MSVC the same two
+#                 files built with /Gv, mrdocs-plugin-abi-baseline-vectorcall
+#                 and mrdocs-plugin-api-link-test-vectorcall, which fail on a
+#                 function or callback that lacks MRDOCS_PLUGIN_CALL; the
+#                 configure step also compiles AbiBaseline.c against copies of
+#                 the header with one ABI change each and fails if the
+#                 compiler accepts one), and libraries MrDocs has to
 #                 refuse to load: one built for an ABI newer than MrDocs
 #                 provides, one with an undefined symbol (Linux and macOS
 #                 only), and one whose dependency is reachable only through

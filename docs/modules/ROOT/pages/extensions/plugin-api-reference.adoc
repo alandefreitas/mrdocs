@@ -1,0 +1,8 @@
+= Plugin C API Reference
+:url-header: https://github.com/cppalliance/mrdocs/blob/{page-origin-refname}/include/mrdocs/plugin.h
+
+This page lists the functions of the C interface that Mr.Docs provides to xref:extensions/plugins.adoc[plugins], with the ABI version each first appeared in. The two functions a plugin provides itself, `mrdocs_plugin_init` and `mrdocs_plugin_abi_version`, are defined by `MRDOCS_PLUGIN_INIT` and are described in the xref:extensions/plugins.adoc#entry-point[entry point] section of the Plugins page. The interface is declared in {url-header}[`mrdocs/plugin.h`^], and the table is generated from that header, so it always names the functions the header declares for plugins to call. The xref:extensions/plugins.adoc#versioning[versioning] section of the Plugins page explains how the ABI version works. A plugin that targets ABI _n_ can call every function listed up to _n_ on any Mr.Docs that provides ABI _n_ or later.
+
+The doc comment of each function in the header is the full description: what the function does, which statuses it returns, and who owns the memory it hands out.
+
+include::partial$plugin-api-reference.adoc[]
