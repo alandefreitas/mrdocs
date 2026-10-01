@@ -84,6 +84,11 @@ jobs:
       - name: Check bootstrap options partial is up to date
         run: python3 ./utils/docs/generate_bootstrap_options.py --check
 
+      - name: Check plugin C API reference against plugin.h
+        run: |
+          python3 ./utils/docs/generate_plugin_api_reference.py --self-test
+          python3 ./utils/docs/generate_plugin_api_reference.py --check
+
       # When the Coverage matrix entry was skipped because the develop cache is
       # warm, fetch develop's LCOV report and re-upload it tagged with the PR's
       # commit SHA. Codecov sees zero patch lines and unchanged project totals,

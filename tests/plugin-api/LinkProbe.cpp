@@ -18,24 +18,26 @@
 // Nothing runs, and there is no ctest entry: the object is linked whole, so
 // every function it names has to resolve. Elsewhere a module library may
 // leave symbols to the loader, so what this checks there is that the header
-// compiles as C++ and that a library that links mrdocs::plugin builds.
+// compiles as C++ and that a library that links mrdocs::plugin builds. The
+// callbacks name MRDOCS_PLUGIN_CALL as a plugin does, so that the MSVC build
+// that compiles this file with /Gv (see CMakeLists.txt) accepts them.
 
 #include <mrdocs/plugin.h>
 
 namespace {
 
-bool
+bool MRDOCS_PLUGIN_CALL
 visit(mrdocs_env*, char const*, mrdocs_value, void*)
 {
     return true;
 }
 
-void
+void MRDOCS_PLUGIN_CALL
 release(void*)
 {
 }
 
-mrdocs_status
+mrdocs_status MRDOCS_PLUGIN_CALL
 run(mrdocs_env*, void*)
 {
     return MRDOCS_STATUS_OK;
