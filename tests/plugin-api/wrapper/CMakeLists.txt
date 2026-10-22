@@ -62,28 +62,17 @@ function (mrdocs_add_wrapper_run name generator)
     if (NOT ARG_ADDONS)
         set(ARG_ADDONS "${MRDOCS_WRAPPER_ADDONS}")
     endif ()
+    set(arguments
+        "--config=${CMAKE_CURRENT_SOURCE_DIR}/project/${ARG_CONFIG}"
+        --generator=${generator}
+        "--output=${CMAKE_CURRENT_BINARY_DIR}/${name}-output"
+        ${MRDOCS_BUILTIN_DIR_ARGS}
+        "--addons-supplemental=${ARG_ADDONS}"
+        --log-level=warn)
     if (ARG_FAILS)
-        add_test(NAME ${name}
-            COMMAND ${CMAKE_COMMAND}
-                "-DMRDOCS=$<TARGET_FILE:mrdocs>"
-                "-DCONFIG=${CMAKE_CURRENT_SOURCE_DIR}/project/${ARG_CONFIG}"
-                "-DGENERATOR=${generator}"
-                "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/${name}-output"
-                "-DADDONS=${ARG_ADDONS}"
-                "-DBUILTIN_ARGS=${MRDOCS_PLUGIN_TEST_DIR_ARGS}"
-                "-DEXPECTED=${ARG_FAILS}"
-                -P "${CMAKE_CURRENT_SOURCE_DIR}/../ExpectFailure.cmake")
+        mrdocs_add_checked_run(${name} failure "${ARG_FAILS}" ${arguments})
     else ()
-        add_test(NAME ${name}
-            COMMAND
-                mrdocs
-                "--config=${CMAKE_CURRENT_SOURCE_DIR}/project/${ARG_CONFIG}"
-                --generator=${generator}
-                "--output=${CMAKE_CURRENT_BINARY_DIR}/${name}-output"
-                ${MRDOCS_BUILTIN_DIR_ARGS}
-                "--addons-supplemental=${ARG_ADDONS}"
-                --log-level=warn
-        )
+        add_test(NAME ${name} COMMAND mrdocs ${arguments})
     endif ()
 endfunction ()
 
@@ -109,30 +98,21 @@ target_compile_features(mrdocs-plugin-wrapper-ranges PRIVATE cxx_std_20)
 # type. A failed call to MrDocs throws an Error that names the function and
 # the status. When a callback sets an error and then throws, the first
 # message is the one the run reports.
-mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-throws-std wrapper-throws-std)
-set_tests_properties(mrdocs-plugin-wrapper-throws-std PROPERTIES
-    PASS_REGULAR_EXPRESSION "the generator gave up")
-mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-throws-other wrapper-throws-other)
-set_tests_properties(mrdocs-plugin-wrapper-throws-other PROPERTIES
-    PASS_REGULAR_EXPRESSION "unexpected exception")
-mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-throws-empty wrapper-throws-empty)
-set_tests_properties(mrdocs-plugin-wrapper-throws-empty PROPERTIES
-    PASS_REGULAR_EXPRESSION "an exception with no message")
-mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-bad-call wrapper-bad-call)
-set_tests_properties(mrdocs-plugin-wrapper-bad-call PROPERTIES
-    PASS_REGULAR_EXPRESSION
-        "mrdocs_get_string_utf8 failed: type_mismatch")
-mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-host-reason wrapper-host-reason)
-set_tests_properties(mrdocs-plugin-wrapper-host-reason PROPERTIES
-    PASS_REGULAR_EXPRESSION
-        "mrdocs_object_set failed: read_only: cannot set \"a\": this is a read-only view")
-mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-refusal wrapper-refusal)
-set_tests_properties(mrdocs-plugin-wrapper-refusal PROPERTIES
-    PASS_REGULAR_EXPRESSION
-        "Value::set failed: invalid_arg: the text is null")
-mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-first-error wrapper-first-error)
+mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-throws-std wrapper-throws-std
+    FAILS "the generator gave up")
+mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-throws-other wrapper-throws-other
+    FAILS "unexpected exception")
+mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-throws-empty wrapper-throws-empty
+    FAILS "an exception with no message")
+mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-bad-call wrapper-bad-call
+    FAILS "mrdocs_get_string_utf8 failed: type_mismatch")
+mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-host-reason wrapper-host-reason
+    FAILS "mrdocs_object_set failed: read_only: cannot set \"a\": this is a read-only view")
+mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-refusal wrapper-refusal
+    FAILS "Value::set failed: invalid_arg: the text is null")
+mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-first-error wrapper-first-error
+    FAILS "the first message")
 set_tests_properties(mrdocs-plugin-wrapper-first-error PROPERTIES
-    PASS_REGULAR_EXPRESSION "the first message"
     FAIL_REGULAR_EXPRESSION "the second message")
 
 # A message at the error level makes the run exit with a failure status once
@@ -142,12 +122,9 @@ mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-logged-error wrapper-logged-error
 
 # The same holds for a transform, which runs before any generator.
 mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-transform-throws wrapper-values
-    CONFIG failing-transform.yml)
-set_tests_properties(mrdocs-plugin-wrapper-transform-throws PROPERTIES
-    PASS_REGULAR_EXPRESSION "the transform gave up")
+    CONFIG failing-transform.yml FAILS "the transform gave up")
 
 # And for the entry point defined with MRDOCS_PLUGIN_INIT_CPP.
 mrdocs_add_wrapper_run(mrdocs-plugin-wrapper-init-throws wrapper-values
-    ADDONS "${MRDOCS_WRAPPER_INIT_ERROR_ADDONS}")
-set_tests_properties(mrdocs-plugin-wrapper-init-throws PROPERTIES
-    PASS_REGULAR_EXPRESSION "the entry point gave up")
+    ADDONS "${MRDOCS_WRAPPER_INIT_ERROR_ADDONS}"
+    FAILS "the entry point gave up")

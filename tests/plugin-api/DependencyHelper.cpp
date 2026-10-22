@@ -8,13 +8,24 @@
 // Official repository: https://github.com/cppalliance/mrdocs
 //
 
-// A shared library a plugin depends on, kept in a directory that is neither
-// the plugins directory nor the one holding the `mrdocs` executable. The
-// ctest entry puts that directory in PATH, which the Windows loader must not
-// consult when it resolves a plugin's dependencies.
+// A shared library a plugin depends on, built twice by the CMake files that
+// use it. In one build it is kept in a directory that is neither the
+// directory of the plugin, nor the subdirectory named after it, nor the one
+// holding the `mrdocs` executable, and the ctest entry puts that directory in
+// PATH, which the Windows loader must not consult when it resolves a plugin's
+// dependencies. In the other build it is kept in the subdirectory named after
+// the plugin, where the loader must find it. Where it sits is decided by the
+// CMake target. It returns a value only this library knows, so that a plugin
+// that calls it can tell the call reached this library.
 
-extern "C" __declspec(dllexport) int
+#ifdef _WIN32
+#    define MRDOCS_TEST_EXPORT __declspec(dllexport)
+#else
+#    define MRDOCS_TEST_EXPORT __attribute__((__visibility__("default")))
+#endif
+
+extern "C" MRDOCS_TEST_EXPORT int
 mrdocs_test_dependency_helper()
 {
-    return 0;
+    return 42;
 }

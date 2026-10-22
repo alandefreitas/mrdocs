@@ -1,0 +1,9 @@
+# The project the C plugin runs on. The transform option gives the transform
+# something to read; the generator to run is chosen on the command line.
+source-root: .
+file-patterns:
+  - sample.cpp
+warn-if-undocumented: false
+transform-options:
+  c-transform:
+    tag: made by the C transform

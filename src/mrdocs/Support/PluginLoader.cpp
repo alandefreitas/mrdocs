@@ -98,29 +98,48 @@ utf8Path(std::string_view const utf8)
         reinterpret_cast<char8_t const*>(utf8.data()), utf8.size()));
 }
 
+// Return `path` as UTF-8 text, the encoding every path of the addon roots
+// and the plugins is kept in. path::string() would give the code page of
+// the system on Windows, and throw for a character it lacks.
+std::string
+utf8String(std::filesystem::path const& path)
+{
+    std::u8string const text = path.u8string();
+    return std::string(
+        reinterpret_cast<char const*>(text.data()), text.size());
+}
+
 // Return the libraries directly under `dir`, ordered by name.
 std::vector<std::string>
 scanPluginDir(std::string_view dir)
 {
+    namespace fs = std::filesystem;
     std::vector<std::string> found;
-    Expected<void> const scanned = forEachFile(dir, false,
-        [&found](std::string_view path) -> Expected<void>
+    std::error_code iterEc;
+    fs::directory_iterator const end{};
+    for (fs::directory_iterator it(utf8Path(dir), iterEc);
+         !iterEc && it != end;
+         it.increment(iterEc))
+    {
+        // Everything with a library name that is not a directory is a
+        // plugin, including a symbolic link whose target is missing, so the
+        // loader refuses it by path instead of the run skipping it.
+        std::error_code typeEc;
+        if (!it->is_directory(typeEc) &&
+            isLibraryName(utf8String(it->path().filename())))
         {
-            if (files::isRegularFile(path) &&
-                isLibraryName(files::getFileName(path)))
-            {
-                found.emplace_back(path);
-            }
-            return {};
-        });
-    if (!scanned)
+            found.push_back(
+                files::makePosixStyle(utf8String(it->path())));
+        }
+    }
+    if (iterEc)
     {
         // Not a failure of the run: the directory may hold nothing MrDocs
         // wanted. Saying so beats leaving a plugin the user installed out
         // of the run without a word.
         report::warn(
             "The plugin directory \"{}\" could not be read: {}",
-            dir, scanned.error().reason());
+            dir, iterEc.message());
     }
     std::ranges::sort(found);
     return found;
@@ -199,10 +218,10 @@ systemMessage(DWORD const code)
 
 #endif
 
-// A loaded library. Libraries are opened for the life of the process and
-// never closed: the generators and transforms a plugin installs live in
-// registries that are destroyed after main returns, and their code has to
-// still be mapped when that happens.
+// A loaded library. A plugin is opened for the life of the process and never
+// closed: the generators and transforms it installs live in registries that
+// are destroyed after main returns, and their code has to still be mapped
+// when that happens.
 using LibraryHandle = void*;
 
 // Open the library at `path`. Every symbol it needs is resolved now, so a
@@ -282,10 +301,10 @@ findSymbol(LibraryHandle library, char const* symbol)
 #endif
 }
 
-// Look a plugin entry point up by name, as a function of type `Fn`.
-template <class Fn>
-Expected<Fn>
-findEntryPoint(
+// Return the address of the entry point `symbol` of the plugin `library`
+// loaded from `path`, or an error if it does not export it.
+Expected<void*>
+requireEntryPoint(
     LibraryHandle library,
     char const* symbol,
     std::string_view path)
@@ -293,7 +312,7 @@ findEntryPoint(
     void* const address = findSymbol(library, symbol);
     MRDOCS_CHECK(address, formatError(
         "the plugin \"{}\" does not export {}", path, symbol));
-    return reinterpret_cast<Fn>(address);
+    return address;
 }
 
 // The type of the function a plugin exports to report the ABI it targets.
@@ -308,13 +327,11 @@ using PluginAbiVersionFn = std::uint32_t (MRDOCS_PLUGIN_CALL *)();
 // plugin's symbols (see openLibrary).
 Expected<void>
 checkAbiVersion(
-    LibraryHandle library,
+    void* abiFunction,
     std::string_view path)
 {
-    MRDOCS_TRY(PluginAbiVersionFn const abiVersion,
-        findEntryPoint<PluginAbiVersionFn>(
-            library, "mrdocs_plugin_abi_version", path));
-    std::uint32_t const version = abiVersion();
+    std::uint32_t const version =
+        reinterpret_cast<PluginAbiVersionFn>(abiFunction)();
     MRDOCS_CHECK(version != 0, formatError(
         "plugin \"{}\" reports ABI 0, which no MrDocs provides", path));
     MRDOCS_CHECK(version <= MRDOCS_PLUGIN_ABI_VERSION, formatError(
@@ -324,7 +341,11 @@ checkAbiVersion(
 }
 
 // Load one library, and initialize its plugin unless an earlier call did, and
-// add its transforms to the pipeline of the registry.
+// add its transforms to the pipeline of the registry. Every library in a
+// plugins directory is a plugin, so one that cannot be opened, lacks an entry
+// point or fails to initialize is refused. The ABI is checked before the
+// initialization function is required, so a plugin for a newer ABI is told so
+// even when that ABI renamed the function.
 Expected<void>
 loadPlugin(
     std::string const& path,
@@ -332,10 +353,13 @@ loadPlugin(
     ExtensionRegistry& registry)
 {
     MRDOCS_TRY(LibraryHandle const library, openLibrary(path));
-    MRDOCS_TRY(checkAbiVersion(library, path));
-    MRDOCS_TRY(PluginInitFn const init,
-        findEntryPoint<PluginInitFn>(library, "mrdocs_plugin_init", path));
-    MRDOCS_TRY(initializePlugin(path, init, config, registry));
+    MRDOCS_TRY(void* const abiFunction, requireEntryPoint(
+        library, "mrdocs_plugin_abi_version", path));
+    MRDOCS_TRY(checkAbiVersion(abiFunction, path));
+    MRDOCS_TRY(void* const initFunction, requireEntryPoint(
+        library, "mrdocs_plugin_init", path));
+    MRDOCS_TRY(initializePlugin(
+        path, reinterpret_cast<PluginInitFn>(initFunction), config, registry));
     report::info("Loaded plugin \"{}\"", path);
     return {};
 }

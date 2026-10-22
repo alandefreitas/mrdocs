@@ -107,6 +107,11 @@ struct PluginLoaderTest
         writeFile(files::appendPath(dir, "README.md"));
         writeFile(files::appendPath(dir, "stats.lib"));
         BOOST_TEST(files::createDirectory(libraryPath(dir, "nested")).has_value());
+        // The suffix has to be the last part of the name: a version or text
+        // after it, or a version number before it on Linux, does not make a
+        // library a plugin.
+        writeFile(libraryPath(dir, "libversioned") + ".1");
+        writeFile(libraryPath(dir, "debug") + ".debug");
 
         std::vector<std::string> const found = discoverPlugins({ root });
         BOOST_TEST(found.size() == 1);
@@ -247,6 +252,11 @@ struct PluginLoaderTest
         writeFile(files::appendPath(dir, "library.dylib"));
 
         BOOST_TEST(discoverPlugins({ root }).size() == 2);
+
+        // The version of a library comes before the suffix on macOS, so a
+        // versioned name is a plugin there.
+        writeFile(files::appendPath(dir, "libdep.1.dylib"));
+        BOOST_TEST(discoverPlugins({ root }).size() == 3);
 #endif
     }
 
