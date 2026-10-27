@@ -146,6 +146,41 @@ jobs:
           package-artifact: false
           ctest-timeout: 9000
 
+      # A plugin is built against the same standard library as the MrDocs that
+      # loads it, and the compiler does not matter. On Linux the consumer test
+      # builds its plugin a second time with the other compiler family (clang
+      # for a gcc build, g++ for a clang build) and loads it into the MrDocs
+      # built above; see tests/cmake/README.md. GCC and Clang both use
+      # libstdc++ there, which is what lets the plugin load. The compiler
+      # comes from the distribution packages, since only the plugin uses it;
+      # for a clang build it is the g++ of the GCC installation the row's
+      # clang selects (14 on ubuntu:24.04, 15 on ubuntu:26.04), read from
+      # `$CXX -v`, so that the plugin sees the libstdc++ headers MrDocs was
+      # built against.
+      # Builds with a sanitizer or coverage are left out, as for the rest of
+      # the consumer test, and so is the main gcc build, which is linked with
+      # -static and can't load plugins.
+      - name: Install The Other Compiler Family (Linux)
+        if: ${{ runner.os == 'Linux' && !matrix.coverage && !matrix.bootstrap-sanitizer && ((matrix.compiler == 'gcc' && !matrix.is-main) || matrix.compiler == 'clang') }}
+        env:
+          CXX: ${{ steps.setup-cpp.outputs.cxx || matrix.cxx }}
+        run: |
+          if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+          $SUDO apt-get update
+          if [ "${{ matrix.compiler }}" = "gcc" ]; then
+            $SUDO apt-get install -y --no-install-recommends clang
+            echo "MRDOCS_FOREIGN_CXX=$(command -v clang++)" >> "$GITHUB_ENV"
+          else
+            gcc_dir=$("$CXX" -v -E -x c++ /dev/null 2>&1 | sed -n 's/^Selected GCC installation: //p')
+            gcc_ver=$(basename "$gcc_dir")
+            if [ -z "$gcc_ver" ]; then
+              echo "::error::$CXX reports no selected GCC installation"
+              exit 1
+            fi
+            $SUDO apt-get install -y --no-install-recommends "g++-$gcc_ver"
+            echo "MRDOCS_FOREIGN_CXX=$(command -v "g++-$gcc_ver")" >> "$GITHUB_ENV"
+          fi
+
       # Consume the freshly installed mrdocs through its exported CMake package,
       # from an out-of-tree project (tests/cmake): find_package(mrdocs), link
       # mrdocs::mrdocs-core, and run the installed binary via MRDOCS_EXECUTABLE.
@@ -176,7 +211,7 @@ jobs:
           ldflags: ${{ env.BOOTSTRAP_LDFLAGS }}
           generator: Ninja
           build-type: ${{ matrix.build-type }}
-          extra-args: -D mrdocs_ROOT=${{ env.MRDOCS_PREFIX }}
+          extra-args: -D mrdocs_ROOT=${{ env.MRDOCS_PREFIX }} -D MRDOCS_CONSUMER_FOREIGN_CXX=${{ env.MRDOCS_FOREIGN_CXX }}
           run-tests: true
           install: false
 

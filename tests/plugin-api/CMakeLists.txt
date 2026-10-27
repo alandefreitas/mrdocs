@@ -94,6 +94,66 @@ mrdocs_add_refused_plugin(null-tag NullTag.cpp
 mrdocs_add_refused_plugin(missing-main MissingMain.cpp
     "does not export mrdocs_plugin_main")
 
+# An entry point that fails with a message, and one that fails without: the
+# first run names the reason, the second only says the plugin failed.
+mrdocs_add_refused_plugin(main-error MainError.cpp
+    "the plugin \".*mrdocs-plugin-main-error.*\" failed: the entry point gave up")
+mrdocs_add_refused_plugin(main-false MainFalse.cpp
+    "the plugin \".*mrdocs-plugin-main-false.*\" reported a failure")
+
+# A library with none of the entry points, as a dependency of a plugin would
+# be if it were put in the plugins directory instead of in the subdirectory
+# named after the plugin.
+mrdocs_add_refused_plugin(not-a-plugin NotAPlugin.cpp
+    "the plugin \".*mrdocs-plugin-not-a-plugin.*\" does not export mrdocs_plugin_build_id")
+
+# The same generator id in two plugins: the one that loads second is refused.
+# The libraries load in name order.
+set(MRDOCS_DUPLICATE_ADDONS "${CMAKE_CURRENT_BINARY_DIR}/duplicate-generator")
+foreach (tag a b)
+    mrdocs_add_plugin_module(mrdocs-plugin-duplicate-${tag} IdGenerator.cpp
+        ADDONS "${MRDOCS_DUPLICATE_ADDONS}")
+    target_compile_definitions(mrdocs-plugin-duplicate-${tag} PRIVATE
+        "MRDOCS_TEST_GENERATOR_ID=\"duplicate\"")
+endforeach ()
+mrdocs_add_plugin_failure_test(mrdocs-plugin-duplicate-generator-refused
+    "${MRDOCS_DUPLICATE_ADDONS}"
+    "the plugin \".*mrdocs-plugin-duplicate-b.*\" failed: generator id=\"duplicate\" already exists")
+
+# A generator id that ships with MrDocs.
+mrdocs_add_refused_plugin(builtin-generator IdGenerator.cpp
+    "the plugin \".*mrdocs-plugin-builtin-generator.*\" failed: generator id=\"xml\" already exists")
+target_compile_definitions(mrdocs-plugin-builtin-generator PRIVATE
+    "MRDOCS_TEST_GENERATOR_ID=\"xml\"")
+
+# A plugins entry that is a regular file, not a directory. It holds no
+# plugin, so the run goes on after saying the directory could not be read.
+set(MRDOCS_FILE_ADDONS "${CMAKE_CURRENT_BINARY_DIR}/plugins-is-a-file")
+file(MAKE_DIRECTORY "${MRDOCS_FILE_ADDONS}")
+file(WRITE "${MRDOCS_FILE_ADDONS}/plugins" "not a directory\n")
+mrdocs_add_checked_run(mrdocs-plugin-plugins-is-a-file success
+    "The plugin directory \".*plugins-is-a-file/plugins\" could not be read"
+    "--config=${CMAKE_CURRENT_SOURCE_DIR}/project/mrdocs.yml"
+    --generator=noop
+    "--output=${CMAKE_CURRENT_BINARY_DIR}/mrdocs-plugin-plugins-is-a-file-output"
+    ${MRDOCS_BUILTIN_DIR_ARGS}
+    "--addons-supplemental=${MRDOCS_FILE_ADDONS}")
+
+# A symbolic link in the plugins directory whose target is missing, as one
+# left by a build tree that was moved or cleaned. It has a library name, so
+# it is a plugin that cannot be loaded and the run names it. Creating a link
+# needs a privilege on Windows, and file(CREATE_LINK) needs CMake 3.14, so the
+# case is left out there and below that.
+if (NOT WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.14)
+    set(MRDOCS_DANGLING_ADDONS "${CMAKE_CURRENT_BINARY_DIR}/dangling-link")
+    file(MAKE_DIRECTORY "${MRDOCS_DANGLING_ADDONS}/plugins")
+    file(CREATE_LINK "no-such-directory/missing-plugin.so"
+        "${MRDOCS_DANGLING_ADDONS}/plugins/mrdocs-plugin-dangling.so" SYMBOLIC)
+    mrdocs_add_plugin_failure_test(mrdocs-plugin-dangling-link-refused
+        "${MRDOCS_DANGLING_ADDONS}"
+        "the plugin \".*mrdocs-plugin-dangling\\.so\" could not be loaded")
+endif ()
+
 # The refusal to load a library that refers to a symbol nothing provides.
 # The loader resolves symbols when it opens a library, so the failure has to
 # name the symbol at load time instead of crashing at the first call. A
@@ -131,14 +191,14 @@ if (WIN32)
     target_link_libraries(mrdocs-plugin-dependent
         PRIVATE mrdocs-plugin-dependency-helper)
 
-    mrdocs_add_plugin_failure_test(mrdocs-plugin-dependency-not-on-path
+    mrdocs_add_plugin_failure_test(mrdocs-plugin-dependency-not-on-path-refused
         "${dependent_addons}"
         "the plugin \".*mrdocs-plugin-dependent.*\" could not be loaded:")
     file(TO_NATIVE_PATH "${dependency_helper_dir}" native_helper_dir)
     set(path_with_helper "$ENV{PATH}")
     string(REPLACE ";" "\\;" path_with_helper
         "${native_helper_dir};${path_with_helper}")
-    set_tests_properties(mrdocs-plugin-dependency-not-on-path PROPERTIES
+    set_tests_properties(mrdocs-plugin-dependency-not-on-path-refused PROPERTIES
         ENVIRONMENT "PATH=${path_with_helper}")
 endif ()
 
@@ -221,3 +281,28 @@ mrdocs_add_plugin_module(mrdocs-plugin-reload ReloadPlugin.cpp
     ADDONS "${MRDOCS_RELOAD_ADDONS}" HOST mrdocs-plugin-reload-host)
 add_test(NAME mrdocs-plugin-reload
     COMMAND mrdocs-plugin-reload-host "${MRDOCS_RELOAD_ADDONS}")
+
+# Two plugins that each export a function of the same name, which return
+# different values. The loader opens a library so that its symbols stay its
+# own, so the entry point of each one calls its own function; had the symbols
+# of the first been made global, the second would call that one and be
+# refused. macOS and Windows bind names per library, so the run says nothing
+# there.
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(MRDOCS_LOCAL_SYMBOLS_ADDONS "${CMAKE_CURRENT_BINARY_DIR}/local-symbols")
+    foreach (tag a b)
+        mrdocs_add_plugin_module(mrdocs-plugin-local-symbols-${tag}
+            LocalSymbols.cpp LocalSymbolsTag.cpp
+            ADDONS "${MRDOCS_LOCAL_SYMBOLS_ADDONS}")
+        target_compile_definitions(mrdocs-plugin-local-symbols-${tag} PRIVATE
+            "MRDOCS_TEST_TAG=\"${tag}\"")
+    endforeach ()
+    mrdocs_add_checked_run(mrdocs-plugin-local-symbols success
+        "Loaded plugin \".*mrdocs-plugin-local-symbols-b"
+        "--config=${CMAKE_CURRENT_SOURCE_DIR}/project/mrdocs.yml"
+        --generator=noop
+        "--output=${CMAKE_CURRENT_BINARY_DIR}/mrdocs-plugin-local-symbols-output"
+        ${MRDOCS_BUILTIN_DIR_ARGS}
+        "--addons-supplemental=${MRDOCS_LOCAL_SYMBOLS_ADDONS}"
+        --log-level=info)
+endif ()

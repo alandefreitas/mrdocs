@@ -100,29 +100,54 @@ utf8Path(std::string_view const utf8)
     return std::filesystem::path(std::u8string(utf8.begin(), utf8.end()));
 }
 
-// Return the libraries directly under `dir`, ordered by name.
+// Return `path` as UTF-8 text, the encoding every path of the addon roots
+// and the plugins is kept in. path::string() would give the code page of
+// the system on Windows, and throw for a character it lacks.
+std::string
+utf8String(std::filesystem::path const& path)
+{
+    std::u8string const text = path.u8string();
+    return std::string(text.begin(), text.end());
+}
+
+// Return the libraries directly under `dir`, ordered by name. The scan is
+// done with std::filesystem rather than `forEachFile`, which skips symbolic
+// links: a link with a library name whose target is missing is as much a
+// plugin that cannot be loaded as a corrupt file is, and the run has to name
+// it instead of leaving it out.
 std::vector<std::string>
 scanPluginDir(std::string_view dir)
 {
+    namespace fs = std::filesystem;
     std::vector<std::string> found;
-    Expected<void> const scanned = forEachFile(dir, false,
-        [&found](std::string_view path) -> Expected<void>
+    std::error_code iterEc;
+    fs::directory_iterator const end{};
+    for (fs::directory_iterator it(utf8Path(dir), iterEc);
+         !iterEc && it != end;
+         it.increment(iterEc))
+    {
+        // A regular file, a link to one, or a link whose target is missing
+        // (a link loop counts as missing), so that the run names it. A FIFO,
+        // a device, a directory, or a link to one of them is not handed to
+        // the dynamic loader, which could block on it.
+        std::error_code typeEc;
+        bool const candidate = it->is_regular_file(typeEc) ||
+            (it->is_symlink(typeEc) && !it->exists(typeEc));
+        if (candidate &&
+            isLibraryName(utf8String(it->path().filename())))
         {
-            if (files::isRegularFile(path) &&
-                isLibraryName(files::getFileName(path)))
-            {
-                found.emplace_back(path);
-            }
-            return {};
-        });
-    if (!scanned)
+            found.push_back(
+                files::makePosixStyle(utf8String(it->path())));
+        }
+    }
+    if (iterEc)
     {
         // Not a failure of the run: the directory may hold nothing MrDocs
         // wanted. Saying so beats leaving a plugin the user installed out
         // of the run without a word.
         report::warn(
             "The plugin directory \"{}\" could not be read: {}",
-            dir, scanned.error().reason());
+            dir, iterEc.message());
     }
     std::ranges::sort(found);
     return found;
@@ -268,8 +293,9 @@ openLibrary(std::string const& path)
     // The libraries the plugin depends on live in the subdirectory named
     // after it, such as plugins/stats for plugins/stats.dll. That directory
     // joins the search for the duration of this load only, and the search
-    // then covers the directory of the plugin, the added one and the system
-    // directories, and not the current directory or PATH.
+    // then covers the directory of the plugin, the added one, the directory
+    // of the executable and the system directories, and not the current
+    // directory or PATH.
     std::filesystem::path const dependencies =
         absolute.parent_path() / absolute.stem();
     DLL_DIRECTORY_COOKIE cookie = nullptr;
@@ -489,7 +515,8 @@ discoverPlugins(std::vector<std::string> const& roots)
     std::vector<std::string> paths;
     for (std::string const& root : roots)
     {
-        std::string const dir = files::appendPath(root, "plugins");
+        std::string const dir =
+            files::makePosixStyle(files::appendPath(root, "plugins"));
         if (files::exists(dir))
         {
             appendNewLibraries(scanPluginDir(dir), paths);

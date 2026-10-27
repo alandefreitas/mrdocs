@@ -266,6 +266,11 @@ const scopeRules: ScopeRule[] = [
         scope: "tests",
         patterns: [
             /^tests\/unit\//i,
+            // The plugin tests, the consumer project that builds a plugin
+            // against an installed MrDocs, and the list that registers them.
+            /^tests\/plugin-api\//i,
+            /^tests\/cmake\//i,
+            /^tests\/CMakeLists\.txt$/i,
             /^libs\/[^/]+\/tests\//i,
             /^libs\/test_suite\//i,
             /^src\/test\//i,
