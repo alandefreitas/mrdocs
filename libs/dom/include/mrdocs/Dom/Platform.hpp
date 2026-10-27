@@ -15,13 +15,14 @@
 // Export/visibility macros for the dom library. Self-contained on purpose: dom
 // depends neither on mrdocs-core's <mrdocs/Platform.hpp> nor on the defines
 // mrdocs-core and the tool are built with. The expansion is driven by
-// `MRDOCS_DOM_BUILDING`, which only the dom target defines, and by the
-// `MRDOCS_STATIC_LINK` define the build passes to every target.
+// `MRDOCS_DOM_SOURCE`, which is defined only while the dom library is built
+// from source, and by the `MRDOCS_STATIC_LINK` define the build passes to every
+// target.
 //
-// `MRDOCS_DOM_BUILDING` comes first: a static build exports the API too.
+// `MRDOCS_DOM_SOURCE` comes first: a static build exports the API too.
 
 #if defined(_MSC_VER)
-# if defined(MRDOCS_DOM_BUILDING) // building the library
+# if defined(MRDOCS_DOM_SOURCE) // building the library from source
 #  define MRDOCS_DOM_DECL __declspec(dllexport)
 # elif defined(MRDOCS_STATIC_LINK)
 #  define MRDOCS_DOM_DECL
@@ -29,7 +30,7 @@
 #  define MRDOCS_DOM_DECL __declspec(dllimport)
 # endif
 #elif defined(__GNUC__)
-# if defined(MRDOCS_DOM_BUILDING) || defined(MRDOCS_STATIC_LINK)
+# if defined(MRDOCS_DOM_SOURCE) || defined(MRDOCS_STATIC_LINK)
 #  define MRDOCS_DOM_DECL
 # else
 #  define MRDOCS_DOM_DECL __attribute__((__visibility__("default")))

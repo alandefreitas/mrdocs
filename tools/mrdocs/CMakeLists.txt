@@ -23,7 +23,7 @@ target_include_directories(mrdocs
     "${PROJECT_BINARY_DIR}/src"
 )
 
-target_compile_definitions(mrdocs PRIVATE -DMRDOCS_TOOL)
+target_compile_definitions(mrdocs PRIVATE -DMRDOCS_SOURCE)
 # The core is linked privately so that a plugin, which links the tool, does not
 # link the core as well: a second copy of a static core would give the plugin
 # its own generator and transform registries. A plugin gets what compiling the

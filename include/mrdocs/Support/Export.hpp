@@ -22,13 +22,13 @@
 //
 //------------------------------------------------
 
-// `MRDOCS_TOOL` is defined when MrDocs itself is being built, and it comes
+// `MRDOCS_SOURCE` is defined while MrDocs is built from source, and it comes
 // first: the API is marked for export even in a static build.
 
 #if defined(_MSC_VER)
 # define MRDOCS_SYMBOL_EXPORT __declspec(dllexport)
 # define MRDOCS_SYMBOL_IMPORT __declspec(dllimport)
-# if defined(MRDOCS_TOOL) // building MrDocs
+# if defined(MRDOCS_SOURCE) // building MrDocs from source
 #  define MRDOCS_DECL MRDOCS_SYMBOL_EXPORT
 # elif defined(MRDOCS_STATIC_LINK)
 #  define MRDOCS_DECL
@@ -38,7 +38,7 @@
 # define MRDOCS_VISIBLE
 
 #elif defined(__GNUC__)
-# if defined(MRDOCS_TOOL) // building MrDocs
+# if defined(MRDOCS_SOURCE) // building MrDocs from source
 #  define MRDOCS_DECL
 #  define MRDOCS_VISIBLE __attribute__((__visibility__("default")))
 # elif defined(MRDOCS_STATIC_LINK)

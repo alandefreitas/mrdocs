@@ -98,7 +98,7 @@ target_compile_definitions(
     $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
     $<$<CXX_COMPILER_ID:MSVC>:_SILENCE_CXX20_CISO646_REMOVED_WARNING>
     PRIVATE
-    -DMRDOCS_TOOL
+    -DMRDOCS_SOURCE
 )
 
 # A MrDocs that cannot load plugins says so when it finds one, instead of

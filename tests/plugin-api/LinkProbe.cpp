@@ -23,7 +23,7 @@
 // is linked with as its bundle loader, which is where a missing attribute
 // would fail. On Linux a module library may leave symbols to the loader,
 // so what this checks there is that the public headers compile with neither
-// `MRDOCS_TOOL` nor `MRDOCS_STATIC_LINK` defined, and that such a library
+// `MRDOCS_SOURCE` nor `MRDOCS_STATIC_LINK` defined, and that such a library
 // links against the executable at all.
 //
 // `NDEBUG` is undefined first, so that the inline code calls `assert_failed`
