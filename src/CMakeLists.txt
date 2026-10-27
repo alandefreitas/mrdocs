@@ -102,8 +102,8 @@ target_compile_definitions(
 )
 
 # A MrDocs that cannot load plugins says so when it finds one, instead of
-# handing it to the dynamic loader; see `MRDOCS_BUILD_PLUGIN_MODULES`.
-if (NOT MRDOCS_BUILD_PLUGIN_MODULES)
+# handing it to the dynamic loader; see `MRDOCS_PLUGIN_MODULES_SUPPORTED`.
+if (NOT MRDOCS_PLUGIN_MODULES_SUPPORTED)
     target_compile_definitions(mrdocs-core PRIVATE MRDOCS_WITHOUT_PLUGINS)
 endif ()
 

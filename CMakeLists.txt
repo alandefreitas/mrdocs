@@ -64,19 +64,64 @@ set_ternary(MRDOCS_DO_REEXPORT_DEPENDENCIES "NOT MRDOCS_DO_BUNDLE_DEPENDENCIES A
 set_ternary(MRDOCS_GCC   "CMAKE_CXX_COMPILER_ID STREQUAL \"GNU\"" ON OFF)
 set_ternary(MRDOCS_CLANG "CMAKE_CXX_COMPILER_ID MATCHES \"Clang$\"" ON OFF)
 
-# Plugins need a MrDocs that can load a shared library and that a plugin can
-# link against. A statically linked one can do neither: a module library
-# cannot even be linked with the startup files a static link brings in. Nor
-# can a shared build, where the API a plugin calls lives in mrdocs-core
-# rather than in the tool it links. The check only sees -static in the two
-# flag variables below; set the option by hand when the flag comes from
-# somewhere else, such as a toolchain file or LDFLAGS.
-set_ternary(MRDOCS_PLUGIN_MODULES_DEFAULT
-    "MRDOCS_BUILD_SHARED OR CMAKE_CXX_FLAGS MATCHES \"(^| )-static($| )\" OR CMAKE_EXE_LINKER_FLAGS MATCHES \"(^| )-static($| )\""
-    OFF ON)
-option(MRDOCS_BUILD_PLUGIN_MODULES
-    "This MrDocs can build and load plugins; also builds the plugin example and tests"
-    ${MRDOCS_PLUGIN_MODULES_DEFAULT})
+# Two settings cover plugins.
+#
+# MRDOCS_PLUGIN_MODULES_SUPPORTED says whether the MrDocs built here can load
+# plugins. A tool linked with -static or -static-pie cannot: a static glibc has
+# no dependable way to load a shared library, and a module library cannot even
+# be linked with the startup files a static link brings in. Nor can a shared
+# build, where the API a plugin calls lives in mrdocs-core rather than in the
+# tool. The check sees -static, -static-pie and -Wl,-static in CMAKE_C_FLAGS,
+# CMAKE_CXX_FLAGS and CMAKE_EXE_LINKER_FLAGS, plain and with the DEBUG, RELEASE,
+# RELWITHDEBINFO, MINSIZEREL, CMAKE_BUILD_TYPE and CMAKE_CONFIGURATION_TYPES
+# suffixes; configure with
+# -DMRDOCS_PLUGIN_MODULES_SUPPORTED=OFF when the flag comes from somewhere
+# else, such as a toolchain file or LDFLAGS. It decides what the tool exports,
+# whether mrdocs-core defines MRDOCS_WITHOUT_PLUGINS, and the package config's
+# MRDOCS_BUILT_PLUGIN_MODULES.
+#
+# MRDOCS_BUILD_PLUGIN_MODULES says whether this build runs its own plugin tests
+# and examples. It defaults to MRDOCS_PLUGIN_MODULES_SUPPORTED, and turning it
+# on where plugins are not supported is an error, since the tests would run
+# against a tool that cannot load them.
+set(mrdocs_flag_suffixes "" _DEBUG _RELEASE _RELWITHDEBINFO _MINSIZEREL)
+foreach (mrdocs_config IN LISTS CMAKE_CONFIGURATION_TYPES ITEMS ${CMAKE_BUILD_TYPE})
+    string(TOUPPER "${mrdocs_config}" mrdocs_config)
+    if (NOT mrdocs_config STREQUAL "")
+        list(APPEND mrdocs_flag_suffixes _${mrdocs_config})
+    endif ()
+endforeach ()
+list(REMOVE_DUPLICATES mrdocs_flag_suffixes)
+set(MRDOCS_STATIC_LINK_FLAGS OFF)
+set(MRDOCS_SANITIZED OFF)
+foreach (mrdocs_suffix IN LISTS mrdocs_flag_suffixes)
+    foreach (mrdocs_flag_variable IN ITEMS
+            CMAKE_C_FLAGS CMAKE_CXX_FLAGS CMAKE_EXE_LINKER_FLAGS)
+        if ("${${mrdocs_flag_variable}${mrdocs_suffix}}" MATCHES
+                "(^|[ \t\r\n;])(--?static(-pie)?|-Wl,-static)($|[ \t\r\n;])")
+            set(MRDOCS_STATIC_LINK_FLAGS ON)
+        endif ()
+        if ("${${mrdocs_flag_variable}${mrdocs_suffix}}" MATCHES "-fsanitize=")
+            set(MRDOCS_SANITIZED ON)
+        endif ()
+    endforeach ()
+endforeach ()
+if (NOT DEFINED MRDOCS_PLUGIN_MODULES_SUPPORTED)
+    set_ternary(MRDOCS_PLUGIN_MODULES_SUPPORTED
+        "MRDOCS_BUILD_SHARED OR MRDOCS_STATIC_LINK_FLAGS" OFF ON)
+endif ()
+option(MRDOCS_BUILD_PLUGIN_MODULES "Build and run the plugin tests and examples"
+       ${MRDOCS_PLUGIN_MODULES_SUPPORTED})
+if (MRDOCS_BUILD_PLUGIN_MODULES AND NOT MRDOCS_PLUGIN_MODULES_SUPPORTED)
+    message(FATAL_ERROR
+        "MRDOCS_BUILD_PLUGIN_MODULES needs a MrDocs that can load plugins, "
+        "and MRDOCS_PLUGIN_MODULES_SUPPORTED is off: the flags link "
+        "statically (-static, --static, -static-pie or -Wl,-static), the "
+        "build is shared (MRDOCS_BUILD_SHARED), or it was set off by hand. "
+        "The plugin tests would run against a tool built without plugin "
+        "support. Configure with "
+        "-DMRDOCS_BUILD_PLUGIN_MODULES=OFF or use a fresh build directory.")
+endif ()
 
 # A host that loads plugins exports its symbols so that a plugin resolves the
 # MrDocs functions it calls against the host, and ENABLE_EXPORTS exports every
@@ -84,23 +129,15 @@ option(MRDOCS_BUILD_PLUGIN_MODULES
 # to the MrDocs API keeps a plugin that bundles its own copy of one of those
 # libraries bound to its own copy; see `mrdocs_make_plugin_host`. A shared
 # build keeps the default table, since the API lives in the library and not in
-# the host. A sanitized build keeps it too: clang links the sanitizer runtime
+# the host. A sanitized build (any `-fsanitize=` in the flag variables scanned
+# above) keeps it too: clang links the sanitizer runtime
 # statically into the executable, and a plugin built with the same flags binds
 # to the runtime's entry points (__asan_*, __ubsan_*, the interceptors) through
 # the executable, so narrowing would leave the plugin with undefined symbols.
 # A narrowed table leaves the dynamic symbol table with no names for LLVM or
 # Clang frames, so the fallback backtrace of a crash prints addresses there;
 # configure with MRDOCS_NARROW_EXPORTS=OFF to get names back.
-set(MRDOCS_SANITIZED OFF)
-foreach (MRDOCS_FLAGS_VAR IN ITEMS
-         CMAKE_CXX_FLAGS CMAKE_EXE_LINKER_FLAGS
-         CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-         CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
-    if ("${${MRDOCS_FLAGS_VAR}}" MATCHES "-fsanitize")
-        set(MRDOCS_SANITIZED ON)
-    endif ()
-endforeach ()
-if (MRDOCS_BUILD_PLUGIN_MODULES AND NOT MRDOCS_BUILD_SHARED AND NOT MRDOCS_SANITIZED)
+if (MRDOCS_PLUGIN_MODULES_SUPPORTED AND NOT MRDOCS_BUILD_SHARED AND NOT MRDOCS_SANITIZED)
     set(MRDOCS_NARROW_EXPORTS_DEFAULT ON)
 else ()
     set(MRDOCS_NARROW_EXPORTS_DEFAULT OFF)

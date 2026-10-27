@@ -150,7 +150,7 @@ function(mrdocs_make_plugin_host target)
         PRIVATE mrdocs-core mrdocs-llvm
         INTERFACE mrdocs-public-headers)
     target_compile_features(${target} INTERFACE cxx_std_23)
-    if (MRDOCS_BUILD_PLUGIN_MODULES)
+    if (MRDOCS_PLUGIN_MODULES_SUPPORTED)
         set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
         if (MSVC)
             target_link_options(${target} PRIVATE
