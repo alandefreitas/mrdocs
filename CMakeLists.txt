@@ -153,6 +153,14 @@ elseif (NOT MRDOCS_NARROW_EXPORTS_VALUE MATCHES "^(ON|OFF|TRUE|FALSE|YES|NO|Y|N|
     message(FATAL_ERROR "MRDOCS_NARROW_EXPORTS must be AUTO or a CMake boolean, not '${MRDOCS_NARROW_EXPORTS}'")
 endif ()
 
+# The link settings of the Linux release: a glibc floor, and the C++ runtime
+# shipped in the package, so that the binary runs on Ubuntu 20.04 and newer and
+# loads plugins built with a newer libstdc++. The reasons are in the file.
+option(MRDOCS_LINUX_RELEASE "Link the way the Linux release does (see utils/cmake/release-linux.cmake)" OFF)
+if (MRDOCS_LINUX_RELEASE)
+    include(utils/cmake/release-linux.cmake)
+endif ()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # MSVC flags shared by every mrdocs target below (not installed consumers):

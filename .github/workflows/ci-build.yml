@@ -37,13 +37,6 @@ jobs:
       - name: Container Bootstrap
         uses: alandefreitas/cpp-actions/container-bootstrap@v1.9.5
 
-      - name: Setup C++
-        uses: alandefreitas/cpp-actions/setup-cpp@v1.9.5
-        id: setup-cpp
-        with:
-          compiler: ${{ matrix.compiler }}
-          version: ${{ matrix.version }}
-
       - name: Install System Packages
         uses: alandefreitas/cpp-actions/package-install@v1.9.5
         id: package-install
@@ -52,8 +45,34 @@ jobs:
           apt-get-source-keys: ${{ matrix.coverage && 'https://apt.llvm.org/llvm-snapshot.gpg.key' || '' }}
           apt-get-sources: ${{ matrix.coverage && 'deb https://apt.llvm.org/noble/ llvm-toolchain-noble-21 main' || '' }}
 
+      # After the packages (git among them, so that the checkout keeps its
+      # history) and before the container preparation below: a local action is
+      # read from the checkout.
       - name: Clone MrDocs
         uses: actions/checkout@v6
+
+      # The preparation of the Linux release container lives in one place, in
+      # two phases around Setup C++.
+      - name: Prepare The Linux Release Container (toolchain)
+        if: ${{ matrix.mrdocs-linux-release == 'true' }}
+        uses: ./.github/actions/linux-release-container
+        with:
+          phase: before-setup-cpp
+
+      - name: Setup C++
+        uses: alandefreitas/cpp-actions/setup-cpp@v1.9.5
+        id: setup-cpp
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+
+      - name: Prepare The Linux Release Container (compiler)
+        if: ${{ matrix.mrdocs-linux-release == 'true' }}
+        uses: ./.github/actions/linux-release-container
+        with:
+          phase: after-setup-cpp
+          cc: ${{ steps.setup-cpp.outputs.cc }}
+          cxx: ${{ steps.setup-cpp.outputs.cxx }}
 
       - name: Restore LLVM Cache
         id: llvm-cache
@@ -140,6 +159,7 @@ jobs:
           export-compile-commands: true
           run-tests: true
           install: true
+          extra-args: ${{ matrix.mrdocs-linux-release == 'true' && '-D MRDOCS_LINUX_RELEASE=ON' || '' }}
           package: ${{ matrix.is-main }}
           package-dir: ../packages
           package-generators: ${{ matrix.mrdocs-package-generators }}
@@ -158,8 +178,10 @@ jobs:
       # `$CXX -v`, so that the plugin sees the libstdc++ headers MrDocs was
       # built against.
       # Builds with a sanitizer or coverage are left out, as for the rest of
-      # the consumer test, and so is the main gcc build, which is linked with
-      # -static and can't load plugins.
+      # the consumer test, and so is the main gcc build: it runs in the
+      # ubuntu:20.04 container of the Linux release. The Releases workflow
+      # builds the consumer plugin there and loads it into the package in
+      # ubuntu:20.04, ubuntu:22.04 and debian:11 containers.
       - name: Install The Other Compiler Family (Linux)
         if: ${{ runner.os == 'Linux' && !matrix.coverage && !matrix.bootstrap-sanitizer && ((matrix.compiler == 'gcc' && !matrix.is-main) || matrix.compiler == 'clang') }}
         env:
@@ -193,7 +215,7 @@ jobs:
       # package-specific find_package hint rather than CMAKE_PREFIX_PATH, so the
       # <PackageName>_ROOT search path is exercised. Only the ABI flags mrdocs was
       # built with are reused (the consumer must match the same standard library),
-      # not mrdocs's own -Werror/-static/-WX matrix flags. Coverage/sanitizer
+      # not mrdocs's own -Werror/-WX matrix flags. Coverage/sanitizer
       # builds use instrumented toolchains an out-of-tree consumer would have to
       # mirror exactly, so those are skipped. mrdocs_ROOT gets the MRDOCS_PREFIX
       # resolved above.

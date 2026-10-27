@@ -8,6 +8,17 @@ Binary packages are available from our https://github.com/cppalliance/mrdocs/rel
 
 mrdocs-releases::[]
 
+The Linux package needs glibc 2.31 or later, which means Ubuntu 20.04, Debian 11, Fedora 32, RHEL 9, or anything newer. It needs nothing else from the system: the package ships its own C++ runtime (`libstdc++.so.6` and `libgcc_s.so.1`) in `lib/`, next to `bin/`, and the executable finds it there, so keep the two directories together. Unpack the package into a directory of its own, such as `/opt/mrdocs`, and not into `/usr` or `/usr/local`: its `libstdc++.so.6` would replace the system one for every program on the machine. Distributions that don't use glibc, such as Alpine, aren't covered. The package loads xref:extensions/plugins.adoc[plugins]. The xref:contribute/binary-compatibility.adoc#linux-release[binary compatibility] page explains how this floor is kept.
+
+Older distributions, such as Ubuntu 18.04 (glibc 2.27), RHEL 8 (2.28), or CentOS 7 (2.17), can't run the package at all. It stops before doing anything, with an error from the system loader:
+
+[source]
+----
+./mrdocs: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.28' not found (required by ./mrdocs)
+----
+
+On those systems, xref:#mrdocs-bootstrap-script[build Mr.Docs from source]. That build links the system's own glibc and loads plugins too, but it needs GCC 14 or Clang 18 or later, which you may have to install yourself on an older distribution.
+
 [#mrdocs-bootstrap-script]
 == Build from Source
 

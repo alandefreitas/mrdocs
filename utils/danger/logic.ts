@@ -156,6 +156,12 @@ const buildAffectingPathPatterns: RegExp[] = [
     // Build / install / demo / coverage scripts run inside ci-build,
     // ci-release, ci-documentation, ci-publish.
     /^\.github\/scripts\//i,
+    // The composite actions the release workflows run (the Linux release
+    // container), the CMake files that set the release link flags, and the
+    // scripts that check a release package.
+    /^\.github\/actions\//i,
+    /^utils\/cmake\//i,
+    /^utils\/release\//i,
     // Bootstrap drives third-party dependency builds inside ci-build.
     // The `tests/` subdirectory is exercised by utility-tests on every PR,
     // so changes there don't need a full matrix.

@@ -1,0 +1,43 @@
+= Binary compatibility
+
+Mr.Docs makes promises about its binaries, and each one rests on a policy copied from a project that had already learned why it matters. This page states the policies of the Linux release, why they exist, and where they come from, so that nobody mistakes one for neglect and "updates" it. A rule that looks old, such as the container the Linux release is built in, is old on purpose.
+
+The audience is people who change Mr.Docs. What users need to know is on the xref:install.adoc[Install] and xref:extensions/plugins.adoc[Plugins] pages.
+
+[#linux-release]
+== The Linux release depends on glibc 2.31 and ships its own C++ runtime
+
+A binary that links the C library dynamically needs a C library at least as new as the one it was linked against, and a binary built on a recent distribution picks up recent symbols. Python's packaging team ran into this with compiled wheels, and the answer is the policy called https://peps.python.org/pep-0600/[manylinux^], with a checker called https://github.com/pypa/auditwheel[auditwheel^]. Mr.Docs applies it to its Linux release:
+
+* The binary may depend on glibc up to a stated version, the floor. The floor is glibc 2.31, which is Ubuntu 20.04, and it covers Debian 11, Fedora 32, RHEL 9, and anything newer. glibc is backward compatible, so a binary built against an old glibc runs on a new one.
+* It is built inside an old distribution, with a current compiler. There is no flag that tells glibc to target an older version the way `-mmacosx-version-min` does for macOS, so the container's glibc is the floor. The compiler doesn't depend on the distribution: it is GCC 15 from the `ubuntu-toolchain-r/test` PPA, which publishes a released GCC for Ubuntu 20.04.
+* It ships its own C++ runtime. manylinux whitelists the system `libstdc++` and `libgcc_s` among a few system libraries and caps their symbol versions, which would cap Mr.Docs at what Ubuntu 20.04 has (GCC 10, up to `GLIBCXX_3.4.28`). A plugin includes the {cpp}23 headers of Mr.Docs, so it is built with GCC 14 or later, and it refers to `GLIBCXX_3.4.33`. That is why the package carries `lib/libstdc++.so.6` and `lib/libgcc_s.so.1` (about 2.6 MB), copied from the compiler that built it, and the executable has the run path `$ORIGIN/../lib`. When a plugin is loaded, its dependency on `libstdc++.so.6` resolves to the copy that is already loaded, so one runtime serves both. The rule for a plugin follows: the libstdc++ it is built with is at least that of GCC 14, which its headers need, and no newer than the one in `lib/`, since the plugin binds to that copy and a version it lacks is a load error on every distribution.
+* A check on the finished package fails the release if the executable is not dynamically linked against glibc, if the executable or a bundled library refers to a glibc symbol newer than the floor or to a `GLIBC_` tag that is not a version, if the bundled libraries are missing, if the run path is not `$ORIGIN/../lib`, if the executable refers to a `GLIBCXX_`, `CXXABI_` or `GCC_` version that the bundled libraries do not define, or if any of them needs a library that is neither one of glibc nor one of the two bundled. For example, an executable that was built with a compiler newer than the one whose libraries were bundled fails with:
++
+[source]
+----
+error: bin/mrdocs refers to C++ runtime versions that the bundled libraries do not define:
+  GLIBCXX_3.4.34
+----
++
+and a bundled library built against a newer glibc than the floor fails with:
++
+[source]
+----
+error: bin/../lib/libstdc++.so.6 needs a glibc newer than 2.31:
+  GLIBC_2.38, used by:
+    __isoc23_strtol
+----
+
+The release does not use `-static`. A binary linked against glibc statically cannot load a shared library dependably: `dlopen` in a static glibc needs the shared glibc of the same version at run time, and the linker warns about it. A static binary would defeat the portability it is meant to give, and it could not load plugins. Linking only the {cpp} runtime statically, as an earlier version of this release did, makes the executable independent of the distribution's `libstdc++`, but then a plugin brings its own, and a plugin built with a current compiler needs a version the old distribution does not have. musl is not an alternative: a static musl has no `dlopen`, and a dynamic one needs plugins built for musl.
+
+Where each part of the policy lives:
+
+* `.github/workflows/ci-matrix.yml` names the `ubuntu:20.04` container of the main gcc build, with a comment that says not to update it. The compiler is GCC 15 from the `ubuntu-toolchain-r/test` PPA, which publishes a released GCC for 20.04 up to GCC 15, so the gcc entries of the matrix stop at 15. `ci-build.yml`, `ci-releases.yml` and `ci-documentation.yml` prepare that container through one local action, `.github/actions/linux-release-container`, in two phases around `setup-cpp`. Before it, the action adds that PPA, since `setup-cpp` only adds `ubuntu-toolchain-r/ppa`, and installs a Python and a CMake that `bootstrap.py`, LLVM and the configuration of this repository can use, because the ones of 20.04 are too old. After it, the action exports `CC` and `CXX` from the outputs of `setup-cpp`, because the default `c++` of 20.04 is GCC 9, which does not support {cpp}23. A change to the PPA, the Python or the CMake bound is made in that action only. The cache key of LLVM derives from the container name, so changing the container rebuilds LLVM once.
+* `utils/cmake/release-linux.cmake` has the settings of the release (the bundled libraries, the run path, the refusal of `-static`), each with its reason, and the policy in its header. The release build turns it on with `MRDOCS_LINUX_RELEASE`. The configuration fails if the release is asked for without the narrowed export table of the executable (`MRDOCS_NARROW_EXPORTS`), so that a plugin that bundles its own LLVM or Lua binds to its own copy.
+* `utils/release/check-linux-portability.sh` is the check, and `utils/release/test-check-linux-portability.sh` is its self-test. Because the real package is supposed to pass, the self-test runs the script against a stub `objdump` with listings in the format of binutils 2.34 (the one of Ubuntu 20.04) and of 2.35 and later, and requires each rejection to fire, so that a change in the output of `objdump` can't turn a part of the check into a no-op. The Utility Tests job runs it, and the Releases workflow runs the check on the package that the run built.
+* The Releases workflow builds the consumer plugin of `tests/cmake` in the release container, with GCC 15, against the package, and uploads it. The `linux-distributions` job then runs the package in `ubuntu:20.04`, `ubuntu:22.04` and `debian:11` containers, checks that the executable resolves `libstdc++.so.6` to the package, and loads that plugin (`.github/scripts/smoke-test-linux-package.sh`). The plugin is built once, because debian:11 has no compiler for {cpp}23 and Ubuntu 20.04 has GCC 9. The check and these containers are skipped when the run reuses the package of `develop-release`, which was checked by the run that published it.
+
+The container is why the policy looks neglected. Nobody should move the Linux release to a newer Ubuntu because it is old: doing so raises the floor, and a binary that needs glibc 2.39 stops running on the systems the floor was set to reach. Raising the floor is a decision, taken for a reason that is written down here, and it is made together with the check, not by updating the image. The same goes for the check: if it fails, fix the package, don't raise the limit to make it pass.
+
+A plugin on Linux shares the {cpp} runtime of the package, so what limits where it loads is the C library. A plugin needs a glibc no older than the one it was built against, and the xref:extensions/plugins.adoc[Plugins] page says what that means for authors.
