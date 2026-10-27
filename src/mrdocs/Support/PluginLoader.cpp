@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
@@ -17,10 +18,10 @@
 #include <mrdocs/Support/Report.hpp>
 #include <mrdocs/Transform.hpp>
 #include <llvm/ADT/StringRef.h>
-#include <llvm/Support/DynamicLibrary.h>
 #include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -34,6 +35,8 @@
 #        define NOMINMAX
 #    endif
 #    include <windows.h>
+#else
+#    include <dlfcn.h>
 #endif
 
 namespace mrdocs {
@@ -41,8 +44,9 @@ namespace mrdocs {
 namespace {
 
 // Whether this MrDocs can load a plugin at all. One built without
-// `MRDOCS_BUILD_PLUGIN_MODULES`, statically linked for instance, reports a
-// plugin it finds rather than handing it to the dynamic loader.
+// `MRDOCS_BUILD_PLUGIN_MODULES` (linked with -static, or built as shared
+// libraries) reports a plugin it finds rather than handing it to the dynamic
+// loader.
 #ifdef MRDOCS_WITHOUT_PLUGINS
 constexpr bool canLoadPlugins = false;
 #else
@@ -82,6 +86,17 @@ isLibraryName(std::string_view fileName)
         });
 }
 
+// Return `utf8` as a path that names the file the UTF-8 text names. A path
+// built from a std::string is read in the ANSI code page on Windows, which
+// looks for another file when the text has a character the code page lacks,
+// so the text is handed over as a std::u8string, which every platform reads
+// as UTF-8.
+std::filesystem::path
+utf8Path(std::string_view const utf8)
+{
+    return std::filesystem::path(std::u8string(utf8.begin(), utf8.end()));
+}
+
 // Return the libraries directly under `dir`, ordered by name.
 std::vector<std::string>
 scanPluginDir(std::string_view dir)
@@ -110,22 +125,6 @@ scanPluginDir(std::string_view dir)
     return found;
 }
 
-// Return `path`, held in UTF-8 like every path MrDocs reports, as a
-// filesystem path. Built from a `std::string` instead, the path would be
-// read in the ANSI code page on Windows, and one that is not ASCII would
-// name another file.
-std::filesystem::path
-fromUtf8(std::string_view path)
-{
-    std::u8string text(path.size(), u8'\0');
-    std::ranges::transform(path, text.begin(),
-        [](char c)
-        {
-            return static_cast<char8_t>(c);
-        });
-    return std::filesystem::path(text);
-}
-
 // Append `from` to `to`, leaving out the libraries already there. One
 // library can be reached through more than one addon root, and running its
 // entry point twice would fail on the id it installed the first time.
@@ -144,7 +143,7 @@ appendNewLibraries(
             {
                 std::error_code ec;
                 return std::filesystem::equivalent(
-                    fromUtf8(path), fromUtf8(other), ec);
+                    utf8Path(path), utf8Path(other), ec);
             });
         if (!known)
         {
@@ -192,15 +191,143 @@ public:
     }
 };
 
+#ifdef _WIN32
+
+// Convert the system's message for `code` to UTF-8.
+std::string
+systemMessage(DWORD const code)
+{
+    wchar_t* text = nullptr;
+    DWORD const length = ::FormatMessageW(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+            FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, code, 0,
+        reinterpret_cast<wchar_t*>(&text), 0, nullptr);
+    std::string message;
+    if (length != 0 && text)
+    {
+        int const size = ::WideCharToMultiByte(
+            CP_UTF8, 0, text, static_cast<int>(length),
+            nullptr, 0, nullptr, nullptr);
+        if (size > 0)
+        {
+            message.resize(static_cast<std::size_t>(size));
+            ::WideCharToMultiByte(
+                CP_UTF8, 0, text, static_cast<int>(length),
+                message.data(), size, nullptr, nullptr);
+        }
+        while (!message.empty() &&
+            (message.back() == '\n' || message.back() == '\r' ||
+                message.back() == ' '))
+        {
+            message.pop_back();
+        }
+    }
+    if (text)
+    {
+        ::LocalFree(text);
+    }
+    if (message.empty())
+    {
+        message = "error " + std::to_string(code);
+    }
+    return message;
+}
+
+#endif
+
+// A loaded library. Libraries are opened for the life of the process and
+// never closed: the generators and transforms a plugin installs live in
+// registries that are destroyed after main returns, and their code has to
+// still be mapped when that happens.
+using LibraryHandle = void*;
+
+// Open the library at `path`. Every symbol it needs is resolved now, so a
+// plugin that refers to something MrDocs does not provide is refused here,
+// instead of failing at its first call. The POSIX loader's message names the
+// missing symbol; the Windows one only says a module or procedure was not
+// found. Its symbols stay local to it, so two plugins cannot interpose each
+// other's C++ symbols.
+Expected<LibraryHandle>
+openLibrary(std::string const& path)
+{
+#ifdef _WIN32
+    std::error_code ec;
+    std::filesystem::path const absolute =
+        std::filesystem::absolute(utf8Path(path), ec);
+    MRDOCS_CHECK(!ec, formatError(
+        "the plugin \"{}\" could not be loaded: {}", path, ec.message()));
+    // The libraries the plugin depends on live in the subdirectory named
+    // after it, such as plugins/stats for plugins/stats.dll. That directory
+    // joins the search for the duration of this load only, and the search
+    // then covers the directory of the plugin, the added one and the system
+    // directories, and not the current directory or PATH.
+    std::filesystem::path const dependencies =
+        absolute.parent_path() / absolute.stem();
+    DLL_DIRECTORY_COOKIE cookie = nullptr;
+    if (std::filesystem::is_directory(dependencies, ec))
+    {
+        cookie = ::AddDllDirectory(dependencies.c_str());
+        if (!cookie)
+        {
+            report::warn(
+                "The libraries directory of the plugin \"{}\" could not be "
+                "added to the search path: {}",
+                path, systemMessage(::GetLastError()));
+        }
+    }
+    HMODULE const handle = ::LoadLibraryExW(
+        absolute.c_str(), nullptr,
+        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR |
+            LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    DWORD const error = handle ? 0 : ::GetLastError();
+    if (cookie)
+    {
+        ::RemoveDllDirectory(cookie);
+    }
+    MRDOCS_CHECK(handle, formatError(
+        "the plugin \"{}\" could not be loaded: {}",
+        path, systemMessage(error)));
+    return reinterpret_cast<LibraryHandle>(handle);
+#else
+    // Clear any error left over from an earlier call, so the text read
+    // below is this call's.
+    ::dlerror();
+    LibraryHandle const handle = ::dlopen(
+        path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (!handle)
+    {
+        char const* const text = ::dlerror();
+        return Unexpected(formatError(
+            "the plugin \"{}\" could not be loaded: {}",
+            path, text ? text : "unknown error"));
+    }
+    return handle;
+#endif
+}
+
+// Return the address of `symbol` in `library`, or null if it has none.
+void*
+findSymbol(LibraryHandle library, char const* symbol)
+{
+#ifdef _WIN32
+    return reinterpret_cast<void*>(::GetProcAddress(
+        static_cast<HMODULE>(library), symbol));
+#else
+    return ::dlsym(library, symbol);
+#endif
+}
+
 // Look a plugin entry point up by name, as a function of type `Fn`.
 template <class Fn>
 Expected<Fn>
 findEntryPoint(
-    llvm::sys::DynamicLibrary& library,
+    LibraryHandle library,
     char const* symbol,
     std::string_view path)
 {
-    void* const address = library.getAddressOfSymbol(symbol);
+    void* const address = findSymbol(library, symbol);
     MRDOCS_CHECK(address, formatError(
         "the plugin \"{}\" does not export {}", path, symbol));
     return reinterpret_cast<Fn>(address);
@@ -211,7 +338,7 @@ findEntryPoint(
 // points themselves, is not the one it is about to be called with.
 Expected<void>
 checkApiVersion(
-    llvm::sys::DynamicLibrary& library,
+    LibraryHandle library,
     std::string_view path)
 {
     MRDOCS_TRY(PluginApiVersionFn const apiVersion,
@@ -250,7 +377,7 @@ runEntryPoint(
 // crash somewhere unrelated.
 Expected<void>
 checkBuildTag(
-    llvm::sys::DynamicLibrary& library,
+    LibraryHandle library,
     std::string_view path)
 {
     MRDOCS_TRY(PluginBuildTagFn const buildTag,
@@ -268,54 +395,6 @@ checkBuildTag(
     return {};
 }
 
-#ifdef _WIN32
-// Load the library at `path`, searching the subdirectory named after it,
-// such as plugins/stats for plugins/stats.dll, for the libraries it depends
-// on. The search then covers the plugin's directory, that subdirectory, the
-// system directories and `PATH`. The subdirectory is set for the whole
-// process, so it is cleared as soon as the load is done. Return null, with
-// the reason in `message`, if the load fails.
-HMODULE
-loadWithDependencyDir(std::string const& path, std::string& message)
-{
-    std::error_code ec;
-    std::filesystem::path const file =
-        std::filesystem::absolute(fromUtf8(path), ec);
-    std::filesystem::path const dependencies =
-        file.parent_path() / file.stem();
-    SetDllDirectoryW(dependencies.c_str());
-    HMODULE const handle = LoadLibraryExW(
-        file.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
-    if (handle == nullptr)
-    {
-        message = std::system_category().message(
-            static_cast<int>(GetLastError()));
-    }
-    SetDllDirectoryW(nullptr);
-    return handle;
-}
-#endif
-
-// Open the library at `path` for the rest of the run. Elsewhere than on
-// Windows, a plugin finds the libraries it depends on through its run path.
-llvm::sys::DynamicLibrary
-openLibrary(std::string const& path, std::string& message)
-{
-#ifdef _WIN32
-    llvm::sys::DynamicLibrary library;
-    HMODULE const handle = loadWithDependencyDir(path, message);
-    if (handle != nullptr)
-    {
-        library = llvm::sys::DynamicLibrary::addPermanentLibrary(
-            handle, &message);
-    }
-    return library;
-#else
-    return llvm::sys::DynamicLibrary::getPermanentLibrary(
-        path.c_str(), &message);
-#endif
-}
-
 // Load one library and run its entry point.
 Expected<void>
 loadPlugin(
@@ -323,10 +402,7 @@ loadPlugin(
     Config const& config,
     std::vector<std::unique_ptr<Transform>>& transforms)
 {
-    std::string message;
-    llvm::sys::DynamicLibrary library = openLibrary(path, message);
-    MRDOCS_CHECK(library.isValid(), formatError(
-        "the plugin \"{}\" could not be loaded: {}", path, message));
+    MRDOCS_TRY(LibraryHandle const library, openLibrary(path));
     MRDOCS_TRY(checkApiVersion(library, path));
     MRDOCS_TRY(checkBuildTag(library, path));
     MRDOCS_TRY(PluginMainFn const entryPoint,
@@ -388,8 +464,8 @@ loadPlugins(Config const& config)
         discoverPlugins(addonRoots(config));
     MRDOCS_CHECK(canLoadPlugins || paths.empty(), formatError(
         "the plugin \"{}\" cannot be loaded: this MrDocs was built without "
-        "plugin support, which is the case for a statically linked MrDocs "
-        "such as the Linux release", paths.front()));
+        "plugin support (linked with -static, or built as shared libraries)",
+        paths.front()));
     std::vector<std::unique_ptr<Transform>> transforms;
     for (std::string const& path : paths)
     {

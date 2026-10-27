@@ -102,7 +102,7 @@ Every library in such a directory is loaded, in name order within a root, and ro
 
 Each `plugins` directory adds its libraries to the run, whereas a template in a supplemental root replaces the default one at the same path. The same plugin copied into two roots is therefore loaded twice, and the second copy fails on the generator id the first one installed.
 
-A plugin that depends on shared libraries of its own keeps them in a subdirectory named after it: `plugins/stats` for `stats.dll`. On Windows, Mr.Docs adds that subdirectory to the search for the plugin's dependencies while it loads the plugin, so the search covers the plugin's directory, that subdirectory, the system directories and the directories on `PATH`. On Linux and macOS, the plugin finds them through its run path, `$ORIGIN/stats` or `@loader_path/stats`, which CMake records with:
+A plugin that depends on shared libraries of its own keeps them in a subdirectory named after it: `plugins/stats` for `stats.dll`. On Windows, Mr.Docs adds that subdirectory to the search for the plugin's dependencies while it loads the plugin, so the search covers the plugin's directory, that subdirectory, the directory of the `mrdocs` executable and the system directories, and not the current directory or `PATH`. On Linux and macOS, the plugin finds them through its run path, `$ORIGIN/stats` or `@loader_path/stats`, which CMake records with:
 
 [source,cmake]
 ----
@@ -112,6 +112,8 @@ set_target_properties(stats PROPERTIES
 ----
 
 A library that cannot be loaded, does not export the entry points, was built for another interface version or toolchain, or reports an error of its own stops the run, and the diagnostic names the library.
+
+A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol; on Windows it only says that a module or procedure could not be found. A plugin built against another version of Mr.Docs, or with another toolchain, often refers to symbols this Mr.Docs does not have, and is refused the same way, so check that the plugin was built against the Mr.Docs that loads it. A dependency that is not in the plugin's subdirectory is found, on Linux and macOS, the usual way for the plugin: through its RPATH or RUNPATH, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
 
 Once the library is there, the generator it installs is selectable like any other, through the xref:configuration/reference.adoc#generator_option[`generator`] option:
 
