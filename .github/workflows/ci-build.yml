@@ -74,6 +74,16 @@ jobs:
           cc: ${{ steps.setup-cpp.outputs.cc }}
           cxx: ${{ steps.setup-cpp.outputs.cxx }}
 
+      # The release runs on macOS 14 or later, so every macOS row builds LLVM
+      # and MrDocs for that version (matrix.macos-deployment-target; the rows
+      # share LLVM caches, whose key carries it). clang and CMake both read the
+      # variable: CMake initializes CMAKE_OSX_DEPLOYMENT_TARGET from it, so the
+      # LLVM build of bootstrap.py and the cmake-workflow builds below pick it
+      # up. The CMake Workflow step also passes the cache variable explicitly.
+      - name: Set The macOS Deployment Target
+        if: ${{ matrix.macos-deployment-target != '' }}
+        run: echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.macos-deployment-target }}" >> "$GITHUB_ENV"
+
       - name: Restore LLVM Cache
         id: llvm-cache
         uses: actions/cache/restore@v5
@@ -159,7 +169,7 @@ jobs:
           export-compile-commands: true
           run-tests: true
           install: true
-          extra-args: ${{ matrix.mrdocs-linux-release == 'true' && '-D MRDOCS_LINUX_RELEASE=ON' || '' }}
+          extra-args: ${{ matrix.mrdocs-linux-release == 'true' && '-D MRDOCS_LINUX_RELEASE=ON' || '' }} ${{ matrix.macos-deployment-target != '' && format('-D CMAKE_OSX_DEPLOYMENT_TARGET={0}', matrix.macos-deployment-target) || '' }}
           package: ${{ matrix.is-main }}
           package-dir: ../packages
           package-generators: ${{ matrix.mrdocs-package-generators }}

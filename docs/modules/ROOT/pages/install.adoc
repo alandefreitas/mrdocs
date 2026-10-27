@@ -19,6 +19,8 @@ Older distributions, such as Ubuntu 18.04 (glibc 2.27), RHEL 8 (2.28), or CentOS
 
 On those systems, xref:#mrdocs-bootstrap-script[build Mr.Docs from source]. That build links the system's own glibc and loads plugins too, but it needs GCC 14 or Clang 18 or later, which you may have to install yourself on an older distribution.
 
+The macOS package needs macOS 14 (Sonoma) or later. Its executable is built with a deployment target of 14.0, so an older macOS refuses to start it.
+
 [#mrdocs-bootstrap-script]
 == Build from Source
 

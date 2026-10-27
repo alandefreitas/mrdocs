@@ -116,7 +116,14 @@ jobs:
             # UBSan shares the plain LLVM cache (compile-time checks only).
             llvm-cache-sanitizer: {{select asan "asan" msan "msan" tsan "tsan"}}
             llvm-cache-sanitizer-suffix: {{#if llvm-cache-sanitizer}}-{{{compiler}}}-{{{version}}}-{{{llvm-cache-sanitizer}}}{{/if}}
-            llvm-cache-key: llvm-{{{llvm-short-hash}}}-{{{llvm-preset-build-type}}}-{{{llvm-os-key}}}{{{llvm-cache-sanitizer-suffix}}}
+            # The oldest macOS the macOS rows build LLVM and MrDocs for (the
+            # release runs on this macOS or later). ci-build.yml sets it as the
+            # deployment target, ci-releases.yml checks the package against it,
+            # and the cache key carries it so a cache built for the runner's
+            # own macOS is never reused.
+            macos-deployment-target: {{#if (ieq os 'macOS')}}14.0{{/if}}
+            llvm-cache-macos-suffix: {{#if macos-deployment-target}}-macos{{{macos-deployment-target}}}{{/if}}
+            llvm-cache-key: llvm-{{{llvm-short-hash}}}-{{{llvm-preset-build-type}}}-{{{llvm-os-key}}}{{{llvm-cache-sanitizer-suffix}}}{{{llvm-cache-macos-suffix}}}
 
             # Maps sanitizer factor to LLVM_USE_SANITIZER cmake value
             llvm-sanitizer-config: {{#if (includes (list "clang" "apple-clang") compiler)}}{{select asan "Address" msan "MemoryWithOrigins"}}{{/if}}

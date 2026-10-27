@@ -230,7 +230,11 @@ The published Windows, macOS and Linux binaries load plugins. A Mr.Docs you buil
 
 The Linux release needs glibc 2.31 or later: Ubuntu 20.04, Debian 11, Fedora 32, RHEL 9, and anything newer. A plugin includes the Mr.Docs headers, which are {cpp}23, so it has to be built with GCC 14 or later, or with Clang and libstdc++ 14 or later, against the installed package. Such a plugin needs a newer libstdc++ than the one Ubuntu 20.04 or Debian 11 ships. The runtime in `lib/` is the one of GCC 15, and the plugin binds to it, so the libstdc++ the plugin is built with must be no newer than that one: a plugin built with GCC 16 that uses `GLIBCXX_3.4.35` fails to load on every distribution, even one whose own libstdc++ has that version, with a loader message that says it is not found (`GLIBCXX_3.4.35`).
 
-The plugin still links the C library of the machine that builds it. A plugin built on a newer distribution than the user's can need a newer glibc than the user has, and then fails to load with a message from the system loader about a glibc version. Build the plugin on the oldest distribution you want to support, or ship it per distribution. Distributions that do not use glibc, such as Alpine, are not covered by the release. The xref:contribute/binary-compatibility.adoc#linux-release[binary compatibility] page has the reasons for the floor.
+The plugin still links the glibc of the machine that builds it. A plugin built on a newer distribution than the user's can need a newer glibc than the user has, and then fails to load with a message from the system loader about a glibc version. Build the plugin on the oldest distribution you want to support, or ship it per distribution. Distributions that do not use glibc, such as Alpine, are not covered by the release. The xref:contribute/binary-compatibility.adoc#linux-release[binary compatibility] page has the reasons for the floor.
+
+The macOS release runs on macOS 14 or later, and the `CMAKE_OSX_DEPLOYMENT_TARGET` a plugin is built with decides the oldest macOS it loads on. To load wherever the release does, build the plugin with 14.0 or lower. A plugin built with a newer target, such as the 26.0 a macOS 26 machine defaults to, does not load on an older macOS: `dyld` rejects it before Mr.Docs sees it, and Mr.Docs reports the plugin could not be loaded.
+
+A Mr.Docs you build yourself keeps the deployment target of your machine unless you set the variable, and so does a plugin.
 
 == Building against more of Mr.Docs
 

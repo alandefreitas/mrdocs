@@ -131,11 +131,31 @@ jobs:
         if: ${{ runner.os == 'Linux' && !inputs.use-develop-binaries }}
         run: utils/release/check-linux-portability.sh "$MRDOCS_ROOT/bin/mrdocs"
 
+      # The macOS release runs on macOS 14 or later, and a plugin's own
+      # deployment target decides the oldest macOS it loads on, so the number
+      # is part of the release. The deployment target is set in ci-build.yml
+      # (matrix.macos-deployment-target); this reads it back from the
+      # executable (LC_BUILD_VERSION, `minos`). The check fails the job, and
+      # it skips a package reused from develop-release for
+      # the same reason as the Linux one.
+      - name: Check macOS Minimum Version
+        if: ${{ matrix.macos-deployment-target != '' && !inputs.use-develop-binaries }}
+        env:
+          EXPECTED_MINOS: ${{ matrix.macos-deployment-target }}
+        run: |
+          minos=$(otool -l "$MRDOCS_ROOT/bin/mrdocs" | awk '$1 == "minos" { print $2; exit }')
+          echo "minos of bin/mrdocs: ${minos:-none}"
+          if [ "$minos" != "$EXPECTED_MINOS" ]; then
+            echo "::error::bin/mrdocs has a minimum macOS of '${minos:-none}', expected $EXPECTED_MINOS"
+            exit 1
+          fi
+
       # Discovers the package through mrdocs_ROOT (the package-specific
       # find_package hint) rather than CMAKE_PREFIX_PATH. install-mrdocs-package.sh
       # exports MRDOCS_PREFIX as its CMake-valid form. On Linux this builds the
       # consumer plugin with the compiler of the job (GCC 15 in the release
-      # container) and loads it into the package (consumer-plugin-loads).
+      # container) and loads it into the package (consumer-plugin-loads). On
+      # macOS it sets the deployment target the docs tell plugin authors to use.
       - name: CMake Consumer Test (release package)
         uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.5
         with:
@@ -147,7 +167,7 @@ jobs:
           cxx: ${{ steps.setup-cpp.outputs.cxx || matrix.cxx }}
           generator: Ninja
           build-type: ${{ matrix.build-type }}
-          extra-args: -D mrdocs_ROOT=${{ env.MRDOCS_PREFIX }}
+          extra-args: -D mrdocs_ROOT=${{ env.MRDOCS_PREFIX }} ${{ matrix.macos-deployment-target != '' && format('-D CMAKE_OSX_DEPLOYMENT_TARGET={0}', matrix.macos-deployment-target) || '' }}
           run-tests: true
           install: false
 
