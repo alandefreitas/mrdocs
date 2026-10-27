@@ -17,14 +17,16 @@
 // it compares every symbol kind, so it reaches far more of the API than it
 // names.
 //
-// Nothing runs, and there is no ctest entry: the object is linked whole, so
-// every symbol it names has to resolve. On Windows that resolution is
-// against the tool's export table, and on macOS against the tool the library
-// is linked with as its bundle loader, which is where a missing attribute
-// would fail. On Linux a module library may leave symbols to the loader,
-// so what this checks there is that the public headers compile with neither
-// `MRDOCS_SOURCE` nor `MRDOCS_STATIC_LINK` defined, and that such a library
-// links against the executable at all.
+// The library is linked and then loaded by the tool, in the test
+// mrdocs-plugin-api-link-test-loads. It has no entry point, so the load ends
+// in a refusal that names the missing build id, and that refusal is reached
+// only if every symbol the library names resolved. On Windows linking
+// resolves them against the tool's export table, and on macOS against the
+// tool the library is linked with as its bundle loader. On Linux a module
+// library may leave symbols to the loader, so linking proves little there;
+// the load does the check, because the loader opens the library with
+// RTLD_NOW and a symbol the version script does not export fails that open
+// with an undefined-symbol message.
 //
 // `NDEBUG` is undefined first, so that the inline code calls `assert_failed`
 // the way it does in a plugin built in Debug, against a Release MrDocs.
@@ -32,11 +34,17 @@
 #undef NDEBUG
 
 #include <mrdocs/Corpus.hpp>
+#include <mrdocs/Dom.hpp>
+#include <mrdocs/Handlebars/Engine.hpp>
 #include <mrdocs/Extensions/ExtensionRegistry.hpp>
+#include <mrdocs/Generator.hpp>
+#include <mrdocs/Support/Report.hpp>
 #include <mrdocs/Metadata.hpp>
+#include <mrdocs/Metadata/DomCorpus.hpp>
 #include <mrdocs/Plugin.hpp>
 #include <mrdocs/Transform.hpp>
 #include <cstddef>
+#include <format>
 #include <memory>
 #include <string>
 #include <utility>
@@ -116,4 +124,78 @@ probeRegistry(Corpus& corpus, Config const& config)
     ExtensionRegistry moved(std::move(registry));
     registry = std::move(moved);
     return registry.applyTransforms(corpus, config);
+}
+
+// The DOM and the template engine, which a plugin that builds a report uses
+// the way a generator does, and the error types every function returns.
+std::string
+probeDomAndTemplates(Corpus const& corpus)
+{
+    dom::Object object;
+    object.set("name", dom::Value("probe"));
+    dom::Array array;
+    array.push_back(dom::Value(1));
+    object.set("items", dom::Value(array));
+    dom::Value value(object);
+    std::string result = toString(value) + toString(object.get("name"));
+    handlebars::Handlebars engine;
+    result += engine.render("{{name}}", value);
+    // Operators and conversions the DOM defines inline over exported
+    // functions, the way a template or a helper in a plugin calls them.
+    dom::Value one(1);
+    if (one == dom::Value(1) || (value || "x"))
+    {
+        result += toString(array) + toString(dom::Value(dom::String("s")));
+    }
+    result += std::format("{}", value);
+    result += toString(buildCorpusDom(corpus));
+    SymbolID id = SymbolID::createFromString("0000000000000000000000000000000000000000");
+    result += id == SymbolID::global ? "global" : "other";
+    Expected<std::string> failed = Unexpected(Error("probe"));
+    if (!failed)
+    {
+        result += failed.error().message();
+    }
+    return result;
+}
+
+namespace {
+
+class ProbeGenerator final
+    : public Generator
+{
+public:
+    std::string_view
+    id() const noexcept override
+    {
+        return "probe";
+    }
+
+    std::string_view
+    displayName() const noexcept override
+    {
+        return "Probe";
+    }
+
+    std::string_view
+    fileExtension() const noexcept override
+    {
+        return "txt";
+    }
+
+    Expected<void>
+    build(Corpus const& corpus, Config const& config) const override
+    {
+        DomCorpus domCorpus(corpus);
+        report::print(report::Level::info, config.configDir());
+        return {};
+    }
+};
+
+} // (anon)
+
+Expected<void>
+probeInstallGenerator(PluginContext& context)
+{
+    return context.installGenerator(std::make_unique<ProbeGenerator>());
 }

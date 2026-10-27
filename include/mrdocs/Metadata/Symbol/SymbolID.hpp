@@ -83,6 +83,7 @@ public:
         @param input The string to hash.
         @return The SymbolID created by hashing the string.
     */
+    MRDOCS_DECL
     static
     SymbolID
     createFromString(std::string_view input);

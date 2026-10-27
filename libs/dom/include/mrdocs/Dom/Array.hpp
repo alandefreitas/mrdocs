@@ -276,18 +276,21 @@ public:
     /** Compare two arrays for equality.
     */
     friend
+    MRDOCS_DOM_DECL
     bool
     operator==(Array const&, Array const&) noexcept;
 
     /** Compare two arrays for precedence.
     */
     friend
+    MRDOCS_DOM_DECL
     std::strong_ordering
     operator<=>(Array const&, Array const&) noexcept;
 
     /** Return a diagnostic string.
     */
     friend
+    MRDOCS_DOM_DECL
     std::string
     toString(Array const& arr);
 

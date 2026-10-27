@@ -547,6 +547,7 @@ public:
         operator, which does not perform type conversions.
     */
     friend
+    MRDOCS_DOM_DECL
     bool
     operator==(
         Value const& lhs,
@@ -555,6 +556,7 @@ public:
     /** Compare two values for inequality.
     */
     friend
+    MRDOCS_DOM_DECL
     std::strong_ordering
     operator<=>(
         Value const& lhs,
@@ -585,6 +587,7 @@ public:
     /** Add or concatenate two values.
     */
     friend
+    MRDOCS_DOM_DECL
     dom::Value
     operator+(Value const& lhs, Value const& rhs);
 
@@ -609,6 +612,7 @@ public:
         This function is equivalent to the JavaScript `||` operator.
     */
     friend
+    MRDOCS_DOM_DECL
     dom::Value
     operator||(Value const& lhs, Value const& rhs);
 
@@ -633,6 +637,7 @@ public:
         This function is equivalent to the JavaScript `&&` operator.
     */
     friend
+    MRDOCS_DOM_DECL
     dom::Value
     operator&&(Value const& lhs, Value const& rhs);
 
@@ -655,6 +660,7 @@ public:
     /** Return value as a string.
     */
     friend
+    MRDOCS_DOM_DECL
     std::string
     toString(Value const& value);
 };

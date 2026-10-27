@@ -136,7 +136,8 @@ endfunction()
 # host exports its symbols, since a plugin resolves the MrDocs symbols it
 # calls against the host, and links the whole of mrdocs-core rather than the
 # objects it uses itself, since a plugin calls functions nothing in the host
-# does, such as `assert_failed` in a Release build. LLVM is linked directly
+# does, such as `assert_failed` in a Release build, and narrows what it
+# exports to the MrDocs API. LLVM is linked directly
 # as well, for hosts that call LLVM utilities of their own, as the tool's
 # frontend does.
 function(mrdocs_make_plugin_host target)
@@ -163,6 +164,31 @@ function(mrdocs_make_plugin_host target)
                 "$<TARGET_FILE:mrdocs-core>"
                 "LINKER:--no-whole-archive")
         endif ()
+        # Export the MrDocs API and nothing else. A version script does it on
+        # Linux (--exclude-libs=ALL would hide the API too, since it is
+        # defined in the static mrdocs-core) and an exported symbols list on
+        # macOS. Windows exports what MRDOCS_DECL marks, which is already
+        # narrow. See MRDOCS_NARROW_EXPORTS in the root CMakeLists.txt.
+        set(narrowed OFF)
+        if (MRDOCS_NARROW_EXPORTS AND MRDOCS_BUILD_SHARED)
+            message(STATUS "MRDOCS_NARROW_EXPORTS is ignored in a shared build: the library defines the API")
+        elseif (MRDOCS_NARROW_EXPORTS)
+            set(exports_dir "${PROJECT_SOURCE_DIR}/tools/mrdocs")
+            if (APPLE)
+                target_link_options(${target} PRIVATE
+                    "LINKER:-exported_symbols_list,${exports_dir}/exports-macos.txt")
+                set_property(TARGET ${target} APPEND PROPERTY
+                    LINK_DEPENDS "${exports_dir}/exports-macos.txt")
+                set(narrowed ON)
+            elseif (UNIX AND NOT CYGWIN)
+                target_link_options(${target} PRIVATE
+                    "LINKER:--version-script=${exports_dir}/exports-linux.map")
+                set_property(TARGET ${target} APPEND PROPERTY
+                    LINK_DEPENDS "${exports_dir}/exports-linux.map")
+                set(narrowed ON)
+            endif ()
+        endif ()
+        set_property(TARGET ${target} PROPERTY MRDOCS_NARROW_EXPORTS ${narrowed})
     endif ()
 endfunction()
 

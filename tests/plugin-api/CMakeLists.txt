@@ -9,11 +9,6 @@
 # Official repository: https://github.com/cppalliance/mrdocs
 #
 
-# A module library built and linked the way a plugin is, so that building it
-# is the test: see LinkProbe.cpp for what that catches and what it does not.
-# It is deliberately not registered with ctest, since it runs nothing.
-mrdocs_add_plugin_module(mrdocs-plugin-api-link-test LinkProbe.cpp)
-
 # `mrdocs_add_checked_run(<name> <success|failure> <regex> <argument>...)`
 # registers the ctest entry <name>, which runs the `mrdocs` tool with the
 # arguments and passes if its exit status is zero (success) or 1, the status
@@ -33,6 +28,26 @@ function (mrdocs_add_checked_run name outcome regex)
             ${ARGN})
 endfunction ()
 
+# The executable exports the MrDocs API and none of LLVM, Clang, Lua or
+# JerryScript. It runs on Linux and macOS, where nm exists; a Windows
+# executable exports what is marked for export. A shared or sanitized build
+# keeps the default export table, so there is nothing narrowed to check.
+get_target_property(MRDOCS_EXPORTS_NARROWED mrdocs MRDOCS_NARROW_EXPORTS)
+if (UNIX AND MRDOCS_EXPORTS_NARROWED)
+    find_program(MRDOCS_NM NAMES nm llvm-nm)
+    find_program(MRDOCS_CXXFILT NAMES c++filt llvm-cxxfilt)
+    if (MRDOCS_NM AND MRDOCS_CXXFILT)
+        add_test(NAME mrdocs-plugin-exports
+            COMMAND ${CMAKE_COMMAND}
+                "-DNM=${MRDOCS_NM}"
+                "-DCXXFILT=${MRDOCS_CXXFILT}"
+                "-DEXE=$<TARGET_FILE:mrdocs>"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckExports.cmake")
+    else ()
+        message(STATUS "No nm or c++filt found: mrdocs-plugin-exports is not registered")
+    endif ()
+endif ()
+
 # Register a test that runs MrDocs with the addon root `addons` and passes
 # only if the run fails with output matching `expected`.
 function(mrdocs_add_plugin_failure_test name addons expected)
@@ -42,6 +57,20 @@ function(mrdocs_add_plugin_failure_test name addons expected)
         ${MRDOCS_BUILTIN_DIR_ARGS}
         "--addons-supplemental=${addons}")
 endfunction()
+
+# A module library built and linked the way a plugin is, and then loaded, so
+# that both building and loading it are the test: see LinkProbe.cpp for what
+# that catches. It installs nothing: it has no entry point, so the run is
+# refused for lacking the build id, and that refusal is only reached if the
+# loader resolved every MrDocs symbol the library names. A symbol the tool
+# does not export fails earlier, with an undefined-symbol message, and the
+# test fails.
+set(MRDOCS_LINK_PROBE_ADDONS "${CMAKE_CURRENT_BINARY_DIR}/link-probe")
+mrdocs_add_plugin_module(mrdocs-plugin-api-link-test LinkProbe.cpp
+    ADDONS "${MRDOCS_LINK_PROBE_ADDONS}")
+mrdocs_add_plugin_failure_test(mrdocs-plugin-api-link-test-loads
+    "${MRDOCS_LINK_PROBE_ADDONS}"
+    "does not export mrdocs_plugin_build_id")
 
 # A plugin MrDocs has to refuse, built from `source` into an addon root of
 # its own, so that it is offered to its own test and to no other. Every

@@ -319,6 +319,7 @@ public:
     /** Compare two objects for equality.
     */
     friend
+    MRDOCS_DOM_DECL
     bool
     operator==(Object const& a, Object const& b) noexcept;
 

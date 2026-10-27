@@ -193,6 +193,7 @@ public:
 
         @see helpers::registerBuiltinHelpers
     */
+    MRDOCS_HANDLEBARS_DECL
     Handlebars();
 
     /** Render a handlebars template
@@ -357,6 +358,7 @@ public:
         @param options The options to use
         @return The rendered text
     */
+    MRDOCS_HANDLEBARS_DECL
     Expected<void, Error>
     try_render_to(
         OutputRef& out,
@@ -413,6 +415,7 @@ public:
         @see https://handlebarsjs.com/guide/partials.html
 
     */
+    MRDOCS_HANDLEBARS_DECL
     void
     registerPartial(std::string_view name, std::string_view text);
 
@@ -460,6 +463,7 @@ public:
         @see https://handlebarsjs.com/guide/block-helpers.html
         @see https://handlebarsjs.com/guide/builtin-helpers.html
     */
+    MRDOCS_HANDLEBARS_DECL
     void
     registerHelper(std::string_view name, dom::Function const& helper);
 
@@ -469,6 +473,7 @@ public:
 
         @param name The name of the helper
     */
+    MRDOCS_HANDLEBARS_DECL
     void
     unregisterHelper(std::string_view name);
 
@@ -486,6 +491,7 @@ public:
 
         @param fn The logger function
     */
+    MRDOCS_HANDLEBARS_DECL
     void
     registerLogger(dom::Function fn);
 

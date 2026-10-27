@@ -1,0 +1,61 @@
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+#
+# Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
+#
+# Official repository: https://github.com/cppalliance/mrdocs
+#
+
+# The only symbols the mrdocs executable exports: every one whose Itanium
+# mangling is in the mrdocs namespace (functions and member functions with any
+# qualifier, static locals and thread-locals) and the type information,
+# vtables, thunks and guard variables of its types. Everything else, including
+# what the static libraries (LLVM, Clang, Lua, JerryScript) define, stays local
+# to the executable, so that a plugin which bundles a copy of one of those
+# libraries binds to its own copy.
+# Mach-O adds an underscore to every name.
+__ZN6mrdocs*
+__ZNK6mrdocs*
+__ZNR6mrdocs*
+__ZNO6mrdocs*
+__ZNKR6mrdocs*
+__ZNKO6mrdocs*
+__ZTIN6mrdocs*
+__ZTSN6mrdocs*
+__ZTVN6mrdocs*
+__ZTTN6mrdocs*
+__ZTh*_N6mrdocs*
+__ZTh*_NK6mrdocs*
+__ZTh*_NR6mrdocs*
+__ZTh*_NO6mrdocs*
+__ZTh*_NKR6mrdocs*
+__ZTh*_NKO6mrdocs*
+__ZTv*_N6mrdocs*
+__ZTv*_NK6mrdocs*
+__ZTv*_NR6mrdocs*
+__ZTv*_NO6mrdocs*
+__ZTv*_NKR6mrdocs*
+__ZTv*_NKO6mrdocs*
+__ZTc[hv]*_[hv]*_N6mrdocs*
+__ZTc[hv]*_[hv]*_NK6mrdocs*
+__ZTc[hv]*_[hv]*_NR6mrdocs*
+__ZTc[hv]*_[hv]*_NO6mrdocs*
+__ZTc[hv]*_[hv]*_NKR6mrdocs*
+__ZTc[hv]*_[hv]*_NKO6mrdocs*
+__ZGVN6mrdocs*
+__ZGVZN6mrdocs*
+__ZGVZNK6mrdocs*
+__ZGVZNR6mrdocs*
+__ZGVZNO6mrdocs*
+__ZGVZNKR6mrdocs*
+__ZGVZNKO6mrdocs*
+__ZZN6mrdocs*
+__ZZNK6mrdocs*
+__ZZNR6mrdocs*
+__ZZNO6mrdocs*
+__ZZNKR6mrdocs*
+__ZZNKO6mrdocs*
+__ZTWN6mrdocs*
+__ZTHN6mrdocs*

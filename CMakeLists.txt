@@ -78,6 +78,44 @@ option(MRDOCS_BUILD_PLUGIN_MODULES
     "This MrDocs can build and load plugins; also builds the plugin example and tests"
     ${MRDOCS_PLUGIN_MODULES_DEFAULT})
 
+# A host that loads plugins exports its symbols so that a plugin resolves the
+# MrDocs functions it calls against the host, and ENABLE_EXPORTS exports every
+# symbol on Linux and macOS, LLVM, Clang and Lua included. Narrowing the table
+# to the MrDocs API keeps a plugin that bundles its own copy of one of those
+# libraries bound to its own copy; see `mrdocs_make_plugin_host`. A shared
+# build keeps the default table, since the API lives in the library and not in
+# the host. A sanitized build keeps it too: clang links the sanitizer runtime
+# statically into the executable, and a plugin built with the same flags binds
+# to the runtime's entry points (__asan_*, __ubsan_*, the interceptors) through
+# the executable, so narrowing would leave the plugin with undefined symbols.
+# A narrowed table leaves the dynamic symbol table with no names for LLVM or
+# Clang frames, so the fallback backtrace of a crash prints addresses there;
+# configure with MRDOCS_NARROW_EXPORTS=OFF to get names back.
+set(MRDOCS_SANITIZED OFF)
+foreach (MRDOCS_FLAGS_VAR IN ITEMS
+         CMAKE_CXX_FLAGS CMAKE_EXE_LINKER_FLAGS
+         CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+         CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
+    if ("${${MRDOCS_FLAGS_VAR}}" MATCHES "-fsanitize")
+        set(MRDOCS_SANITIZED ON)
+    endif ()
+endforeach ()
+if (MRDOCS_BUILD_PLUGIN_MODULES AND NOT MRDOCS_BUILD_SHARED AND NOT MRDOCS_SANITIZED)
+    set(MRDOCS_NARROW_EXPORTS_DEFAULT ON)
+else ()
+    set(MRDOCS_NARROW_EXPORTS_DEFAULT OFF)
+endif ()
+# AUTO follows the build on every configure; ON and OFF are the user's choice.
+set(MRDOCS_NARROW_EXPORTS AUTO CACHE STRING
+    "Export only the MrDocs API from a host that loads plugins (AUTO, ON or OFF; Linux and macOS, static builds)")
+set_property(CACHE MRDOCS_NARROW_EXPORTS PROPERTY STRINGS AUTO ON OFF)
+string(TOUPPER "${MRDOCS_NARROW_EXPORTS}" MRDOCS_NARROW_EXPORTS_VALUE)
+if (MRDOCS_NARROW_EXPORTS_VALUE STREQUAL "AUTO")
+    set(MRDOCS_NARROW_EXPORTS ${MRDOCS_NARROW_EXPORTS_DEFAULT})
+elseif (NOT MRDOCS_NARROW_EXPORTS_VALUE MATCHES "^(ON|OFF|TRUE|FALSE|YES|NO|Y|N|1|0)$")
+    message(FATAL_ERROR "MRDOCS_NARROW_EXPORTS must be AUTO or a CMake boolean, not '${MRDOCS_NARROW_EXPORTS}'")
+endif ()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # MSVC flags shared by every mrdocs target below (not installed consumers):
