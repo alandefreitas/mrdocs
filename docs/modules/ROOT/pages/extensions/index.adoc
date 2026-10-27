@@ -4,9 +4,9 @@ An *extension* plugs your own templates, scripts, or {cpp} code into the Mr.Docs
 
 * xref:extensions/handlebars-extensions.adoc[Handlebars extensions] override the templates and helpers the `html` and `adoc` generators render with, one file at a time.
 * xref:extensions/data-driven-generators.adoc[Data-driven generators] register a new output format from a directory of Handlebars templates and a manifest, with no code.
-* xref:extensions/corpus-transforms.adoc[Corpus transforms] rewrite metadata across many symbols between extraction and rendering, so every generator sees the change. They are Lua or JavaScript scripts, or {cpp} code in a xref:extensions/plugins.adoc[plugin].
+* xref:extensions/corpus-transforms.adoc[Corpus transforms] rewrite metadata across many symbols between extraction and rendering, so every generator sees the change. They are Lua or JavaScript scripts, or native {cpp} code in a xref:extensions/plugins.adoc[plugin], and both run in one pipeline.
 * xref:extensions/script-generators.adoc[Script generators] are Lua or JavaScript scripts that own the whole emit and write whatever files they want.
-* xref:extensions/plugins.adoc[Plugins] are shared libraries written in {cpp} that Mr.Docs loads as it starts up, extending it with compiled code.
+* xref:extensions/plugins.adoc[Plugins] are native {cpp} shared libraries, built against the Mr.Docs headers, that Mr.Docs loads as it starts up. They install generators and corpus transforms written in {cpp}.
 * xref:extensions/antora.adoc[Antora extensions] run Mr.Docs as a stage of an Antora build and let hand-written pages link to the generated reference.
 * xref:extensions/as-library.adoc[Mr.Docs as a library] links `mrdocs-core` into a {cpp} program that drives extraction itself and consumes the corpus for its own purposes. A custom generator is only one of them.
 * The xref:reference:index.adoc[Library Reference] documents that {cpp} API.

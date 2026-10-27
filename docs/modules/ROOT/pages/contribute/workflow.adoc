@@ -17,7 +17,12 @@ The tool installs an uncaught exception handler that prints a stack trace and ex
 
 === The plugin interface
 
-A xref:extensions/plugins.adoc[plugin] is compiled against the public headers and loaded into the running tool, so it sees {cpp} types by their layout rather than through an insulating boundary. A plugin is tied to the build it was compiled against: Mr.Docs refuses a plugin that reports a different build identity, so there is no interface version to raise when you change what a plugin sees, in the plugin header, the `Generator` and `Transform` interfaces, or any public type a plugin can hold or be handed.
+A xref:extensions/plugins.adoc[plugin] is compiled against the public headers and loaded into the running tool, so it sees {cpp} types by their layout rather than through an insulating boundary. Keep these in mind when you change anything a plugin can see:
+
+* A plugin is tied to the build it was compiled against. Mr.Docs refuses a plugin that reports a different build identity, so there is no interface version to raise when you change the plugin header, the `Generator` and `Transform` interfaces, or any public type a plugin can hold or be handed. Change them as the code needs. xref:contribute/binary-compatibility.adoc#build-identity[Binary compatibility] says why there is no counter.
+* New public API that a plugin may call needs `MRDOCS_DECL` (or the macro of its library) on Windows, where a function without it is not exported from the tool. On Linux and macOS everything in the `mrdocs` namespace is exported, so a missing macro there shows up only on Windows CI.
+* Two tests guard the export table. The link probe in `tests/plugin-api` calls the exported API and fails to link, or to load, if the tool does not export something a plugin needs. `CheckExports.cmake` fails if the tool exports a symbol that is not in the `mrdocs` namespace, such as one from LLVM or Lua. If the probe fails after you add API, export it; if `CheckExports.cmake` fails, a new dependency leaked into the table (the check rejects every export outside the `mrdocs` namespace, and has no allow list), so fix the link so the dependency stays out, rather than widening the check.
+* Changing the standard library settings a plugin reports, or what `MRDOCS_PLUGIN_STDLIB_TAG` covers, changes which plugins load, so it is a decision for xref:contribute/binary-compatibility.adoc#stdlib-tag[that page], not a side effect of a build flag.
 
 == Style Guide
 

@@ -26,6 +26,8 @@ The macOS package needs macOS 14 (Sonoma) or later. Its executable is built with
 
 If no binary release fits your platform, build Mr.Docs from source with the bootstrap script. The script provisions every dependency Mr.Docs needs (LLVM, Clang, and the other third-party libraries) into the install prefix you choose, configures the project, and runs the build. See https://cppalliance.org/alan/2026/04/15/Alan.html[the bootstrap walkthrough on the C++ Alliance site,window="_blank"] for the design rationale.
 
+Building from source is also the setup where xref:extensions/plugins.adoc[plugins] work best. A plugin has to be built against the exact Mr.Docs that loads it, with the same standard library, and when you build both on the same machine with the bootstrap script they share one compiler and one standard library, so most of what has to match matches already. The plugin's own build still has to agree on the settings that change the library's layout, such as the debug level on Windows. That is how compiler plugins such as Clang's are meant to be used, and it is the way to get Mr.Docs, and plugins for it, on a platform the binary packages do not cover. See xref:extensions/plugins.adoc#what-must-match[what a plugin has to match] for the rules the packages impose.
+
 [TIP]
 ====
 Already installed Mr.Docs from a xref:#mrdocs-binaries[binary package]? Skip the rest of this section and go straight to xref:#_verification[Verification].

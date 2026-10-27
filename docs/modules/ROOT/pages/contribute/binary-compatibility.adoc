@@ -1,8 +1,84 @@
 = Binary compatibility
 
-Mr.Docs makes promises about its binaries, and each one rests on a policy copied from a project that had already learned why it matters. This page states the policies of the Linux release, why they exist, and where they come from, so that nobody mistakes one for neglect and "updates" it. A rule that looks old, such as the container the Linux release is built in, is old on purpose.
+Mr.Docs makes promises about how plugins and its binaries fit together, and most of them rest on a policy copied from a project that had already learned why it matters. The rest, such as where plugins are discovered and what the tool exports, are Mr.Docs's own, and the table says which is which. This page states every policy, why it exists, and where it comes from, so that nobody mistakes one for neglect and "updates" it. A rule that looks old, such as the container the Linux release is built in, or strict, such as the exact build a plugin must match, is that way on purpose.
 
-The audience is people who change Mr.Docs. What users need to know is on the xref:install.adoc[Install] and xref:extensions/plugins.adoc[Plugins] pages.
+The audience is people who change Mr.Docs. What users need to know is on the xref:install.adoc[Install] and xref:extensions/plugins.adoc[Plugins] pages, and the day-to-day rules for editing the public headers are on the xref:contribute/workflow.adoc[workflow] page.
+
+[cols="2,3,2"]
+|===
+|Policy |Why |Origin
+
+|<<loading-model,Plugins are shared libraries loaded into the tool, which add to its registries>>
+|The tool needs no knowledge of a plugin until the user installs it.
+|Clang plugins
+
+|<<build-identity,A plugin loads only into the exact build it was compiled against>>
+|The layout of the public types changes in most commits, and a check that depends on someone remembering to update it fails as a crash.
+|Clang and GCC plugins
+
+|<<stdlib-tag,A plugin must use the same standard library, and the compiler does not matter>>
+|The standard library's types cross the boundary, and the compiler's do not.
+|The Itanium {cpp} ABI, and the MSVC STL's documented compatibility
+
+|<<exports,The tool exports the Mr.Docs API and nothing else>>
+|A plugin that bundles its own LLVM or Lua binds to its own copy.
+|Mr.Docs's own
+
+|<<discovery,Plugins are discovered in the addon roots>>
+|Plugins install in the same directories as every other extension, and the roots decide the load order.
+|Mr.Docs's own, following its addons
+
+|<<linux-release,The Linux release depends on glibc 2.31 and ships its own C++ runtime>>
+|One binary runs on many distributions and can still load plugins built with a current compiler.
+|manylinux and auditwheel
+
+|<<macos-release,The macOS release targets macOS 14>>
+|The release runs on the macOS versions people use, and plugins have a target to build for.
+|Apple's deployment target
+|===
+
+[#loading-model]
+== Plugins are loaded into the tool
+
+A plugin is a shared library that the tool loads when it starts. The library exports an entry point, and the tool calls it with a context, through which the plugin registers what it provides: generators go to the registry the tool searches by id, and transforms join the pipeline of the run. Clang plugins work the same way at the level of the process: a shared library loaded into the tool, which adds to the tool's registries, and compiled against the headers of the tool it is loaded into. Clang finds the additions in the static initializers of the library, where Mr.Docs has `MRDOCS_PLUGIN_MAIN`, an entry point that receives a `PluginContext`, so that a plugin that fails can say why.
+
+The loader opens every library with all symbols resolved at once and with its symbols local to the library, so that a plugin which refers to something nobody provides is refused while loading and two plugins can't replace each other's functions. It never unloads a plugin: the registries hold objects whose code lives in the plugin, and the tool exits shortly after the run.
+
+[#build-identity]
+== A plugin loads only into the exact build it was compiled against
+
+A plugin sees the public types of Mr.Docs by their layout: it constructs generators and transforms the tool destroys, walks `Symbol` objects the tool allocated, and inlines their member functions. That layout, the order of virtual functions and the signatures of the exported functions change in most commits, since Mr.Docs is not a library with a stable interface. So the loader compares the build identity the plugin was compiled with (`MRDOCS_PLUGIN_BUILD_ID`, the text of `project_release_with_build`: the release, or the date of the commit between releases, plus the commit, such as `2026.10.26+662773e585c8`; the xref:extensions/plugins.adoc#what-must-match[Plugins] page covers how tags and modified trees appear in it) with its own and refuses a plugin that differs, with a message that names both.
+
+This is how Clang and GCC treat their plugins: they expect the same build of the compiler. GCC gives plugins `plugin_default_version_check`, which compares the version, the date stamp, the phase, the revision and the configuration arguments of the compiler, and the plugin calls it itself from `plugin_init`. Clang does not check at all, and a plugin built against another revision misbehaves. Mr.Docs does the check on the plugin's behalf, and does it with an identity every build from a git checkout has.
+
+A version counter that is bumped when the interface changes was considered, and rejected. It promises that a plugin keeps working across releases, and the promise holds only if everyone who changes a public header remembers to bump it. The cost of forgetting is not a message: a plugin that is loaded into a tool whose layout moved crashes somewhere unrelated, or worse, reads the wrong field. An exact comparison has no step to forget. The price is that a plugin is rebuilt for every Mr.Docs build it loads into, as GCC asks of its plugins. A build without git information, such as one from a source tarball, has an empty identity and cannot tell builds apart, so such builds accept each other's plugins. Plugins that must survive a release belong in scripts, which use the data model instead of the {cpp} types.
+
+[#stdlib-tag]
+== A plugin must use the same standard library, and the compiler does not matter
+
+The build identity says the Mr.Docs types match, and the standard library types they contain have to match as well: a `std::string` the plugin allocates is freed by Mr.Docs. So the plugin also reports `MRDOCS_PLUGIN_STDLIB_TAG`, the name of its standard library and the settings that change how it lays its types out or which heap it allocates from, and the loader refuses a plugin whose tag differs from its own:
+
+* libstdc++: the dual ABI (`_GLIBCXX_USE_CXX11_ABI`), which changes `std::string` and `std::list`, and the debug mode (`_GLIBCXX_DEBUG`), which changes every container.
+* libc++: `_LIBCPP_ABI_VERSION`.
+* The MSVC STL: the C runtime (dynamic or static, release or debug), since a static runtime gives each module a heap of its own, and `_ITERATOR_DEBUG_LEVEL`, which changes the size of iterators and containers. The toolset and the update of the STL are not in the tag, because Microsoft keeps the v14x runtime binary compatible, in the direction of newer, and requires that the redistributable be at least as new as the newest toolset used to build any module. Requiring an exact toolset would force the Visual Studio of our CI on every plugin author.
+
+The compiler is not in the tag. GCC and Clang share the Itanium {cpp} ABI, so on Linux a type has one layout whichever of them compiled it, and the standard library they use is the same libstdc++. A plugin built with Clang therefore loads into a Mr.Docs built with GCC, and CI builds the consumer plugin with the other compiler family to keep that true. A compiler check would refuse plugins that work, and it would not add safety: what makes a plugin unsafe is a standard library that differs, which the tag already covers. Assertion and hardening settings of a library are left out of the tag for the same reason, since they change what the inline code checks and not what it operates on.
+
+[#exports]
+== The tool exports the Mr.Docs API and nothing else
+
+A plugin resolves the Mr.Docs functions it calls against the `mrdocs` executable, which has to export them. Exporting everything, which `ENABLE_EXPORTS` does on Linux and macOS, would put LLVM, Clang, Lua and the other libraries in the table too, and a plugin that bundles its own copy of one of them would bind to the one inside the tool, with a different version and a different configuration. So the tool exports the API and nothing else.
+
+Narrowing is done by the export list of the link and not by hidden visibility on the libraries, because the headers expose more of Mr.Docs than the functions marked `MRDOCS_DECL`: a plugin reaches a class through inline functions, type information and vtables that no export macro marks, and hiding them would break it. The executable links the whole of `mrdocs-core` (`--whole-archive`, `-force_load` or `/WHOLEARCHIVE`), since a plugin calls functions nothing in the tool calls, such as `assert_failed` in a Release build, and a version script on Linux and an export list on macOS narrow the table to the `mrdocs` namespace and its type information. Windows exports what `MRDOCS_DECL` marks. A shared build and a sanitized build keep the full table, for the reasons given where `MRDOCS_NARROW_EXPORTS` is set in the root `CMakeLists.txt`.
+
+Two tests guard the table. The link probe is a plugin that calls the exported API, including `assert_failed` with `NDEBUG` undefined, and it fails to link or to load if the tool does not export something a plugin needs. `CheckExports.cmake` lists the exports of the finished tool on Linux and macOS and fails if it exports any symbol outside the `mrdocs` namespace, such as one of LLVM, Clang or Lua. The first is what makes a new public class safe to ship, and the workflow page says what to do when it fails.
+
+[#discovery]
+== Plugins are discovered in the addon roots
+
+Where plugins live and in what order they load is not borrowed from anyone. It is what Mr.Docs already did for templates, scripts and generators: the `plugins` subdirectory of each addon root, the `addons` directory first and then each `addons-supplemental` directory in order. A plugin can ship in a supplemental directory next to the configuration of the project it documents, and a user who already knows where to put a template knows where to put a plugin.
+
+The order of the roots decides the order in which plugins load, and so the order of their transforms, which run before those of the extension scripts. It does not decide who wins, as it does for a template that a supplemental root overrides: a plugin that installs a generator id already taken by Mr.Docs or by another plugin fails its installation, which stops the run when the entry point passes that error on. The xref:extensions/plugins.adoc#_installing_a_plugin[Plugins] page lists what happens with data-driven and script generators of the same id. Plugins are loaded before the data-driven generators of the addon roots are discovered, so a plugin generator takes its id first. The dependencies of a plugin go in `plugins/<stem>/`, which the loader adds to the search for the plugin only.
 
 [#linux-release]
 == The Linux release depends on glibc 2.31 and ships its own C++ runtime
@@ -11,7 +87,7 @@ A binary that links the C library dynamically needs a C library at least as new 
 
 * The binary may depend on glibc up to a stated version, the floor. The floor is glibc 2.31, which is Ubuntu 20.04, and it covers Debian 11, Fedora 32, RHEL 9, and anything newer. glibc is backward compatible, so a binary built against an old glibc runs on a new one.
 * It is built inside an old distribution, with a current compiler. There is no flag that tells glibc to target an older version the way `-mmacosx-version-min` does for macOS, so the container's glibc is the floor. The compiler doesn't depend on the distribution: it is GCC 15 from the `ubuntu-toolchain-r/test` PPA, which publishes a released GCC for Ubuntu 20.04.
-* It ships its own C++ runtime. manylinux whitelists the system `libstdc++` and `libgcc_s` among a few system libraries and caps their symbol versions, which would cap Mr.Docs at what Ubuntu 20.04 has (GCC 10, up to `GLIBCXX_3.4.28`). A plugin includes the {cpp}23 headers of Mr.Docs, so it is built with GCC 14 or later, and it refers to `GLIBCXX_3.4.33`. That is why the package carries `lib/libstdc++.so.6` and `lib/libgcc_s.so.1` (about 2.6 MB), copied from the compiler that built it, and the executable has the run path `$ORIGIN/../lib`. When a plugin is loaded, its dependency on `libstdc++.so.6` resolves to the copy that is already loaded, so one runtime serves both. The rule for a plugin follows: the libstdc++ it is built with is at least that of GCC 14, which its headers need, and no newer than the one in `lib/`, since the plugin binds to that copy and a version it lacks is a load error on every distribution.
+* It ships its own C++ runtime. manylinux whitelists the system `libstdc++` and `libgcc_s` among a few system libraries and caps their symbol versions, which would cap Mr.Docs at what Ubuntu 20.04 has (GCC 10, up to `GLIBCXX_3.4.28`). A plugin includes the {cpp}23 headers of Mr.Docs, so it is built with GCC 14 or later, and it refers to `GLIBCXX_3.4.33`. That is why the package carries `lib/libstdc++.so.6` and `lib/libgcc_s.so.1` (about 2.6 MB), copied from the compiler that built it, and the executable has the run path `$ORIGIN/../lib`. When a plugin is loaded, its dependency on `libstdc++.so.6` resolves to the copy that is already loaded, so one runtime serves both. The plugin binds to that copy, so a plugin built with a newer libstdc++ than the one in `lib/` fails to load on every distribution; the xref:extensions/plugins.adoc#what-must-match[Plugins] page gives the rule for authors, including the glibc a plugin needs.
 * A check on the finished package fails the release if the executable is not dynamically linked against glibc, if the executable or a bundled library refers to a glibc symbol newer than the floor or to a `GLIBC_` tag that is not a version, if the bundled libraries are missing, if the run path is not `$ORIGIN/../lib`, if the executable refers to a `GLIBCXX_`, `CXXABI_` or `GCC_` version that the bundled libraries do not define, or if any of them needs a library that is neither one of glibc nor one of the two bundled. For example, an executable that was built with a compiler newer than the one whose libraries were bundled fails with:
 +
 [source]
@@ -40,4 +116,17 @@ Where each part of the policy lives:
 
 The container is why the policy looks neglected. Nobody should move the Linux release to a newer Ubuntu because it is old: doing so raises the floor, and a binary that needs glibc 2.39 stops running on the systems the floor was set to reach. Raising the floor is a decision, taken for a reason that is written down here, and it is made together with the check, not by updating the image. The same goes for the check: if it fails, fix the package, don't raise the limit to make it pass.
 
-A plugin on Linux shares the {cpp} runtime of the package, so what limits where it loads is the C library. A plugin needs a glibc no older than the one it was built against, and the xref:extensions/plugins.adoc[Plugins] page says what that means for authors.
+[#macos-release]
+== The macOS release targets macOS 14
+
+A macOS binary records the oldest macOS it runs on (`minos` in its load commands), and the system refuses to start it, or to load a library into it, on anything older. The recorded version comes from `CMAKE_OSX_DEPLOYMENT_TARGET`, which CMake takes from the environment variable `MACOSX_DEPLOYMENT_TARGET` when it is not set, and which defaults to the macOS of the machine that builds. A release built on a `macos-26` runner therefore needed macOS 26, and a plugin author had no target to build for that the release would accept. The same variable is Apple's mechanism and the one of every Xcode project, and the equivalent of `-mmacosx-version-min`.
+
+The release is built for macOS 14 (Sonoma), so that it runs on the macOS versions that are still supported. A plugin's own target decides the oldest macOS it loads on, since `dyld` compares it with the running system and refuses a newer one before Mr.Docs sees the library; a plugin meant for every user of the release is built for 14.0 or lower. The dependencies the bootstrap script builds, LLVM included, are built for the same target, since an object compiled for a newer macOS raises the `minos` of what links it.
+
+Where each part of the policy lives:
+
+* `.github/workflows/ci-matrix.yml` gives the macOS rows their `macos-deployment-target`, and the cache key of LLVM carries it, so that caches built for the machine's macOS are not reused for the release.
+* `.github/workflows/ci-build.yml` exports it as `MACOSX_DEPLOYMENT_TARGET` for the dependencies the bootstrap script builds, and passes it as `CMAKE_OSX_DEPLOYMENT_TARGET` to the configuration of Mr.Docs.
+* `.github/workflows/ci-releases.yml` fails the Releases job unless `otool -l bin/mrdocs` reports the expected `minos`, and builds the consumer plugin with the same target.
+
+Raising the target is a decision, like raising the glibc floor of the Linux release: it drops the macOS versions below it, and it is made here, together with the cache key and the check, not by changing the runner.

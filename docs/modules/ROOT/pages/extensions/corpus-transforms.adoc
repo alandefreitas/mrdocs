@@ -7,7 +7,7 @@ A Mr.Docs *extension* is a Lua or JavaScript script that runs as part of a build
 
 A script declares a transform with `mrdocs.register_transform(id, fn)` and a generator with `mrdocs.register_generator(id, fn)`. Either way the registered function receives a single context object, `ctx`.
 
-A xref:extensions/plugins.adoc[plugin] can install corpus transforms written in {cpp} as well. They keep to the same rules, and run in the same pipeline as the scripts' transforms, in the order they were registered. Plugins load before scripts, so a plugin's transforms run first. Each transform, whatever it is written in, receives its own `transform-options.<id>` block. A script transform therefore sees whatever a plugin's transform changed, as in the xref:extensions/plugins.adoc#_transforming_the_corpus[stats example]. `ctx.corpus` is built fresh for each transform.
+A native {cpp} xref:extensions/plugins.adoc[plugin] can install corpus transforms as well. They keep to the same rules, and run in the same pipeline as the scripts' transforms, in the order they were registered. Plugins load before scripts, so a plugin's transforms run first. Each transform, whatever it is written in, receives its own `transform-options.<id>` block. A script transform therefore sees whatever a plugin's transform changed, as in the xref:extensions/plugins.adoc#_transforming_the_corpus[stats example]. `ctx.corpus` is built fresh for each transform.
 
 == Languages and locations
 
