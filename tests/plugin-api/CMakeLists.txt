@@ -177,3 +177,18 @@ add_test(NAME mrdocs-plugin-dependency-non-ascii-root
         "-DRUN_CHECKED=${MRDOCS_RUN_CHECKED_SCRIPT}"
         "-DREGEX=Loaded plugin \".*${MRDOCS_FOUND_STEM}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/NonAsciiPath.cmake")
+
+# The same plugin loaded three times into one process, into two registries and
+# then into the first again. The tool loads plugins once per run, so a program
+# of its own does it: it is linked the way the tool is, and the plugin links
+# it in the tool's place. The plugin's entry point has to run once, and the
+# transform it installed has to reach both registries.
+set(MRDOCS_RELOAD_ADDONS "${CMAKE_CURRENT_BINARY_DIR}/reload-addons")
+add_executable(mrdocs-plugin-reload-host ReloadHost.cpp)
+mrdocs_make_plugin_host(mrdocs-plugin-reload-host)
+target_include_directories(mrdocs-plugin-reload-host
+    PRIVATE "${PROJECT_SOURCE_DIR}/src")
+mrdocs_add_plugin_module(mrdocs-plugin-reload ReloadPlugin.cpp
+    ADDONS "${MRDOCS_RELOAD_ADDONS}" HOST mrdocs-plugin-reload-host)
+add_test(NAME mrdocs-plugin-reload
+    COMMAND mrdocs-plugin-reload-host "${MRDOCS_RELOAD_ADDONS}")

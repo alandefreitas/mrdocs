@@ -71,7 +71,7 @@ include::partial$transform-invariants.adoc[]
 include::example$examples/plugins/stats/plugin.cpp[tag=transform]
 ----
 
-The example's transform gives a symbol with no brief a placeholder one, so that the gap shows up in the output instead of a blank space:
+The example's transform gives a symbol with no brief a placeholder one, so that the gap shows up in the output instead of a blank space. The placeholder is the `text` option of the transform's own `transform-options` block, or `Undocumented.` when there is none:
 
 .`plugin.cpp`
 [source,cpp]
@@ -81,7 +81,18 @@ include::example$examples/plugins/stats/plugin.cpp[tag=apply]
 
 The sample project leaves one function undocumented, and the global namespace has no doc comment either, so the transform gives both a brief, and the generator counts every symbol among those that have one.
 
-The transforms a plugin installs run before the ones an extension script registers with `mrdocs.register_transform`, and among themselves in the order they were installed. An error from a transform stops the run before any generator sees the corpus, and the diagnostic names the transform through cpp:Transform::id[].
+A plugin's transforms and the ones an extension script registers with `mrdocs.register_transform` run as one pipeline, in the order they were registered. Plugins load before scripts, so the transforms a plugin installs run first, in the order it installed them, and the scripts' follow in the order their files load. Each transform receives its own `transform-options.<id>` block as the `params` argument of cpp:Transform::apply[], where `<id>` is what cpp:Transform::id[] returns, or an empty object when the configuration has none. With this configuration, `brief-filler` gets `{ "text": "TODO" }` and a script transform registered as `brief-checker` gets `{ "suffix": "checked" }`:
+
+[source,yaml]
+----
+transform-options:
+  brief-filler:
+    text: TODO
+  brief-checker:
+    suffix: checked
+----
+
+After a transform runs, the corpus forgets the lookups by name it remembered, so a transform that renames a symbol is seen by the next one, and by the generators, under the new name. An error from a transform stops the run before any generator sees the corpus, and the diagnostic names the transform through cpp:Transform::id[]: ``the transform "brief-filler" failed: ...``.
 
 == Installing a plugin
 
@@ -113,7 +124,7 @@ set_target_properties(stats PROPERTIES
 
 A library that cannot be loaded, does not export the entry points, was built for another Mr.Docs build or with another standard library, or reports an error of its own stops the run, and the diagnostic names the library.
 
-A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol; on Windows it only says that a module or procedure could not be found. A plugin built against another build of Mr.Docs, or with another standard library, often refers to symbols this Mr.Docs does not have, and is refused the same way, so check that the plugin was built against the Mr.Docs that loads it. A dependency that is not in the plugin's subdirectory is found, on Linux and macOS, the usual way for the plugin: through its RPATH or RUNPATH, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
+A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol; on Windows it only says that a module or procedure could not be found. A plugin built against another build of Mr.Docs, or with another standard library, often refers to symbols this Mr.Docs does not have, and is refused the same way, so check that the plugin was built against the Mr.Docs that loads it. A dependency that is not in the plugin's subdirectory is found, on Linux and macOS, the usual way for the plugin: through its RPATH or RUNPATH, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the process ends, and its entry point runs once per process: a tool or program that loads plugins again, for another run, reuses what the plugin installed the first time. What depends on the run, such as a setting, belongs in a transform's `apply`, which receives the configuration and the params of every run, rather than in the entry point.
 
 Once the library is there, the generator it installs is selectable like any other, through the xref:configuration/reference.adoc#generator_option[`generator`] option:
 

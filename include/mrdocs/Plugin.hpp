@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
@@ -22,7 +23,6 @@
 #include <mrdocs/Transform.hpp>
 #include <mrdocs/Version.hpp>
 #include <memory>
-#include <vector>
 
 #define MRDOCS_DETAIL_PLUGIN_STRINGIZE_I(x) #x
 #define MRDOCS_DETAIL_PLUGIN_STRINGIZE(x) MRDOCS_DETAIL_PLUGIN_STRINGIZE_I(x)
@@ -125,6 +125,8 @@
 
 namespace mrdocs {
 
+class ExtensionRegistry;
+
 /** The interface a plugin uses to extend MrDocs.
 
     MrDocs creates a context and passes it to the plugin entry point,
@@ -147,6 +149,13 @@ public:
         The configuration is already loaded and normalized when the
         plugin is called, so a plugin can decide what to install from
         the settings the user wrote.
+
+        A plugin's entry point runs once per process, with the
+        configuration of the first run that loads it; a later run in the
+        same process reuses what it installed. A choice that depends on
+        the run belongs in @ref Transform::apply, which receives the
+        configuration and the params of every run. The reference is valid
+        for the duration of the call, so a plugin must not keep it.
     */
     virtual
     Config const&
@@ -162,7 +171,7 @@ public:
         same id is already installed.
 
         @param G The generator to install. Ownership is transferred to
-        MrDocs, which keeps it for the rest of the run.
+        MrDocs, which keeps it for the rest of the process.
     */
     virtual
     Expected<void>
@@ -170,13 +179,18 @@ public:
 
     /** Install a corpus transform.
 
-        Transforms a plugin installs run before the ones an extension
-        script registers.
+        The transform joins the pipeline of the run, after the ones
+        installed before it, and runs with the extension script transforms
+        in the order they were added: plugins load before scripts, so a
+        plugin's transforms run first. It receives the
+        `transform-options.<id>` block of its @ref Transform::id as
+        params.
 
         @return An error if the transform is null.
 
         @param T The transform to install. Ownership is transferred to
-        MrDocs, which keeps it for the rest of the run.
+        MrDocs, which keeps it for the rest of the process and shares it
+        with any later run that loads the same plugin.
     */
     virtual
     Expected<void>
@@ -215,56 +229,6 @@ using PluginStdlibTagFn = char const* (*)();
 */
 using PluginMainFn = bool (*)(PluginContext&, Error*);
 
-/** The corpus transforms the plugins installed.
-
-    @ref loadPlugins returns one, holding what each plugin installed
-    through @ref PluginContext::installTransform, and the caller applies
-    it once the corpus is built. The generators a plugin installs go
-    instead to the registry @ref findGenerator searches, next to the
-    ones that ship with MrDocs.
-
-    @code
-    MRDOCS_TRY(PluginRegistry plugins, loadPlugins(config));
-    MRDOCS_TRY(Corpus corpus, Corpus::build(config));
-    MRDOCS_TRY(plugins.applyTransforms(corpus, config));
-    @endcode
-*/
-class MRDOCS_VISIBLE
-    PluginRegistry
-{
-public:
-    /** Constructor.
-
-        @param transforms The transforms to apply, in the order they
-        were installed.
-    */
-    MRDOCS_DECL
-    explicit
-    PluginRegistry(
-        std::vector<std::unique_ptr<Transform>> transforms) noexcept;
-
-    /** Apply the transforms to a corpus.
-
-        Invokes each transform once, in the order they were installed,
-        and stops at the first one that fails.
-
-        Call this after the corpus is built and finalized and before a
-        generator runs.
-
-        @return The error, if any occurred, naming the transform it came
-        from.
-
-        @param corpus The corpus to transform.
-        @param config The configuration that drove the build.
-    */
-    MRDOCS_DECL
-    Expected<void>
-    applyTransforms(Corpus& corpus, Config const& config) const;
-
-private:
-    std::vector<std::unique_ptr<Transform>> transforms_;
-};
-
 /** Load the plugins the configuration makes visible.
 
     Each library directly under the plugins directory of an addon root
@@ -275,10 +239,28 @@ private:
     `addons-supplemental`, and the libraries within a root by name. A
     library reachable through more than one root is loaded once.
 
-    Call this before a generator is looked up by id with
+    The transforms the plugins install through
+    @ref PluginContext::installTransform are added to `extensions`, in the
+    order they were installed, so that they run in the same pipeline as the
+    ones the extension scripts register. Load plugins before the scripts to
+    run a plugin's transforms first. The generators go instead to the
+    registry @ref findGenerator searches, next to the ones that ship with
+    MrDocs. Call this before a generator is looked up by id with
     @ref findGenerator. It is one of the pieces the command-line tool
     composes to run its generate step; the order of that step lives in
     the tool.
+
+    @code
+    ExtensionRegistry extensions;
+    MRDOCS_TRY(loadPlugins(config, extensions));
+    MRDOCS_TRY(extensions.loadScripts(config));
+    MRDOCS_TRY(Corpus corpus, Corpus::build(config));
+    MRDOCS_TRY(extensions.applyTransforms(corpus, config));
+    @endcode
+
+    A plugin runs its entry point once per process. Loading the same
+    library again, into another registry, adds the transforms it installed
+    the first time instead of running the entry point a second time.
 
     A library that cannot be loaded, does not export the entry points,
     was built against another build of MrDocs or with another standard
@@ -287,20 +269,21 @@ private:
     nothing is not silently accepted.
 
     @par Thread Safety
-    The generator registry this installs into is synchronized, so a
-    concurrent @ref installGenerator is safe. Two concurrent calls to this
-    function are not: both would run the same entry points, and the second
-    installation of a generator id fails.
+    Concurrent calls are safe as far as the plugins go: one library's entry
+    point runs once, whichever call gets there first. The registry that
+    receives the transforms is not synchronized, so a caller must not use
+    one registry from another thread while this runs.
 
-    @return The transforms the plugins installed, or the error, if
-    any occurred.
+    @return The error, if any occurred.
 
     @param config The resolved configuration whose addon roots are
     walked, and which the plugins read.
+
+    @param extensions The registry the plugins' transforms are added to.
 */
 MRDOCS_DECL
-Expected<PluginRegistry>
-loadPlugins(Config const& config);
+Expected<void>
+loadPlugins(Config const& config, ExtensionRegistry& extensions);
 
 } // mrdocs
 

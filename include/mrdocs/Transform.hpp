@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+// Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 //
 // Official repository: https://github.com/cppalliance/mrdocs
 //
@@ -16,6 +17,7 @@
 #include <mrdocs/Platform.hpp>
 #include <mrdocs/Config.hpp>
 #include <mrdocs/Corpus.hpp>
+#include <mrdocs/Dom.hpp>
 #include <mrdocs/Support/Error/Error.hpp>
 #include <mrdocs/Support/Error/Expected.hpp>
 #include <string_view>
@@ -35,8 +37,11 @@ namespace mrdocs {
     again. The Plugins page of the documentation lists these rules in
     full.
 
-    A plugin installs a transform through
-    @ref PluginContext::installTransform.
+    Transforms are collected by an @ref ExtensionRegistry, which runs
+    them as one pipeline: the transforms a plugin installs through
+    @ref PluginContext::installTransform and the ones an extension script
+    registers go through the same list, in the order they were added.
+    Plugins load before scripts, so a plugin's transforms run first.
 */
 class MRDOCS_VISIBLE
     Transform
@@ -51,8 +56,11 @@ public:
     /** Return the symbolic name of the transform.
 
         A diagnostic about a transform names it with this, so a
-        recognizable name is worth choosing. Unlike a generator id it
-        selects nothing, and need not be unique.
+        recognizable name is worth choosing. The id also keys the
+        `transform-options` block the transform receives as `params`, so
+        transforms that share an id share their parameters. Unlike a
+        generator id it does not choose which transform runs, and need
+        not be unique.
     */
     MRDOCS_DECL
     virtual
@@ -62,18 +70,26 @@ public:
     /** Transform the corpus.
 
         @par Thread Safety
-        Transforms run one at a time, in the order they were installed.
+        The transforms of one pipeline run one at a time, in the order
+        they were added. A transform that several registries hold can run
+        concurrently, for different corpora.
 
         @return The error, if any occurred. An error stops the run,
         before any generator is given the corpus.
 
         @param corpus The corpus to read and change.
         @param config The configuration that drove the build.
+        @param params The transform's own options: the
+        `transform-options.<id>` block of the configuration for the
+        transform's @ref id, or an empty object when it has none.
     */
     MRDOCS_DECL
     virtual
     Expected<void>
-    apply(Corpus& corpus, Config const& config) const = 0;
+    apply(
+        Corpus& corpus,
+        Config const& config,
+        dom::Object const& params) const = 0;
 };
 
 } // mrdocs

@@ -25,6 +25,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -147,14 +148,15 @@ public:
     mrdocs::Expected<void>
     apply(
         mrdocs::Corpus& corpus,
-        mrdocs::Config const& config) const override;
+        mrdocs::Config const& config,
+        mrdocs::dom::Object const& params) const override;
 };
 // end::transform[]
 
 // tag::apply[]
-// Give a symbol a brief if it has none.
+// Give a symbol a brief with the given text if it has none.
 void
-fillBrief(mrdocs::Symbol& symbol)
+fillBrief(mrdocs::Symbol& symbol, std::string const& text)
 {
     if (!symbol.doc)
     {
@@ -163,7 +165,7 @@ fillBrief(mrdocs::Symbol& symbol)
     mrdocs::DocComment& doc = symbol.doc.value();
     if (!doc.brief)
     {
-        doc.brief = mrdocs::doc::BriefBlock("Undocumented.");
+        doc.brief = mrdocs::doc::BriefBlock(text);
     }
 }
 
@@ -171,15 +173,24 @@ mrdocs::Expected<void>
 BriefFiller::
 apply(
     mrdocs::Corpus& corpus,
-    mrdocs::Config const&) const
+    mrdocs::Config const&,
+    mrdocs::dom::Object const& params) const
 {
+    // The placeholder comes from the `text` option of this transform's
+    // `transform-options` block, if the configuration has one.
+    std::string text = "Undocumented.";
+    if (params.exists("text") && params.get("text").isString())
+    {
+        text = std::string(params.get("text").getString());
+    }
+
     // A corpus is walked as const. Changing a symbol means asking for it
     // by id, which is where the corpus hands out a mutable reference.
     for (mrdocs::Symbol const& symbol : corpus)
     {
         if (mrdocs::Symbol* const target = corpus.find(symbol.id))
         {
-            fillBrief(*target);
+            fillBrief(*target, text);
         }
     }
     return {};

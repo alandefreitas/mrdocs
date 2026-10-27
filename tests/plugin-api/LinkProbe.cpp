@@ -32,6 +32,7 @@
 #undef NDEBUG
 
 #include <mrdocs/Corpus.hpp>
+#include <mrdocs/Extensions/ExtensionRegistry.hpp>
 #include <mrdocs/Metadata.hpp>
 #include <mrdocs/Plugin.hpp>
 #include <mrdocs/Transform.hpp>
@@ -39,7 +40,6 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 using namespace mrdocs;
 
@@ -84,7 +84,10 @@ public:
     }
 
     Expected<void>
-    apply(Corpus& corpus, Config const&) const override
+    apply(
+        Corpus& corpus,
+        Config const&,
+        dom::Object const&) const override
     {
         Expected<void> result;
         if (corpus.find(SymbolID::global) == nullptr)
@@ -108,10 +111,9 @@ probeInstallTransform(PluginContext& context)
 Expected<void>
 probeRegistry(Corpus& corpus, Config const& config)
 {
-    std::vector<std::unique_ptr<Transform>> transforms;
-    transforms.push_back(std::make_unique<ProbeTransform>());
-    PluginRegistry registry(std::move(transforms));
-    PluginRegistry moved(std::move(registry));
+    ExtensionRegistry registry;
+    MRDOCS_TRY(registry.addTransform(std::make_shared<ProbeTransform>()));
+    ExtensionRegistry moved(std::move(registry));
     registry = std::move(moved);
     return registry.applyTransforms(corpus, config);
 }

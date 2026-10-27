@@ -12,7 +12,6 @@
 #define MRDOCS_LIB_EXTENSIONS_EXTENSIONCONTEXT_HPP
 
 #include <mrdocs/Dom.hpp>
-#include <string_view>
 
 namespace mrdocs {
 
@@ -31,16 +30,15 @@ class Config;
       registered under; an empty object when unset.
 
     `corpus` and `config` are the same for every extension kind. `params`
-    is looked up by `id`; transforms are the only kind that reads options
-    today (from `transform-options.<id>`), and other kinds pass an id with
-    no options and get the empty object.
+    is whatever the caller resolved for the script: the transform pipeline
+    passes the `transform-options.<id>` block of the transform.
 
-    The corpus DOM is built once per script (it is `O(symbols)`) and
-    passed in as `corpusDom`, so the per-script context is cheap to build.
+    The corpus DOM is `O(symbols)` to build, so the caller builds it and
+    passes it in as `corpusDom`; the context itself is cheap.
 */
 dom::Value
 buildExtensionContext(
-    dom::Value const& corpusDom, Config const& config, std::string_view id);
+    dom::Value const& corpusDom, Config const& config, dom::Object const& params);
 
 } // mrdocs
 

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # Copyright (c) 2026 Gennaro Prota (gennaro.prota@gmail.com)
+# Copyright (c) 2026 Alan de Freitas (alandefreitas@gmail.com)
 #
 # Official repository: https://github.com/cppalliance/mrdocs
 #
@@ -41,4 +42,55 @@ if (MRDOCS_BUILD_PLUGIN_MODULES)
             "${CMAKE_CURRENT_SOURCE_DIR}/sample-project/stats.txt")
     set_tests_properties(mrdocs-plugin-example-stats-output PROPERTIES
         FIXTURES_REQUIRED mrdocs-plugin-example-stats)
+
+    # The transform changes the corpus every generator sees, so the XML
+    # generator, run next to the plugin, has to show the brief it added.
+    add_test(NAME mrdocs-plugin-example-brief-filler
+        COMMAND
+            mrdocs
+            "--config=${CMAKE_CURRENT_SOURCE_DIR}/sample-project/mrdocs.yml"
+            --generator=xml
+            "--output=${CMAKE_CURRENT_BINARY_DIR}/transform-output"
+            ${MRDOCS_BUILTIN_DIR_ARGS}
+            "--addons-supplemental=${MRDOCS_STATS_ADDONS}"
+            --log-level=warn
+    )
+    set_tests_properties(mrdocs-plugin-example-brief-filler PROPERTIES
+        FIXTURES_SETUP mrdocs-plugin-example-brief-filler-output)
+    add_test(NAME mrdocs-plugin-example-brief-filler-compare
+        COMMAND ${CMAKE_COMMAND}
+            "-DXML=${CMAKE_CURRENT_BINARY_DIR}/transform-output/reference.xml"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/check-brief.cmake"
+    )
+    set_tests_properties(mrdocs-plugin-example-brief-filler-compare PROPERTIES
+        FIXTURES_REQUIRED mrdocs-plugin-example-brief-filler-output)
+
+    # A plugin transform and a script transform share one pipeline, in the
+    # order they were loaded, plugin first. The script in pipeline-project
+    # reads the placeholder brief the plugin's transform wrote, which is the
+    # text of that transform's own transform-options block, and appends the
+    # text of its own block to it, so the combined text can only appear if
+    # both ran, in that order, each with its own options. A second script keeps the
+    # corpus past the end of the run, so a tool that destroyed the corpus
+    # before the script engines would crash the run.
+    add_test(NAME mrdocs-plugin-example-pipeline
+        COMMAND
+            mrdocs
+            "--config=${CMAKE_CURRENT_SOURCE_DIR}/pipeline-project/mrdocs.yml"
+            "--output=${CMAKE_CURRENT_BINARY_DIR}/pipeline-output"
+            ${MRDOCS_BUILTIN_DIR_ARGS}
+            "--addons-supplemental=${MRDOCS_STATS_ADDONS}"
+            "--addons-supplemental=${CMAKE_CURRENT_SOURCE_DIR}/pipeline-project/addons"
+            --log-level=warn
+    )
+    set_tests_properties(mrdocs-plugin-example-pipeline PROPERTIES
+        FIXTURES_SETUP mrdocs-plugin-example-pipeline-output)
+    add_test(NAME mrdocs-plugin-example-pipeline-compare
+        COMMAND ${CMAKE_COMMAND}
+            "-DXML=${CMAKE_CURRENT_BINARY_DIR}/pipeline-output/reference.xml"
+            "-DBRIEF=Pending, checked by the script."
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/check-brief.cmake"
+    )
+    set_tests_properties(mrdocs-plugin-example-pipeline-compare PROPERTIES
+        FIXTURES_REQUIRED mrdocs-plugin-example-pipeline-output)
 endif ()

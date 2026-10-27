@@ -126,7 +126,47 @@ function(mrdocs_collect_static_libs out_var out_system_var)
     set(${out_system_var} "${_system_libs}" PARENT_SCOPE)
 endfunction()
 
-# mrdocs_add_plugin_module(<target> <source>... [ADDONS <addon-root>])
+# mrdocs_make_plugin_host(<target>)
+#
+# Link an executable that can load plugins. The core is linked privately so
+# that a plugin, which links the host, does not link the core as well: a
+# second copy of a static core would give the plugin its own generator and
+# transform registries. A plugin gets what compiling the public headers takes
+# from `mrdocs-public-headers` instead. When plugin modules are built, the
+# host exports its symbols, since a plugin resolves the MrDocs symbols it
+# calls against the host, and links the whole of mrdocs-core rather than the
+# objects it uses itself, since a plugin calls functions nothing in the host
+# does, such as `assert_failed` in a Release build. LLVM is linked directly
+# as well, for hosts that call LLVM utilities of their own, as the tool's
+# frontend does.
+function(mrdocs_make_plugin_host target)
+    target_include_directories(${target}
+        PRIVATE
+        "${PROJECT_SOURCE_DIR}/include"
+        "${PROJECT_BINARY_DIR}/src")
+    target_compile_definitions(${target} PRIVATE -DMRDOCS_SOURCE)
+    target_link_libraries(${target}
+        PRIVATE mrdocs-core mrdocs-llvm
+        INTERFACE mrdocs-public-headers)
+    target_compile_features(${target} INTERFACE cxx_std_23)
+    if (MRDOCS_BUILD_PLUGIN_MODULES)
+        set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
+        if (MSVC)
+            target_link_options(${target} PRIVATE
+                "/WHOLEARCHIVE:$<TARGET_FILE:mrdocs-core>")
+        elseif (APPLE)
+            target_link_options(${target} PRIVATE
+                "LINKER:-force_load,$<TARGET_FILE:mrdocs-core>")
+        else ()
+            target_link_options(${target} PRIVATE
+                "LINKER:--whole-archive"
+                "$<TARGET_FILE:mrdocs-core>"
+                "LINKER:--no-whole-archive")
+        endif ()
+    endif ()
+endfunction()
+
+# mrdocs_add_plugin_module(<target> <source>... [ADDONS <addon-root>] [HOST <target>])
 #
 # Add a module library built the way a plugin is: linked against the `mrdocs`
 # tool, which passes on what the public headers need, and with hidden
@@ -134,11 +174,16 @@ endfunction()
 # own symbols to itself. With ADDONS the library is written to the plugins
 # subdirectory of <addon-root>, where MrDocs looks for it; the generator
 # expression keeps CMake from appending a per-configuration subdirectory,
-# which would put the library somewhere a test cannot name.
+# which would put the library somewhere a test cannot name. HOST names the
+# executable the library is linked against, which is the `mrdocs` tool unless
+# a test brings a host of its own.
 function(mrdocs_add_plugin_module target)
-    cmake_parse_arguments(PARSE_ARGV 1 arg "" "ADDONS" "")
+    cmake_parse_arguments(PARSE_ARGV 1 arg "" "ADDONS;HOST" "")
     add_library(${target} MODULE ${arg_UNPARSED_ARGUMENTS})
-    target_link_libraries(${target} PRIVATE mrdocs)
+    if (NOT arg_HOST)
+        set(arg_HOST mrdocs)
+    endif ()
+    target_link_libraries(${target} PRIVATE ${arg_HOST})
     set_target_properties(${target} PROPERTIES
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN ON)

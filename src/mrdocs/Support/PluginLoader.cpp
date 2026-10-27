@@ -11,6 +11,7 @@
 
 #include "PluginLoader.hpp"
 #include "AddonRoots.hpp"
+#include <mrdocs/Extensions/ExtensionRegistry.hpp>
 #include <mrdocs/Generator.hpp>
 #include <mrdocs/Plugin.hpp>
 #include <mrdocs/Support/Error/Expected.hpp>
@@ -20,7 +21,9 @@
 #include <llvm/ADT/StringRef.h>
 #include <algorithm>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -152,19 +155,23 @@ appendNewLibraries(
     }
 }
 
+// The transforms a library installed.
+using TransformList = std::vector<std::shared_ptr<Transform const>>;
+
 // The context handed to a plugin: it reads the configuration MrDocs
 // loaded, forwards a generator to the global registry, and collects the
-// transforms for the `PluginRegistry` that `loadPlugins` returns.
+// transforms, which `loadPlugin` adds to the pipeline once the entry point
+// has succeeded.
 class PluginContextImpl final
     : public PluginContext
 {
     Config const& config_;
-    std::vector<std::unique_ptr<Transform>>& transforms_;
+    TransformList& transforms_;
 
 public:
     PluginContextImpl(
         Config const& config,
-        std::vector<std::unique_ptr<Transform>>& transforms) noexcept
+        TransformList& transforms) noexcept
         : config_(config)
         , transforms_(transforms)
     {
@@ -186,7 +193,7 @@ public:
     installTransform(std::unique_ptr<Transform> T) override
     {
         MRDOCS_CHECK(T, "cannot install null transform");
-        transforms_.push_back(std::move(T));
+        transforms_.push_back(std::shared_ptr<Transform const>(std::move(T)));
         return {};
     }
 };
@@ -362,7 +369,7 @@ runEntryPoint(
     PluginMainFn entryPoint,
     std::string_view path,
     Config const& config,
-    std::vector<std::unique_ptr<Transform>>& transforms)
+    TransformList& transforms)
 {
     PluginContextImpl context(config, transforms);
     Error error;
@@ -398,19 +405,78 @@ checkStdlibTag(
     return {};
 }
 
-// Load one library and run its entry point.
+// The libraries whose entry point has run in this process, by canonical
+// path, with the transforms each installed. What a plugin installs lives for
+// the rest of the process: its generators sit in the global registry and its
+// library is never unloaded. Running the entry point again would install the
+// same generator ids a second time and fail, so a library that is loaded
+// again hands the same transforms to the new registry instead. The mutex is
+// held while a library is looked up, opened, run and recorded, so concurrent
+// loads of one library run its entry point once.
+struct LoadedPlugins
+{
+    std::mutex mutex;
+    std::map<std::string, TransformList> byPath;
+};
+
+LoadedPlugins&
+loadedPlugins() noexcept
+{
+    static LoadedPlugins* const instance = new LoadedPlugins;
+    return *instance;
+}
+
+// The identity of the library at `path` among the ones loaded: the same file
+// reached through another root, or through a link, has the same key.
+std::string
+libraryKey(std::string const& path)
+{
+    std::error_code ec;
+    std::filesystem::path const canonical =
+        std::filesystem::weakly_canonical(utf8Path(path), ec);
+    if (ec)
+    {
+        return path;
+    }
+    // The inverse of utf8Path: generic_string() would convert through the
+    // ANSI code page on Windows, and throw for a character it lacks.
+    std::u8string const text = canonical.generic_u8string();
+    return std::string(text.begin(), text.end());
+}
+
+// Load one library and run its entry point, unless it ran already in this
+// process. The transforms it installed go to `extensions`, once the entry
+// point has succeeded.
 Expected<void>
 loadPlugin(
     std::string const& path,
     Config const& config,
-    std::vector<std::unique_ptr<Transform>>& transforms)
+    ExtensionRegistry& extensions)
 {
+    std::string const key = libraryKey(path);
+    LoadedPlugins& loaded = loadedPlugins();
+    std::lock_guard<std::mutex> const lock(loaded.mutex);
+    if (auto const known = loaded.byPath.find(key);
+        known != loaded.byPath.end())
+    {
+        for (std::shared_ptr<Transform const> const& T : known->second)
+        {
+            MRDOCS_TRY(extensions.addTransform(T));
+        }
+        return {};
+    }
     MRDOCS_TRY(LibraryHandle const library, openLibrary(path));
     MRDOCS_TRY(checkBuildId(library, path));
     MRDOCS_TRY(checkStdlibTag(library, path));
     MRDOCS_TRY(PluginMainFn const entryPoint,
         findEntryPoint<PluginMainFn>(library, "mrdocs_plugin_main", path));
+    TransformList transforms;
     MRDOCS_TRY(runEntryPoint(entryPoint, path, config, transforms));
+    for (std::shared_ptr<Transform const> const& T : transforms)
+    {
+        MRDOCS_TRY(extensions.addTransform(T));
+    }
+    loaded.byPath.emplace(key, std::move(transforms));
     report::info("Loaded plugin \"{}\"", path);
     return {};
 }
@@ -432,36 +498,8 @@ discoverPlugins(std::vector<std::string> const& roots)
     return paths;
 }
 
-PluginRegistry::
-PluginRegistry(
-    std::vector<std::unique_ptr<Transform>> transforms) noexcept
-    : transforms_(std::move(transforms))
-{
-}
-
 Expected<void>
-PluginRegistry::
-applyTransforms(Corpus& corpus, Config const& config) const
-{
-    Expected<void> result;
-    for (std::unique_ptr<Transform> const& T : transforms_)
-    {
-        if (result)
-        {
-            result = T->apply(corpus, config);
-            if (!result)
-            {
-                result = Unexpected(formatError(
-                    "the transform \"{}\" failed: {}",
-                    T->id(), result.error().reason()));
-            }
-        }
-    }
-    return result;
-}
-
-Expected<PluginRegistry>
-loadPlugins(Config const& config)
+loadPlugins(Config const& config, ExtensionRegistry& extensions)
 {
     std::vector<std::string> const paths =
         discoverPlugins(addonRoots(config));
@@ -469,12 +507,11 @@ loadPlugins(Config const& config)
         "the plugin \"{}\" cannot be loaded: this MrDocs was built without "
         "plugin support (linked with -static, or built as shared libraries)",
         paths.front()));
-    std::vector<std::unique_ptr<Transform>> transforms;
     for (std::string const& path : paths)
     {
-        MRDOCS_TRY(loadPlugin(path, config, transforms));
+        MRDOCS_TRY(loadPlugin(path, config, extensions));
     }
-    return PluginRegistry(std::move(transforms));
+    return {};
 }
 
 } // mrdocs
