@@ -11,3 +11,4 @@
 # Plugin examples: each is a shared library MrDocs loads as it starts up,
 # with a project of its own to run it on.
 add_subdirectory(stats)
+add_subdirectory(deprecations)
