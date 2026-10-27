@@ -15,6 +15,14 @@
 #include <cstddef>
 
 
+/** The identity of this build as a string literal.
+
+    Spelled the same as @ref mrdocs::project_release_with_build, as a
+    macro so that it can be pasted into other literals and returned from
+    functions whose result has to outlive the call.
+*/
+#define MRDOCS_PROJECT_RELEASE_WITH_BUILD "@PROJECT_RELEASE_WITH_BUILD@"
+
 namespace mrdocs {
 
 /** Project version string in MAJOR.MINOR.PATCH format.
@@ -61,7 +69,7 @@ inline constexpr std::string_view project_release             = "@PROJECT_RELEAS
     the git short SHA, and ".modified" if the working tree was
     modified.
 */
-inline constexpr std::string_view project_release_with_build  = "@PROJECT_RELEASE_WITH_BUILD@";
+inline constexpr std::string_view project_release_with_build  = MRDOCS_PROJECT_RELEASE_WITH_BUILD;
 
 /** Year of the calendar release (0 if unavailable).
 */

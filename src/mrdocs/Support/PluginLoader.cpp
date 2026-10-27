@@ -333,22 +333,25 @@ findEntryPoint(
     return reinterpret_cast<Fn>(address);
 }
 
-// Compare the interface the plugin was built against with ours. A
-// mismatch means the plugin's view of the context, or of the entry
-// points themselves, is not the one it is about to be called with.
+// Compare the MrDocs build the plugin was compiled against with ours. The
+// layout of the types a plugin sees changes in most commits, so only the
+// exact build is accepted.
 Expected<void>
-checkApiVersion(
+checkBuildId(
     LibraryHandle library,
     std::string_view path)
 {
-    MRDOCS_TRY(PluginApiVersionFn const apiVersion,
-        findEntryPoint<PluginApiVersionFn>(
-            library, "mrdocs_plugin_api_version", path));
-    int const version = apiVersion();
-    MRDOCS_CHECK(version == MRDOCS_PLUGIN_API_VERSION, formatError(
-        "the plugin \"{}\" was built against version {} of the plugin "
-        "interface, and this MrDocs provides version {}",
-        path, version, MRDOCS_PLUGIN_API_VERSION));
+    MRDOCS_TRY(PluginBuildIdFn const buildId,
+        findEntryPoint<PluginBuildIdFn>(
+            library, "mrdocs_plugin_build_id", path));
+    char const* const id = buildId();
+    MRDOCS_CHECK(id, formatError(
+        "the plugin \"{}\" reports no build id", path));
+    MRDOCS_CHECK(std::string_view(id) == MRDOCS_PLUGIN_BUILD_ID,
+        formatError(
+            "the plugin \"{}\" was built for MrDocs {}, and this is "
+            "{}; rebuild it against this MrDocs",
+            path, id, MRDOCS_PLUGIN_BUILD_ID));
     return {};
 }
 
@@ -370,28 +373,28 @@ runEntryPoint(
     return {};
 }
 
-// Compare the toolchain the plugin was built with against ours. The two
-// pass C++ objects between them, so a difference in the compiler, the
-// standard library, or how it lays its types out is not something either
-// side can survive; refusing here is what keeps it from surfacing as a
-// crash somewhere unrelated.
+// Compare the standard library the plugin was built with against ours. The
+// two pass C++ objects between them, so a difference in the library, or in
+// how it lays its types out, is not something either side can survive;
+// refusing here is what keeps it from surfacing as a crash somewhere
+// unrelated. The compiler is not compared.
 Expected<void>
-checkBuildTag(
+checkStdlibTag(
     LibraryHandle library,
     std::string_view path)
 {
-    MRDOCS_TRY(PluginBuildTagFn const buildTag,
-        findEntryPoint<PluginBuildTagFn>(
-            library, "mrdocs_plugin_build_tag", path));
-    char const* const tag = buildTag();
+    MRDOCS_TRY(PluginStdlibTagFn const stdlibTag,
+        findEntryPoint<PluginStdlibTagFn>(
+            library, "mrdocs_plugin_stdlib_tag", path));
+    char const* const tag = stdlibTag();
     MRDOCS_CHECK(tag, formatError(
-        "the plugin \"{}\" reports no toolchain", path));
-    MRDOCS_CHECK(std::string_view(tag) == MRDOCS_PLUGIN_BUILD_TAG,
+        "the plugin \"{}\" reports no standard library", path));
+    MRDOCS_CHECK(std::string_view(tag) == MRDOCS_PLUGIN_STDLIB_TAG,
         formatError(
-            "the plugin \"{}\" was built with \"{}\", and this MrDocs "
-            "with \"{}\"; a plugin has to be built with the toolchain "
-            "MrDocs was built with",
-            path, tag, MRDOCS_PLUGIN_BUILD_TAG));
+            "the plugin \"{}\" was built with {}, and this MrDocs "
+            "with {}; rebuild it with the same standard library and "
+            "settings",
+            path, tag, MRDOCS_PLUGIN_STDLIB_TAG));
     return {};
 }
 
@@ -403,8 +406,8 @@ loadPlugin(
     std::vector<std::unique_ptr<Transform>>& transforms)
 {
     MRDOCS_TRY(LibraryHandle const library, openLibrary(path));
-    MRDOCS_TRY(checkApiVersion(library, path));
-    MRDOCS_TRY(checkBuildTag(library, path));
+    MRDOCS_TRY(checkBuildId(library, path));
+    MRDOCS_TRY(checkStdlibTag(library, path));
     MRDOCS_TRY(PluginMainFn const entryPoint,
         findEntryPoint<PluginMainFn>(library, "mrdocs_plugin_main", path));
     MRDOCS_TRY(runEntryPoint(entryPoint, path, config, transforms));

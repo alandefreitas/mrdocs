@@ -14,7 +14,8 @@
 #   plugin-api/ - a module library that calls the API a plugin may call,
 #                 where building it is the test (mrdocs-plugin-api-link-test),
 #                 and plugins MrDocs has to refuse: one built for a foreign
-#                 plugin API version, one with another toolchain tag, one
+#                 MrDocs build, one with another standard-library tag, one
+#                 reporting no build id, one reporting no tag, one
 #                 without the entry point, one with an undefined symbol
 #                 (Linux and macOS only), and (Windows only) one whose
 #                 dependency is reachable only through PATH; and a plugin whose

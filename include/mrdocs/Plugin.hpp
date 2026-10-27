@@ -20,40 +20,19 @@
 #include <mrdocs/Support/Error/Error.hpp>
 #include <mrdocs/Support/Error/Expected.hpp>
 #include <mrdocs/Transform.hpp>
+#include <mrdocs/Version.hpp>
 #include <memory>
 #include <vector>
-
-/** The version of the interface a plugin is built against.
-
-    A plugin exports `mrdocs_plugin_api_version`, which returns the
-    value of this macro as it was defined when the plugin was compiled.
-    MrDocs calls the plugin only when that value matches its own, so a
-    plugin built against a different interface is reported as an error
-    instead of being called with the wrong expectations.
-
-    The value changes whenever the plugin interface changes, which means
-    every plugin has to be rebuilt against the new headers.
-*/
-#define MRDOCS_PLUGIN_API_VERSION 1
 
 #define MRDOCS_DETAIL_PLUGIN_STRINGIZE_I(x) #x
 #define MRDOCS_DETAIL_PLUGIN_STRINGIZE(x) MRDOCS_DETAIL_PLUGIN_STRINGIZE_I(x)
 
-#if defined(_MSC_VER)
-#    define MRDOCS_DETAIL_PLUGIN_COMPILER_TAG \
-         "msvc " MRDOCS_DETAIL_PLUGIN_STRINGIZE(_MSC_VER)
-#elif defined(__clang__)
-#    define MRDOCS_DETAIL_PLUGIN_COMPILER_TAG \
-         "clang " MRDOCS_DETAIL_PLUGIN_STRINGIZE(__clang_major__)
-#elif defined(__GNUC__)
-#    define MRDOCS_DETAIL_PLUGIN_COMPILER_TAG \
-         "gcc " MRDOCS_DETAIL_PLUGIN_STRINGIZE(__GNUC__)
-#else
-#    define MRDOCS_DETAIL_PLUGIN_COMPILER_TAG "unrecognized compiler"
-#endif
-
-#if defined(_DLL)
+#if defined(_DLL) && defined(_DEBUG)
+#    define MRDOCS_DETAIL_PLUGIN_CRT_TAG "dynamic-debug"
+#elif defined(_DLL)
 #    define MRDOCS_DETAIL_PLUGIN_CRT_TAG "dynamic"
+#elif defined(_DEBUG)
+#    define MRDOCS_DETAIL_PLUGIN_CRT_TAG "static-debug"
 #else
 #    define MRDOCS_DETAIL_PLUGIN_CRT_TAG "static"
 #endif
@@ -64,47 +43,69 @@
 #    define MRDOCS_DETAIL_PLUGIN_GLIBCXX_DEBUG_TAG "off"
 #endif
 
-// Alongside the standard library itself, only the settings that change how
-// its types are laid out, or which heap they allocate from: the MSVC
-// iterator debug level and C runtime, the libc++ ABI version, and the
-// libstdc++ dual ABI and debug mode. Assertion and hardening settings are
-// left out, as they change what the inline code checks rather than what it
-// operates on, and a plugin should not have to match them. A static C
-// runtime on both sides passes the check, yet gives each module a heap of
-// its own, so MrDocs and its plugins have to use the DLL runtime.
-#if defined(_MSVC_STL_UPDATE)
-#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG                              \
-         "msvc-stl " MRDOCS_DETAIL_PLUGIN_STRINGIZE(_MSVC_STL_UPDATE)    \
+// The value is computed in a helper so that the documented macro below has
+// a single #define.
+#if defined(_MSVC_STL_VERSION)
+#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG_VALUE \
+         "msvc-stl, crt " MRDOCS_DETAIL_PLUGIN_CRT_TAG                   \
          ", iterator-debug-level "                                       \
-         MRDOCS_DETAIL_PLUGIN_STRINGIZE(_ITERATOR_DEBUG_LEVEL)           \
-         ", crt " MRDOCS_DETAIL_PLUGIN_CRT_TAG
+         MRDOCS_DETAIL_PLUGIN_STRINGIZE(_ITERATOR_DEBUG_LEVEL)
 #elif defined(_LIBCPP_VERSION)
-#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG                              \
-         "libc++ " MRDOCS_DETAIL_PLUGIN_STRINGIZE(_LIBCPP_VERSION)       \
-         ", abi " MRDOCS_DETAIL_PLUGIN_STRINGIZE(_LIBCPP_ABI_VERSION)
+#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG_VALUE \
+         "libc++, abi " MRDOCS_DETAIL_PLUGIN_STRINGIZE(_LIBCPP_ABI_VERSION)
 #elif defined(_GLIBCXX_RELEASE)
-#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG                              \
-         "libstdc++ " MRDOCS_DETAIL_PLUGIN_STRINGIZE(_GLIBCXX_RELEASE)   \
-         ", cxx11-abi "                                                  \
+#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG_VALUE \
+         "libstdc++, cxx11-abi "                                         \
          MRDOCS_DETAIL_PLUGIN_STRINGIZE(_GLIBCXX_USE_CXX11_ABI)          \
          ", debug " MRDOCS_DETAIL_PLUGIN_GLIBCXX_DEBUG_TAG
 #else
-#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG "unrecognized standard library"
+#    define MRDOCS_DETAIL_PLUGIN_STDLIB_TAG_VALUE \
+         "unrecognized standard library"
 #endif
 
-/** The toolchain a plugin was built with.
+/** The standard library a plugin was built with.
 
     A plugin and MrDocs pass C++ objects between them: the plugin
     allocates a generator that MrDocs destroys, and both inline the
     standard library types the API exposes. That holds together only when
-    the two were built with the same compiler and standard library, in a
-    configuration that lays those types out the same way. A plugin
-    reports this through `mrdocs_plugin_build_tag`, so that MrDocs can
-    refuse one whose toolchain differs rather than fail later, somewhere
-    unrelated.
+    both use the same standard library, configured so that it lays those
+    types out the same way. A plugin reports this through
+    `mrdocs_plugin_stdlib_tag`, and MrDocs refuses one whose value
+    differs from its own. The compiler is not part of the tag: a plugin
+    built with Clang loads into a MrDocs built with GCC when both use
+    libstdc++.
+
+    The text names the library and the settings that matter for it, such
+    as `libstdc++, cxx11-abi 1, debug off`, `libc++, abi 1`, or
+    `msvc-stl, crt dynamic, iterator-debug-level 0`, where the runtime
+    is `dynamic`, `dynamic-debug`, `static` or `static-debug`.
+
+    Only the settings that change how the standard library's types are
+    laid out, or which heap they allocate from, are part of the tag: the
+    libstdc++ dual ABI and debug mode, the libc++ ABI version, and the
+    MSVC iterator debug level and C runtime, release or debug. The
+    release of the library and the compiler are left out. libstdc++ stays
+    compatible across releases, and compilers that share a standard
+    library, such as GCC and Clang on Linux, lay its types out the same
+    way. Assertion and hardening settings change what the inline code
+    checks rather than what it operates on. A static C runtime on both
+    sides passes the check, yet gives each module a heap of its own, so
+    MrDocs and its plugins have to use the DLL runtime.
 */
-#define MRDOCS_PLUGIN_BUILD_TAG \
-    MRDOCS_DETAIL_PLUGIN_COMPILER_TAG ", " MRDOCS_DETAIL_PLUGIN_STDLIB_TAG
+#define MRDOCS_PLUGIN_STDLIB_TAG MRDOCS_DETAIL_PLUGIN_STDLIB_TAG_VALUE
+
+/** The identity of the MrDocs build a plugin is compiled against.
+
+    A plugin sees MrDocs types by their layout, and that layout changes
+    in most commits, so a plugin loads only into the exact build it was
+    compiled against. A plugin reports this value through
+    `mrdocs_plugin_build_id`, and MrDocs refuses one whose value differs
+    from its own instead of letting it fail later, somewhere unrelated.
+
+    The text is the one of `mrdocs::project_release_with_build`, such as
+    `2026.10.26+662773e585c8`.
+*/
+#define MRDOCS_PLUGIN_BUILD_ID MRDOCS_PROJECT_RELEASE_WITH_BUILD
 
 #if defined(_MSC_VER)
 #    define MRDOCS_DETAIL_PLUGIN_EXPORT __declspec(dllexport)
@@ -182,22 +183,23 @@ public:
     installTransform(std::unique_ptr<Transform> T) = 0;
 };
 
-/** The type of the version function a plugin exports.
+/** The type of the build identity function a plugin exports.
 
     The function is `extern "C"`, exported with @ref MRDOCS_PLUGIN_EXPORT,
-    and named `mrdocs_plugin_api_version`. It returns
-    @ref MRDOCS_PLUGIN_API_VERSION as the plugin saw it.
-*/
-using PluginApiVersionFn = int (*)();
-
-/** The type of the toolchain function a plugin exports.
-
-    The function is `extern "C"`, exported with @ref MRDOCS_PLUGIN_EXPORT,
-    and named `mrdocs_plugin_build_tag`. It returns
-    @ref MRDOCS_PLUGIN_BUILD_TAG as the plugin saw it, in storage that
+    and named `mrdocs_plugin_build_id`. It returns
+    @ref MRDOCS_PLUGIN_BUILD_ID as the plugin saw it, in storage that
     outlives the call.
 */
-using PluginBuildTagFn = char const* (*)();
+using PluginBuildIdFn = char const* (*)();
+
+/** The type of the standard library function a plugin exports.
+
+    The function is `extern "C"`, exported with @ref MRDOCS_PLUGIN_EXPORT,
+    and named `mrdocs_plugin_stdlib_tag`. It returns
+    @ref MRDOCS_PLUGIN_STDLIB_TAG as the plugin saw it, in storage that
+    outlives the call.
+*/
+using PluginStdlibTagFn = char const* (*)();
 
 /** The type of the entry point a plugin exports.
 
@@ -279,8 +281,8 @@ private:
     the tool.
 
     A library that cannot be loaded, does not export the entry points,
-    was built against another version of the plugin interface or with
-    another toolchain, or reports an error of its own fails the call: a
+    was built against another build of MrDocs or with another standard
+    library, or reports an error of its own fails the call: a
     plugin is there because the user put it there, so one that does
     nothing is not silently accepted.
 
@@ -316,7 +318,7 @@ loadPlugins(Config const& config);
 
     Along with the entry point, which passes the error the body returned
     back to MrDocs, the macro defines the functions reporting the
-    interface version and the toolchain the plugin was built with, so
+    MrDocs build and the standard library the plugin was built with, so
     that none of the three can disagree with each other.
 
     @param context The name the body uses for the context it receives.
@@ -325,16 +327,16 @@ loadPlugins(Config const& config);
     static ::mrdocs::Expected<void>                                 \
     installMrdocsPlugin(::mrdocs::PluginContext&);                  \
                                                                     \
-    extern "C" MRDOCS_PLUGIN_EXPORT int                             \
-    mrdocs_plugin_api_version()                                     \
+    extern "C" MRDOCS_PLUGIN_EXPORT char const*                     \
+    mrdocs_plugin_build_id()                                        \
     {                                                               \
-        return MRDOCS_PLUGIN_API_VERSION;                           \
+        return MRDOCS_PLUGIN_BUILD_ID;                              \
     }                                                               \
                                                                     \
     extern "C" MRDOCS_PLUGIN_EXPORT char const*                     \
-    mrdocs_plugin_build_tag()                                       \
+    mrdocs_plugin_stdlib_tag()                                      \
     {                                                               \
-        return MRDOCS_PLUGIN_BUILD_TAG;                             \
+        return MRDOCS_PLUGIN_STDLIB_TAG;                            \
     }                                                               \
                                                                     \
     extern "C" MRDOCS_PLUGIN_EXPORT bool                            \

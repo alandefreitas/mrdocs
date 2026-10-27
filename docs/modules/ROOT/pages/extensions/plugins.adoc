@@ -39,7 +39,7 @@ include::example$examples/plugins/stats/plugin.cpp[tag=main]
 
 The context is how a plugin reaches Mr.Docs: cpp:PluginContext::installGenerator[] adds a generator, cpp:PluginContext::installTransform[] adds a transform, and cpp:PluginContext::config[] returns the configuration the run was started with, already loaded and normalized, in case what the plugin installs depends on it. The reference is valid for the duration of the call.
 
-Along with the entry point, the macro defines two functions that report how the library was built, and Mr.Docs calls both before it calls the plugin. One reports cpp:MRDOCS_PLUGIN_API_VERSION[], the version of the interface; the other reports the toolchain. The macro writes all three from the headers the plugin is compiled against, so they always agree with each other.
+Along with the entry point, the macro defines two functions that report how the library was built, and Mr.Docs calls both before it calls the plugin. One reports cpp:MRDOCS_PLUGIN_BUILD_ID[], the Mr.Docs build the plugin was compiled against; the other reports cpp:MRDOCS_PLUGIN_STDLIB_TAG[], the standard library. The macro writes all three from the headers the plugin is compiled against, so they always agree with each other.
 
 == The generator
 
@@ -111,9 +111,9 @@ set_target_properties(stats PROPERTIES
     BUILD_WITH_INSTALL_RPATH ON)
 ----
 
-A library that cannot be loaded, does not export the entry points, was built for another interface version or toolchain, or reports an error of its own stops the run, and the diagnostic names the library.
+A library that cannot be loaded, does not export the entry points, was built for another Mr.Docs build or with another standard library, or reports an error of its own stops the run, and the diagnostic names the library.
 
-A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol; on Windows it only says that a module or procedure could not be found. A plugin built against another version of Mr.Docs, or with another toolchain, often refers to symbols this Mr.Docs does not have, and is refused the same way, so check that the plugin was built against the Mr.Docs that loads it. A dependency that is not in the plugin's subdirectory is found, on Linux and macOS, the usual way for the plugin: through its RPATH or RUNPATH, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
+A library is opened with all of its symbols resolved at once, and keeps them to itself: a plugin that refers to something Mr.Docs or the system does not provide is refused while loading instead of crashing the first time it calls it, and two plugins cannot replace each other's functions. On Linux and macOS the message names the missing symbol; on Windows it only says that a module or procedure could not be found. A plugin built against another build of Mr.Docs, or with another standard library, often refers to symbols this Mr.Docs does not have, and is refused the same way, so check that the plugin was built against the Mr.Docs that loads it. A dependency that is not in the plugin's subdirectory is found, on Linux and macOS, the usual way for the plugin: through its RPATH or RUNPATH, through `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), or in the system directories; the directory of the `mrdocs` executable is not searched. A loaded plugin stays loaded until the run ends.
 
 Once the library is there, the generator it installs is selectable like any other, through the xref:configuration/reference.adoc#generator_option[`generator`] option:
 
@@ -134,11 +134,21 @@ include::example$examples/plugins/stats/sample-project/stats.txt[]
 
 A plugin and Mr.Docs pass {cpp} objects between them: the plugin allocates a generator that Mr.Docs destroys, and both inline the standard library types the API exposes. Two things have to hold for that, and Mr.Docs checks both before it calls a plugin, so a mismatch is a diagnostic naming the library rather than a crash somewhere unrelated.
 
-The first is the interface itself. cpp:MRDOCS_PLUGIN_API_VERSION[] names the version of the plugin API, and its value changes whenever that API changes, so a plugin is rebuilt against the headers of the Mr.Docs it is to be loaded by. The plugin API is everything a plugin sees: the context, the generator and transform interfaces, and the corpus and configuration they are handed, and with the corpus every symbol type it holds. Most changes to the metadata therefore change the plugin API, a new member in a symbol type included.
+The first is the build. A plugin sees Mr.Docs types by their layout, and that layout changes in most commits, so a plugin loads only into the exact Mr.Docs build it was compiled against. cpp:MRDOCS_PLUGIN_BUILD_ID[] is the identity of that build, the same text as `mrdocs::project_release_with_build`, such as `2026.10.26+662773e585c8`. A plugin compiled against the headers of one build and loaded into another is refused:
 
-The second is the toolchain. The two sides have to be built with the same compiler and standard library, in a configuration that lays those types out the same way, so the plugin reports what it was built with: the compiler and its major version, the standard library, and the settings that move those layouts. Mr.Docs refuses a plugin whose report differs from its own. On MSVC the report is stricter: it carries the exact toolset version and STL update, so a plugin is built with the Visual Studio update Mr.Docs was built with, at the same iterator debug level and with the runtime linked the same way. The package config reports an installation's compiler as `MRDOCS_BUILT_CXX_COMPILER_ID` and `MRDOCS_BUILT_CXX_COMPILER_VERSION`.
+[source,text]
+----
+the plugin "plugins/stats.so" was built for MrDocs 2026.10.26+662773e585c8, and this is 2026.11.2; rebuild it against this MrDocs
+----
 
-On Windows, Mr.Docs and its plugins use the DLL runtime (`/MD`), which is what CMake selects by default. Each side frees memory the other allocated, and that works only when the two share the runtime's heap: with the static runtime (`/MT`) every module has a heap of its own, even when the two report the same toolchain.
+The second is the standard library, and not the compiler. The two sides have to use the same standard library, configured so that it lays its types out the same way, so the plugin reports the library and the settings that move those layouts: the dual ABI and debug mode of libstdc++, the ABI version of libc++, and the C runtime (dynamic or static, release or debug) and iterator debug level of the MSVC STL. Mr.Docs refuses a plugin whose report differs from its own. The release of the library and the compiler are not part of the report. GCC and Clang share libstdc++ on Linux, so a plugin built with Clang loads into a Mr.Docs built with GCC. A plugin built with `-stdlib=libc++` is refused by a Mr.Docs that uses libstdc++, usually at load time: the standard library's namespace is part of every symbol name, so the plugin refers to `std::__1` symbols that Mr.Docs does not have, and the message names one of them. The same holds for a plugin built with `-D_GLIBCXX_DEBUG`, whose containers live in the `std::__debug` namespace: one that passes containers to Mr.Docs functions is refused at load with an undefined symbol. Only a plugin that does not reach such a function gets as far as the library's report, which then differs:
+
+[source,text]
+----
+the plugin "plugins/stats.so" was built with libstdc++, cxx11-abi 1, debug on, and this MrDocs with libstdc++, cxx11-abi 1, debug off; rebuild it with the same standard library and settings
+----
+
+On Windows, Mr.Docs and its plugins use the DLL runtime (`/MD`), which is what CMake selects by default. Each side frees memory the other allocated, and that works only when the two share the runtime's heap. A plugin built with the static runtime (`/MT`) is refused, since its report says `crt static` where Mr.Docs's says `crt dynamic`.
 
 Plugins need a Mr.Docs built with the `MRDOCS_BUILD_PLUGIN_MODULES` CMake option, which is on by default except in two configurations. A statically linked Mr.Docs has no dependable way to load a shared library while it runs, and cannot produce one either, since the startup files a static link brings in carry relocations a shared object cannot hold. A shared build keeps the API in the mrdocs-core library rather than in the tool a plugin links. A Mr.Docs built without the option reports a plugin it finds rather than loading it, and the package config reports the setting as `MRDOCS_BUILT_PLUGIN_MODULES`, so a build can ask before it tries.
 

@@ -54,10 +54,14 @@ function(mrdocs_add_refused_plugin name source expected)
         mrdocs-plugin-${name}-refused "${addons}" "${expected}")
 endfunction()
 
-mrdocs_add_refused_plugin(foreign-version ForeignVersion.cpp
-    "was built against version")
+mrdocs_add_refused_plugin(foreign-build-id ForeignBuildId.cpp
+    "was built for MrDocs 1999.1.1\\+0123456789ab, and this is ")
 mrdocs_add_refused_plugin(foreign-tag ForeignTag.cpp
-    "was built with .foreign-toolchain.")
+    "was built with foreign-stdlib, and this MrDocs with ")
+mrdocs_add_refused_plugin(null-build-id NullBuildId.cpp
+    "reports no build id")
+mrdocs_add_refused_plugin(null-tag NullTag.cpp
+    "reports no standard library")
 mrdocs_add_refused_plugin(missing-main MissingMain.cpp
     "does not export mrdocs_plugin_main")
 

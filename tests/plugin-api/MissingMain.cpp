@@ -8,7 +8,7 @@
 // Official repository: https://github.com/cppalliance/mrdocs
 //
 
-// A plugin that reports an interface version and a toolchain this MrDocs
+// A plugin that reports a MrDocs build and a standard library this MrDocs
 // accepts, and exports no entry point, which is what a library written
 // without `MRDOCS_PLUGIN_MAIN`, or with the entry point misspelled, looks
 // like. Loading it has to fail; the ctest entry checks that the run fails,
@@ -16,14 +16,14 @@
 
 #include <mrdocs/Plugin.hpp>
 
-extern "C" MRDOCS_PLUGIN_EXPORT int
-mrdocs_plugin_api_version()
+extern "C" MRDOCS_PLUGIN_EXPORT char const*
+mrdocs_plugin_build_id()
 {
-    return MRDOCS_PLUGIN_API_VERSION;
+    return MRDOCS_PLUGIN_BUILD_ID;
 }
 
 extern "C" MRDOCS_PLUGIN_EXPORT char const*
-mrdocs_plugin_build_tag()
+mrdocs_plugin_stdlib_tag()
 {
-    return MRDOCS_PLUGIN_BUILD_TAG;
+    return MRDOCS_PLUGIN_STDLIB_TAG;
 }

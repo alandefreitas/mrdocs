@@ -8,34 +8,34 @@
 // Official repository: https://github.com/cppalliance/mrdocs
 //
 
-// A plugin built against an interface this MrDocs does not provide, which
-// is what a plugin left over from an earlier MrDocs looks like. Loading it
-// has to fail, and the run has to stop before anything is extracted; the
-// ctest entry checks that the run fails, and by the diagnostic that it fails
-// for this reason.
+// A plugin that reports a MrDocs build this one is not, which is what a
+// plugin left over from an earlier MrDocs looks like. Loading it has to
+// fail, and the run has to stop before anything is extracted; the ctest
+// entry checks that the run fails, and by the diagnostic that it fails for
+// this reason.
 //
 // The three functions are written out rather than defined with
-// `MRDOCS_PLUGIN_MAIN`, since that macro reports the version the headers
-// it is expanded from define, which is by construction the accepted one.
+// `MRDOCS_PLUGIN_MAIN`, since that macro reports the build the headers it
+// is expanded from belong to, which is by construction the accepted one.
 
 #include <mrdocs/Plugin.hpp>
 
-extern "C" MRDOCS_PLUGIN_EXPORT int
-mrdocs_plugin_api_version()
+extern "C" MRDOCS_PLUGIN_EXPORT char const*
+mrdocs_plugin_build_id()
 {
-    return MRDOCS_PLUGIN_API_VERSION + 1;
+    return "1999.1.1+0123456789ab";
 }
 
 extern "C" MRDOCS_PLUGIN_EXPORT char const*
-mrdocs_plugin_build_tag()
+mrdocs_plugin_stdlib_tag()
 {
-    return MRDOCS_PLUGIN_BUILD_TAG;
+    return MRDOCS_PLUGIN_STDLIB_TAG;
 }
 
 extern "C" MRDOCS_PLUGIN_EXPORT bool
 mrdocs_plugin_main(mrdocs::PluginContext&, mrdocs::Error*)
 {
-    // Not reached: the version is checked before the entry point is even
+    // Not reached: the build id is checked before the entry point is even
     // looked up. Installing nothing and reporting a failure keeps the test
     // meaningful if that order ever changes.
     return false;
