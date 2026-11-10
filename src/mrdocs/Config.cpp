@@ -20,7 +20,7 @@
 #include <mrdocs/Support/Filesystem/Glob.hpp>
 #include <mrdocs/Support/Filesystem/Path.hpp>
 #include <mrdocs/Support/Reflection/Describe.hpp>
-#include <mrdocs/Support/Report.hpp>
+#include <mrdocs/Support/Reporter.hpp>
 #include <mrdocs/Support/String/StringList.hpp>
 #include <mrdocs/Support/TypeTraits/Concepts.hpp>
 #include <mrdocs/Support/TypeTraits/TypeTraits.hpp>
@@ -32,6 +32,7 @@
 #include <llvm/Support/YAMLTraits.h>
 #include <charconv>
 #include <map>
+#include <optional>
 #include <ranges>
 #include <thread>
 #include <type_traits>
@@ -296,7 +297,7 @@ assignConfigValue(T& out, dom::Value const& v)
 }
 
 // Apply the `--option` overrides parsed from argv onto a schema. Internal to
-// this translation unit; the only public entry points are load / load_file,
+// this translation unit; the only public entry points are load / loadFile,
 // which route through it. Defined below, after the reflection helpers it uses.
 Expected<void>
 applyCommandLineOverrides(Config& c, char const** argv);
@@ -595,82 +596,118 @@ applyCommandLineOverrides(Config& c, char const** argv)
 
 //------------------------------------------------
 
-Expected<void>
-Config::
-load_file(
-    Config& c,
-    std::string_view configPath)
+namespace {
+
+// Read the configuration file and name it in `c.config`. The result is empty
+// when the file does not exist, and then `c` is left as it was.
+Expected<std::optional<std::string>>
+readConfigFile(Config& c, std::string_view const configPath)
 {
     auto ft = files::getFileType(configPath);
     MRDOCS_CHECK(ft, formatError(
         "Config file does not exist: \"{}\"", ft.error(), configPath));
-    if (ft.value() == files::FileType::regular)
+    if (ft.value() == files::FileType::not_found)
     {
-        c.config = configPath;
-        std::string configYaml = files::getFileText(c.config).value();
-        MRDOCS_TRY(Config::load(c, configYaml));
+        return std::nullopt;
+    }
+    MRDOCS_CHECK(ft.value() == files::FileType::regular,
+        formatError("Config file is not regular file: \"{}\"", configPath));
+    MRDOCS_TRY(std::string text, files::getFileText(configPath));
+    c.config = configPath;
+    return std::optional<std::string>(std::move(text));
+}
+
+} // (anon)
+
+Expected<void>
+Config::
+loadFile(
+    Config& c,
+    std::string_view configPath)
+{
+    MRDOCS_TRY(auto configYaml, readConfigFile(c, configPath));
+    if (!configYaml)
+    {
         return {};
     }
-    MRDOCS_CHECK(ft.value() == files::FileType::not_found,
-        formatError("Config file is not regular file: \"{}\"", configPath));
-    return {};
+    return Config::load(c, *configYaml);
 }
 
 //------------------------------------------------
 
 Expected<void>
 Config::
-load_file(
+loadFile(
     Config& c,
     std::string_view const configPath,
     ReferenceDirectories const& dirs,
-    char const** argv)
+    char const** argv,
+    report::Reporter& reporter)
 {
-    // Read the config file (an empty document when it is absent) and load it
-    // with the command-line overrides applied on top, then finalize.
-    std::string configYaml;
-    auto ft = files::getFileType(configPath);
-    MRDOCS_CHECK(ft, formatError(
-        "Config file does not exist: \"{}\"", ft.error(), configPath));
-    if (ft.value() == files::FileType::regular)
-    {
-        c.config = configPath;
-        configYaml = files::getFileText(c.config).value();
-    }
-    else
-    {
-        MRDOCS_CHECK(ft.value() == files::FileType::not_found,
-            formatError("Config file is not regular file: \"{}\"", configPath));
-    }
+    MRDOCS_TRY(auto configYaml, readConfigFile(c, configPath));
+    MRDOCS_CHECK(configYaml, formatError(
+        "`config` option: path does not exist: {}", configPath));
+    return Config::loadString(c, *configYaml, dirs, argv, reporter);
+}
+
+Expected<void>
+Config::
+loadFile(
+    Config& c,
+    std::string_view const configPath,
+    ReferenceDirectories const& dirs,
+    report::Reporter& reporter)
+{
+    char const* argv[] = { nullptr };
+    return Config::loadFile(c, configPath, dirs, argv, reporter);
+}
+
+//------------------------------------------------
+
+Expected<void>
+Config::
+loadString(
+    Config& c,
+    std::string_view const configYaml,
+    ReferenceDirectories const& dirs,
+    char const** argv,
+    report::Reporter& reporter)
+{
     MRDOCS_TRY(Config::load(c, configYaml, argv));
-    MRDOCS_TRY(c.normalize(dirs));
-    // Startup forces the log level low (errors only) so option parsing stays
-    // quiet; now that the configured level is known, restore it and surface
-    // the unknown-key warnings that were deferred until this point.
+    // The caller may start the reporter at a high level (errors only) so
+    // option parsing stays quiet. The configured level and `warn-as-error`
+    // are known now, so set them before normalizing, which reports warnings
+    // of its own, and then report the unknown and deprecated keys that
+    // loading kept.
     static_assert(
         static_cast<unsigned>(ConfigSchema::LogLevel::Trace) ==
         static_cast<unsigned>(report::Level::trace));
     static_assert(
         static_cast<unsigned>(ConfigSchema::LogLevel::Fatal) ==
         static_cast<unsigned>(report::Level::fatal));
-    report::setMinimumLevel(static_cast<report::Level>(c.logLevel));
-    c.reportUnknownConfigKeys();
-    c.reportDeprecatedConfigKeys();
+    reporter.setMinimumLevel(static_cast<report::Level>(c.logLevel));
+    reporter.setWarnAsError(c.warnAsError);
+    MRDOCS_TRY(c.normalize(dirs, reporter));
+    c.reportUnknownConfigKeys(reporter);
+    c.reportDeprecatedConfigKeys(reporter);
     return {};
 }
 
 Expected<void>
 Config::
-load_file(
+loadString(
     Config& c,
-    std::string_view const configPath,
-    ReferenceDirectories const& dirs)
+    std::string_view const configYaml,
+    ReferenceDirectories const& dirs,
+    report::Reporter& reporter)
 {
     char const* argv[] = { nullptr };
-    return Config::load_file(c, configPath, dirs, argv);
+    return Config::loadString(c, configYaml, dirs, argv, reporter);
 }
 
 struct ConfigSchemaVisitor {
+    report::Reporter& reporter;
+
     template <class T>
     Expected<void>
     operator()(
@@ -763,7 +800,6 @@ struct ConfigSchemaVisitor {
         return {};
     }
 
-    static
     Expected<void>
     normalizeStringPath(
         ConfigSchema& self,
@@ -771,7 +807,7 @@ struct ConfigSchemaVisitor {
         std::string& value,
         ReferenceDirectories const& dirs,
         ConfigSchema::OptionProperties const& opts,
-        bool const usingDefault)
+        bool const usingDefault) const
     {
         // If the path is not absolute, we need to expand it
         if (!files::isAbsolute(value))
@@ -794,7 +830,7 @@ struct ConfigSchemaVisitor {
         value = files::makePosixStyle(value);
         if (!opts.mustExist && opts.shouldExist && !files::exists(value))
         {
-            report::warn(
+            reporter.warn(
                 R"("{}" option: The directory or file "{}" does not exist)",
                 name,
                 value);
@@ -913,7 +949,7 @@ struct ConfigSchemaVisitor {
             auto it = opts.filenameMapping->find(std::string(filename));
             if (it == opts.filenameMapping->end())
             {
-                report::warn("command line input: unknown destination for filename \"{}\"", filename);
+                reporter.warn("command line input: unknown destination for filename \"{}\"", filename);
                 continue;
             }
             // Assign the value to the destination option of the map
@@ -939,11 +975,11 @@ struct ConfigSchemaVisitor {
             });
             if (!foundOption)
             {
-                report::warn("command line input: cannot find destination option \"{}\"", destOption);
+                reporter.warn("command line input: cannot find destination option \"{}\"", destOption);
             }
             else if (!setOption)
             {
-                report::warn("command line input: destination option was \"{}\" already set", destOption);
+                reporter.warn("command line input: destination option was \"{}\" already set", destOption);
             }
         }
         values.clear();
@@ -1130,9 +1166,11 @@ struct ConfigSchemaVisitor {
 
 Expected<void>
 Config::
-normalize(ReferenceDirectories const& dirs)
+normalize(
+    ReferenceDirectories const& dirs,
+    report::Reporter& reporter)
 {
-    MRDOCS_TRY(ConfigSchema::normalize(dirs, ConfigSchemaVisitor{}));
+    MRDOCS_TRY(ConfigSchema::normalize(dirs, ConfigSchemaVisitor{reporter}));
     return {};
 }
 
@@ -1145,15 +1183,12 @@ configDir() const
 
 void
 Config::
-reportUnknownConfigKeys() const
+reportUnknownConfigKeys(report::Reporter& reporter) const
 {
     MRDOCS_CHECK_OR(warnUnknownConfigKeys);
-    auto const level = warnAsError
-        ? report::Level::error
-        : report::Level::warn;
     for (std::string const& key : unknownConfigKeys)
     {
-        report::log(level, "unknown configuration key: \"{}\"", key);
+        reporter.warn("unknown configuration key: \"{}\"", key);
     }
 }
 
@@ -1172,11 +1207,11 @@ handleDeprecatedKey(std::string_view const key)
 
 void
 Config::
-reportDeprecatedConfigKeys() const
+reportDeprecatedConfigKeys(report::Reporter& reporter) const
 {
     for (std::string const& key : deprecatedConfigKeys)
     {
-        report::warn(
+        reporter.warn(
             "`{}` option is deprecated: {}",
             key,
             *ConfigSchema::deprecationNote(key));

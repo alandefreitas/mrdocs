@@ -14,11 +14,12 @@
 #define MRDOCS_API_CONFIG_HPP
 
 #include <mrdocs/Platform.hpp>
+#include <mrdocs/Config/ReferenceDirectories.hpp>
 #include <mrdocs/ConfigSchema.hpp>
 #include <mrdocs/Dom/Object.hpp>
 #include <mrdocs/Support/Error/Error.hpp>
 #include <mrdocs/Support/Reflection/Describe.hpp>
-#include <mrdocs/Config/ReferenceDirectories.hpp>
+#include <mrdocs/Support/Reporter.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -66,9 +67,8 @@ public:
         @param configPath The path to the configuration file.
         @return Nothing on success, otherwise an error.
     */
-    static
-    Expected<void>
-    load_file(
+    static Expected<void>
+    loadFile(
         Config& c,
         std::string_view configPath);
 
@@ -76,33 +76,79 @@ public:
 
         The single entry point for the common case: it reads @p configPath,
         applies the `--option` overrides parsed from @p argv on top of it,
-        normalizes and validates everything against @p dirs, restores the
-        configured log level (startup forces it low so option parsing stays
-        quiet), and reports any unrecognized keys. @p argv is a
-        null-terminated array; use the overload without it when there is no
-        command line to apply.
+        normalizes and validates everything against @p dirs, sets the
+        level of @p reporter to the configured log level (a caller may start
+        it high so option parsing stays quiet), and reports any unrecognized
+        keys. @p argv is a null-terminated array; use the overload without
+        it when there is no command line to apply.
 
         @param c The configuration to populate.
         @param configPath The path to the configuration file.
         @param dirs The reference directories used to resolve relative paths.
         @param argv The command line whose `--option` values override the file.
+        @param reporter The reporter that prints the warnings about the
+        options. This function sets its level to the configured `log-level`
+        and its `warn-as-error` flag to the configured value, before the
+        values are normalized and the unrecognized keys are reported, and
+        leaves them set.
         @return Nothing on success, otherwise an error.
     */
-    static
-    Expected<void>
-    load_file(
+    static Expected<void>
+    loadFile(
         Config& c,
         std::string_view configPath,
         ReferenceDirectories const& dirs,
-        char const** argv);
+        char const** argv,
+        report::Reporter& reporter);
 
-    /// @copydoc load_file(Config&, std::string_view, ReferenceDirectories const&, char const**)
-    static
-    Expected<void>
-    load_file(
+    /// @copydoc loadFile(Config&, std::string_view, ReferenceDirectories const&, char const**, report::Reporter&)
+    static Expected<void>
+    loadFile(
         Config& c,
         std::string_view configPath,
-        ReferenceDirectories const& dirs);
+        ReferenceDirectories const& dirs,
+        report::Reporter& reporter);
+
+    /** Load a configuration from a YAML string, apply command-line overrides, and finalize it.
+
+        Does what @ref loadFile does once it has read the file: it loads
+        @p configYaml with the `--option` overrides parsed from @p argv on
+        top, sets the level of @p reporter to the configured log level,
+        normalizes and validates everything against @p dirs, and reports any
+        unrecognized or deprecated keys. The configuration has no file, so
+        unless @p argv carries `--config=<path>` the `config` option keeps
+        its default, `<cwd>/mrdocs.yml`, and the directory the relative paths
+        resolve against (see @ref configDir) is `dirs.cwd`. With
+        `--config=<path>` that option and its directory are the ones given,
+        although the file is not read. @p argv is a null-terminated array;
+        use the overload without it when there is no command line to apply.
+
+        @param c The configuration to populate.
+        @param configYaml The configuration YAML (may be empty).
+        @param dirs The reference directories used to resolve relative paths.
+        @param argv The command line whose `--option` values override the YAML.
+        @param reporter The reporter that prints the warnings about the
+        options. This function sets its level to the configured `log-level`
+        and its `warn-as-error` flag to the configured value, before the
+        values are normalized and the unrecognized keys are reported, and
+        leaves them set.
+        @return Nothing on success, otherwise an error.
+    */
+    static Expected<void>
+    loadString(
+        Config& c,
+        std::string_view configYaml,
+        ReferenceDirectories const& dirs,
+        char const** argv,
+        report::Reporter& reporter);
+
+    /// @copydoc loadString(Config&, std::string_view, ReferenceDirectories const&, char const**, report::Reporter&)
+    static Expected<void>
+    loadString(
+        Config& c,
+        std::string_view configYaml,
+        ReferenceDirectories const& dirs,
+        report::Reporter& reporter);
 
     /** Normalize the options against the reference directories.
 
@@ -110,10 +156,14 @@ public:
         Call this after any command-line overrides are applied.
 
         @param dirs The reference directories used to resolve relative paths.
+        @param reporter The reporter that prints the warnings about the
+        values, such as a path that does not exist.
         @return Nothing on success, otherwise an error.
     */
     Expected<void>
-    normalize(ReferenceDirectories const& dirs);
+    normalize(
+        ReferenceDirectories const& dirs,
+        report::Reporter& reporter);
 
     /** Full path to the config file directory.
 
@@ -135,9 +185,11 @@ public:
         level is only configured after loading finishes, so a warning
         emitted during load would be filtered out. The caller invokes it
         once the level is set.
+
+        @param reporter The reporter to report the keys to.
     */
     void
-    reportUnknownConfigKeys() const;
+    reportUnknownConfigKeys(report::Reporter& reporter) const;
 
     /** Warn about deprecated options that were supplied.
 
@@ -145,9 +197,11 @@ public:
         the option. Deferred for the same reason as
         @ref reportUnknownConfigKeys: the log level is configured only
         after loading finishes.
+
+        @param reporter The reporter to report the options to.
     */
     void
-    reportDeprecatedConfigKeys() const;
+    reportDeprecatedConfigKeys(report::Reporter& reporter) const;
 
     /** Handle a supplied option that the schema marks deprecated.
 
@@ -193,6 +247,7 @@ MRDOCS_DESCRIBE_STRUCT(Config, (ConfigSchema), ())
     @param yaml The YAML document to parse.
     @return The parsed DOM object.
 */
+MRDOCS_DECL
 dom::Object
 toDomObject(std::string_view yaml);
 
